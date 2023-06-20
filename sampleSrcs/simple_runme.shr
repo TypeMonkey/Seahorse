@@ -1,0 +1,16 @@
+
+func main(arg1){    
+
+    var what := 10;
+    var lmao := true;
+    
+    what.hello();
+    
+    func() {
+      capture lmao;
+    };
+    
+    return what + lmao;
+}
+
+main();

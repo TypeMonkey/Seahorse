@@ -1,0 +1,13 @@
+
+func adder(n){
+
+	const arr := [];
+
+	while( n >= 0 ){
+	   arr.add("hello "+system.toString(n));
+	   n -= 1;
+	}
+}
+
+adder(10);
+system.println("----done----");

@@ -1,0 +1,11 @@
+use system;
+use otherModule;
+use HelloWorld;
+
+system.println("I'm a very simple module");
+HelloWorld.sample();
+
+//system.println(system.argv);
+//system.argv.add("custom arg");
+//system.println("======================== done ");
+//system.println(system.argv);

@@ -1,0 +1,59 @@
+use shtest;
+
+data ParentClass{
+	
+}
+
+data HelloClass{
+
+	constr(arg1){
+		self.x = arg1;
+	}
+	
+	func someFunc(addy){
+		return self.x + addy;
+	}
+}
+
+const f := func(par1){};
+//return 10;
+
+func fileFunc(par1, par2, par3 = null, >what){
+     print("hello, this is from HelloClass");
+     
+     var par3 := 50;
+     
+     while(par3 < 10){
+       print("loop!");
+       par3 += 1;
+       break;
+     }
+     
+     //break;
+     fileFunc("what", "bye");
+     
+     fileFunc = 10;
+     
+     const notReassign := 10;
+     
+     
+     var test := new HelloClass("tester");
+     test.someVar = 10;
+     test.what().anotherVar;
+     
+     if(par3 == 50){
+     	print("equal50");
+     }
+     elif(par3 <= 20){
+      	print("LE20");
+     
+     }
+     elif(par3 >= 10){
+       	print("GE10");
+       	notReassign = 50;
+     
+     }
+     else{
+       	print("elsewat");
+     }
+}

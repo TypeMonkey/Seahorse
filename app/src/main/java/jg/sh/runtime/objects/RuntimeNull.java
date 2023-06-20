@@ -1,0 +1,35 @@
+package jg.sh.runtime.objects;
+
+import jg.sh.runtime.alloc.Cleaner;
+
+public class RuntimeNull extends RuntimeInstance {
+  
+  public static final RuntimeNull NULL = new RuntimeNull();
+  
+  private RuntimeNull() {}
+
+  public void setAttribute(String name, RuntimeInstance valueAddr) {
+    throw new UnsupportedOperationException("Cannot set attributes of the null value");
+  }
+  
+  public RuntimeInstance getAttr(String name) {
+    throw new NullPointerException("The null value has no attributes");
+  }
+  
+  public boolean hasAttr(String name) {
+    return false;
+  }
+  
+  @Override
+  protected void markAdditional(Cleaner cleaner) {}
+  
+  @Override
+  public String toString() {
+    return "null";
+  }
+  
+  @Override
+  public void finalize(){
+     
+  }
+}

@@ -1,0 +1,26 @@
+
+func tester(){
+   var value := 10;
+   const ret := func:me(){
+       capture value;
+       system.println("====== in me()");
+       system.println(value);
+       value += 5;
+   	   return func(){
+   	   		capture value;
+   	   		value += 2;
+   	   		return value;
+   	   };
+   };
+   
+   system.println(value);
+   return ret;
+}
+
+const captured := tester();
+system.println(captured()());
+captured();
+tester();
+
+
+

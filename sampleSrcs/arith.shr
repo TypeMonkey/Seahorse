@@ -1,0 +1,40 @@
+use system;
+const modVar := 80;
+
+func main(arg1){    
+
+    var what := module.modVar + 20;
+    var another := what + 1;
+    
+    const local1 := func:inner1() {
+        capture another;
+        
+        var what := another;
+        var what2 := 25;
+        what += 30;
+        
+        another += 1;
+        
+        if(what2 == 25) {
+           modVar.print("BYE!!!!");
+           
+           modVar.print = what;
+        }
+        
+        const innerLocal := func:inner2() {
+        	capture what;
+        	
+        	return what + 10;
+        };
+        
+    	return innerLocal;
+    };
+    
+    return local1;
+}
+
+main(10)()();
+
+if(10 < 20){
+  export const what := 50;
+}

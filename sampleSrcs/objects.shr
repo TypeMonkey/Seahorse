@@ -1,0 +1,5 @@
+from system use println, input;
+
+const text := "I'm the first string";
+
+println(text+10);

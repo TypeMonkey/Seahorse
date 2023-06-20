@@ -1,0 +1,57 @@
+func fibSlow(n){
+  if(n < 0){
+     return -10000;
+  }
+  elif(n == 0){
+     return 0;
+  }
+  elif((n == 1) || (n == 2)){
+     return 1;
+  }
+  else{
+     return fibSlow(n-1) + fibSlow(n-2);
+  }
+}
+
+func fib(n){
+  const arr := [0,1,1];
+ 
+  if(n <= 2){
+    return arr[n];
+  }
+  else {
+    var index := 3;
+    while(index <= n){
+    	arr.add(arr[index - 1] + arr[index - 2]);
+    	index += 1;
+    }
+    
+    return arr[n];
+  }
+}
+
+var start := system.now();
+const t1 := system.makeThread(func:t1Func(){
+  const currFiber := system.currentFiber();
+	const test := fibSlow(25);
+  system.println(" - fiber "+currFiber.getID()+": "+test+" | "+currFiber.getStatus());
+});
+system.println("*** Thread 1 Creation Time: "+(system.now() - start));
+
+start = system.now();
+const t2 := system.makeThread(func:t2Func(){
+  const currFiber := system.currentFiber();
+	const test := fibSlow(28);
+  system.println(" - fiber "+currFiber.getID()+": "+test+" | "+currFiber.getStatus());
+});
+system.println("*** Thread 2 Creation Time: "+(system.now() - start));
+
+start = system.now();
+t1.start();
+system.println("*** Thread 1 START Time: "+(system.now() - start));
+
+
+
+start = system.now();
+t2.start();
+system.println("*** Thread 2 START Time: "+(system.now() - start));

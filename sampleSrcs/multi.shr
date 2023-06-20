@@ -1,0 +1,23 @@
+system.println("Hello World");
+
+const obj := {
+   counter : null
+};
+
+system.print(" prior to thread: ");
+system.println(obj.counter);
+
+const t1 := system.makeThread(func:t1Func(){
+	while(obj.counter <= 100000000000000){
+	   obj.counter += 1;
+	}
+});
+
+const t2 := system.makeThread(func:t2Func(){
+	while(true){
+	
+	}
+});
+
+t1.start();
+t2.start();

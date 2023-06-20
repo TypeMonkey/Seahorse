@@ -1,0 +1,39 @@
+from system use spinOff, println, now;
+
+func fib(n){
+  if(n < 0){
+     return -10000;
+  }
+  elif(n == 0){
+     return 0;
+  }
+  elif((n == 1) || (n == 2)){
+     return 1;
+  }
+  else{
+     return fib(n-1) + fib(n-2);
+  }
+}
+
+const measuresArr := [];
+const measureEnd := [];
+
+func fiberMeasure() {
+  var threadCount := 10;
+  while(threadCount > 0) {
+    const start := now();
+    const f := spinOff( func:foo(){
+      capture const start;
+      fib(28);
+      measureEnd.add(now() - start);
+      println("Fib(28) Finish Times (in ns): "+measureEnd.toString());
+    });
+    measuresArr.add(now() - start);
+
+    threadCount -= 1;
+  }
+
+  println("Fibb Creation Times (in ns): "+measuresArr.toString());
+}
+
+fiberMeasure();

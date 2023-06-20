@@ -1,0 +1,36 @@
+func fibSlow(n){
+  if(n < 0){
+     return -10000;
+  }
+  elif(n == 0){
+     return 0;
+  }
+  elif((n == 1) || (n == 2)){
+     return 1;
+  }
+  else{
+     return fibSlow(n-1) + fibSlow(n-2);
+  }
+}
+
+func fib(n){
+  const arr := [0,1,1];
+ 
+  if(n <= 2){
+    return arr[n];
+  }
+  else {
+    var index := 3;
+    while(index <= n){
+    	arr.add(arr[index - 1] + arr[index - 2]);
+    	index += 1;
+    }
+    
+    return arr[n];
+  }
+}
+
+const start := system.now();
+var value := fibSlow(28);
+system.println("*** fibbSlow(28) Time: "+(system.now() - start));
+
