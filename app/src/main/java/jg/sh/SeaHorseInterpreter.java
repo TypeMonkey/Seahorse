@@ -124,11 +124,15 @@ public class SeaHorseInterpreter {
         }
       }
       
-      //Do code gen and then execution
+      /*
       if (options.containsKey(IOption.INTERPRET_ONLY) && ((boolean) options.get(IOption.INTERPRET_ONLY))) {
         System.out.println("Interpretation-ONLY mode currently not supported. Exiting.....");
       }
-      else {
+      else 
+      */
+      
+      //Do code gen and then execution
+      {
         IRCompiler compiler = new IRCompiler();
         CompiledFile [] compiledFiles = compiler.compileModules(rawModules);
         
@@ -144,10 +148,10 @@ public class SeaHorseInterpreter {
           manager.spinFiber((RuntimeCallable) mainModule.getModuleCallable(), new ArgVector());
           
           if (options.containsKey(IOption.MEASURE) && ((boolean) options.get(IOption.MEASURE))) {
-            final long start = System.currentTimeMillis();
+            final long start = System.nanoTime();
             manager.start(true);
-            final long end = System.currentTimeMillis();
-            System.out.println("Seahorse VM elasped time: "+(end - start)+" miliseconds");
+            final long end = System.nanoTime();
+            System.out.println("Seahorse VM elasped time: "+(end - start)+" nanoseconds, or "+( (end-start) / 1000000)+" ms");
           }
           else{
             manager.start(false);
@@ -159,8 +163,6 @@ public class SeaHorseInterpreter {
           e.printStackTrace();
         }
       }
-     
-      
     } catch (Exception e) {
       e.printStackTrace();
       System.err.println(e.getMessage());
@@ -174,7 +176,7 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     System.out.println(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/thread_create_measure.shr";
+    String mainModule = "../sampleSrcs/fibb_sync.shr";
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, true);

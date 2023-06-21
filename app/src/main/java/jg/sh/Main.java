@@ -135,12 +135,14 @@ public class Main {
       if (commandLine.hasOption(compToByte)) {
         options.put(IOption.COMP_TO_BYTE, commandLine.getOptionValue(compToByte));
       }
+      /*
       if (commandLine.hasOption(interpretOnly)) {
         options.put(IOption.INTERPRET_ONLY, commandLine.getOptionValue(interpretOnly));
       }
       if (commandLine.hasOption(loadFromByte)) {
         options.put(IOption.INTERPRET_ONLY, commandLine.getOptionValue(loadFromByte));
       }
+      */
       if (commandLine.hasOption(moduleSearch)) {
         options.put(IOption.MODULE_SEARCH, commandLine.getOptionValue(moduleSearch));
       }

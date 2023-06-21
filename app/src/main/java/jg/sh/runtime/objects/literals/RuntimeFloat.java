@@ -8,7 +8,7 @@ import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 
 public class RuntimeFloat extends RuntimePrimitive {
@@ -225,29 +225,18 @@ public class RuntimeFloat extends RuntimePrimitive {
     
     final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
     
-    attributes.put(FuncOperatorCoupling.ADD.getFuncName(), new RuntimeInternalCallable(systemModule, this, ADD));
-    
-    attributes.put(FuncOperatorCoupling.SUB.getFuncName(), new RuntimeInternalCallable(systemModule, this, SUB));
-    
-    attributes.put(FuncOperatorCoupling.MUL.getFuncName(), new RuntimeInternalCallable(systemModule, this, MUL));
-    
-    attributes.put(FuncOperatorCoupling.DIV.getFuncName(), new RuntimeInternalCallable(systemModule, this, DIV));
-    
-    attributes.put(FuncOperatorCoupling.MOD.getFuncName(), new RuntimeInternalCallable(systemModule, this, MOD));
-    
-    attributes.put(FuncOperatorCoupling.NEG.getFuncName(), new RuntimeInternalCallable(systemModule, this, NEG));
-    
-    attributes.put(FuncOperatorCoupling.LESS.getFuncName(), new RuntimeInternalCallable(systemModule, this, LESS));
-    
-    attributes.put(FuncOperatorCoupling.GREAT.getFuncName(), new RuntimeInternalCallable(systemModule, this, GREAT));
-    
-    attributes.put(FuncOperatorCoupling.LESSE.getFuncName(), new RuntimeInternalCallable(systemModule, this, LESSE));
-    
-    attributes.put(FuncOperatorCoupling.GREATE.getFuncName(), new RuntimeInternalCallable(systemModule, this, GREATE));
-    
-    attributes.put(FuncOperatorCoupling.EQUAL.getFuncName(), new RuntimeInternalCallable(systemModule, this, EQUAL));
-    
-    attributes.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new RuntimeInternalCallable(systemModule, this, NOT_EQUAL));
+    attributes.put(FuncOperatorCoupling.ADD.getFuncName(), new ImmediateInternalCallable(systemModule, this, ADD));
+    attributes.put(FuncOperatorCoupling.SUB.getFuncName(), new ImmediateInternalCallable(systemModule, this, SUB));
+    attributes.put(FuncOperatorCoupling.MUL.getFuncName(), new ImmediateInternalCallable(systemModule, this, MUL)); 
+    attributes.put(FuncOperatorCoupling.DIV.getFuncName(), new ImmediateInternalCallable(systemModule, this, DIV));
+    attributes.put(FuncOperatorCoupling.MOD.getFuncName(), new ImmediateInternalCallable(systemModule, this, MOD));
+    attributes.put(FuncOperatorCoupling.NEG.getFuncName(), new ImmediateInternalCallable(systemModule, this, NEG));
+    attributes.put(FuncOperatorCoupling.LESS.getFuncName(), new ImmediateInternalCallable(systemModule, this, LESS));
+    attributes.put(FuncOperatorCoupling.GREAT.getFuncName(), new ImmediateInternalCallable(systemModule, this, GREAT));
+    attributes.put(FuncOperatorCoupling.LESSE.getFuncName(), new ImmediateInternalCallable(systemModule, this, LESSE));
+    attributes.put(FuncOperatorCoupling.GREATE.getFuncName(), new ImmediateInternalCallable(systemModule, this, GREATE));
+    attributes.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, EQUAL));
+    attributes.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, NOT_EQUAL));
   }
   
   public double getValue() {

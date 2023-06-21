@@ -1,7 +1,6 @@
 package jg.sh;
 
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.Map;
 
 public class InterpreterOptions {
@@ -28,7 +27,7 @@ public class InterpreterOptions {
      * It's NOT recommended to set this option to be true unless for instrumentation purposes.
      * Bytecode compilation and execution provided significant, performance critical improvements.
      */
-    INTERPRET_ONLY,  
+    //INTERPRET_ONLY,  
     
     /**
      * Whether a module's bytecode transformation should be loaded and favored over the source text.
@@ -111,13 +110,14 @@ public class InterpreterOptions {
     String [] moduleSearch = {System.getProperty("user.dir")};
     
     DEFAULTS.put(IOption.COMP_TO_BYTE, true);
-    DEFAULTS.put(IOption.INTERPRET_ONLY, false);
     DEFAULTS.put(IOption.LOAD_FROM_BYTE, true);
     DEFAULTS.put(IOption.MODULE_SEARCH, moduleSearch);
     DEFAULTS.put(IOption.ST_LIB_PATH, moduleSearch);
     DEFAULTS.put(IOption.VALIDATE, true);
     DEFAULTS.put(IOption.MEASURE, false);
     DEFAULTS.put(IOption.POOL_SIZE, 1);
+
+    //DEFAULTS.put(IOption.INTERPRET_ONLY, false);
     //DEFAULTS.put(Option.MAX_HEAP_SIZE, 100000);
   }
   

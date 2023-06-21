@@ -8,7 +8,7 @@ import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 
 public class RuntimeBool extends RuntimePrimitive {
@@ -84,15 +84,11 @@ public class RuntimeBool extends RuntimePrimitive {
     
     final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
     
-    attributes.put(FuncOperatorCoupling.EQUAL.getFuncName(), new RuntimeInternalCallable(systemModule, this, EQUAL));
-    
-    attributes.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new RuntimeInternalCallable(systemModule, this, NOT_EQUAL));
-    
-    attributes.put(FuncOperatorCoupling.NOT.getFuncName(), new RuntimeInternalCallable(systemModule, this, NOT));
-    
-    attributes.put(FuncOperatorCoupling.BAND.getFuncName(), new RuntimeInternalCallable(systemModule, this, BAND));
-    
-    attributes.put(FuncOperatorCoupling.BOR.getFuncName(), new RuntimeInternalCallable(systemModule, this, BOR));
+    attributes.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, EQUAL));
+    attributes.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, NOT_EQUAL));
+    attributes.put(FuncOperatorCoupling.NOT.getFuncName(), new ImmediateInternalCallable(systemModule, this, NOT));
+    attributes.put(FuncOperatorCoupling.BAND.getFuncName(), new ImmediateInternalCallable(systemModule, this, BAND));
+    attributes.put(FuncOperatorCoupling.BOR.getFuncName(), new ImmediateInternalCallable(systemModule, this, BOR));
   }
   
   public boolean getValue() {

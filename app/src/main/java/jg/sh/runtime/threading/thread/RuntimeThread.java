@@ -11,6 +11,7 @@ import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
@@ -89,7 +90,7 @@ public class RuntimeThread extends Fiber {
     this.thread = new Thread(this::startInternal);
     this.fiberReporter = fiberReporter;    
 
-    setAttribute("start", new RuntimeInternalCallable(SystemModule.getNativeModule().getModule(), this, START));
+    setAttribute("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), this, START));
   }
   
   /**

@@ -12,6 +12,7 @@ import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.callable.Callable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
@@ -78,8 +79,8 @@ public class RuntimeObject extends RuntimeInstance {
     
     RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
     
-    setAttribute(RuntimeArray.STORE_INDEX_ATTR, new RuntimeInternalCallable(systemModule, this, STORE_INDEX));
-    setAttribute(RuntimeArray.RETR_INDEX_ATTR, new RuntimeInternalCallable(systemModule, this, RETR_INDEX));
+    setAttribute(RuntimeArray.STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, STORE_INDEX));
+    setAttribute(RuntimeArray.RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, RETR_INDEX));
   }
   
   public Set<AttrModifier> getAttrModifiers(String name) {

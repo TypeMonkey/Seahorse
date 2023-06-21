@@ -24,6 +24,7 @@ import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.RuntimeObject.AttrModifier;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
+import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 import jg.sh.runtime.objects.literals.RuntimeString;
@@ -309,9 +310,16 @@ public class FunctionFrame extends StackFrame {
           args.addAtFront(actualCallable);
           
           try {
-            StackFrame newFrame = makeFrame(actualCallable, args, allocator);
-            incrmntInstrIndex();
-            return newFrame;
+            final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
+            if (result != null) {
+              System.out.println(" ===> Fast call was done!!!");
+              returnValue(result);
+            }
+            else {
+              StackFrame newFrame = makeFrame(actualCallable, args, allocator);
+              incrmntInstrIndex();
+              return newFrame;
+            }
           } catch (InvocationException e) {
             RuntimeError error = allocator.allocateError(e.getMessage());
             setErrorFlag(error);

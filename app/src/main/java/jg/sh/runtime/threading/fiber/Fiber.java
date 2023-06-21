@@ -15,7 +15,7 @@ import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.frames.StackFrame;
 
@@ -141,10 +141,10 @@ public class Fiber extends RuntimeObject {
     this.status = FiberStatus.CREATED;
 
     final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-    setAttribute("startTime", new RuntimeInternalCallable(systemModule, this, START_TIME_GETTER));
-    setAttribute("endTime", new RuntimeInternalCallable(systemModule, this, END_TIME_GETTER));
-    setAttribute("getID", new RuntimeInternalCallable(systemModule, this, FIBER_ID_GETTER));
-    setAttribute("getStatus", new RuntimeInternalCallable(systemModule, this, FIBER_STATUS_GETTER));
+    setAttribute("startTime", new ImmediateInternalCallable(systemModule, this, START_TIME_GETTER));
+    setAttribute("endTime", new ImmediateInternalCallable(systemModule, this, END_TIME_GETTER));
+    setAttribute("getID", new ImmediateInternalCallable(systemModule, this, FIBER_ID_GETTER));
+    setAttribute("getStatus", new ImmediateInternalCallable(systemModule, this, FIBER_STATUS_GETTER));
   }
 
   @Override

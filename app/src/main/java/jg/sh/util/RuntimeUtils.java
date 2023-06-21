@@ -1,16 +1,35 @@
 package jg.sh.util;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 import jg.sh.irgen.instrs.OpCode;
+import jg.sh.modules.NativeModule;
+import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
+import jg.sh.runtime.objects.callable.Callable;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimePrimitive;
+import jg.sh.runtime.threading.fiber.Fiber;
 
 /**
  * Utility methods used during code execution
  */
 public final class RuntimeUtils {
+
+
+  public static RuntimeInstance fastCall(Callable callable, ArgVector args, Fiber currentFiber) throws InvocationException {
+    if (callable instanceof ImmediateInternalCallable) {
+      final ImmediateInternalCallable internalCallable = (ImmediateInternalCallable) callable;
+      return internalCallable.getFunction().invoke(currentFiber, args);
+    }
+    return null;
+  }
 
   /**
    * Executes arithmetic and comparative operators on primitive numerical types (int and float)
