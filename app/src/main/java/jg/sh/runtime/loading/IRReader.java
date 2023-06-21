@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -25,7 +24,6 @@ import jg.sh.irgen.instrs.LoadCellInstr;
 import jg.sh.irgen.instrs.NoArgInstr;
 import jg.sh.irgen.instrs.OpCode;
 import jg.sh.irgen.instrs.StoreCellInstr;
-import jg.sh.irgen.pool.component.PoolComponent.ComponentType;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;

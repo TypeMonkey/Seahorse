@@ -1,7 +1,6 @@
 package jg.sh.runtime.objects;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -17,7 +16,11 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
-import jg.sh.runtime.threading.fiber.Fiber;
+
+import static jg.sh.runtime.objects.callable.InternalFunction.create;
+import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
+import static jg.sh.runtime.objects.callable.InternalFunction.FUNC_INDEX;
+import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
 
 public class RuntimeObject extends RuntimeInstance {
     
@@ -25,11 +28,9 @@ public class RuntimeObject extends RuntimeInstance {
     CONSTANT,
     EXPORT
   }
-  
-  private static final InternalFunction RETR_INDEX = new InternalFunction(new FunctionSignature(Collections.emptySet(), 1)) {    
-    @Override
-    public RuntimeInstance invoke(Fiber executor, ArgVector args)
-        throws InvocationException {
+
+  private static final InternalFunction RETR_INDEX = create(FunctionSignature.ONE_ARG, 
+    (fiber, args) -> {
       RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       
@@ -44,12 +45,10 @@ public class RuntimeObject extends RuntimeInstance {
               
       throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
     }
-  };
-  
-  private static final InternalFunction STORE_INDEX = new InternalFunction(new FunctionSignature(Collections.emptySet(), 1)) {    
-    @Override
-    public RuntimeInstance invoke(Fiber executor, ArgVector args)
-        throws InvocationException {
+  );
+
+  private static final InternalFunction STORE_INDEX = create(FunctionSignature.ONE_ARG, 
+    (fiber, args) -> {
       RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);     
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       
@@ -66,7 +65,7 @@ public class RuntimeObject extends RuntimeInstance {
       
       throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
     }
-  };
+  );
   
   
   /**
@@ -80,7 +79,6 @@ public class RuntimeObject extends RuntimeInstance {
     RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
     
     setAttribute(RuntimeArray.STORE_INDEX_ATTR, new RuntimeInternalCallable(systemModule, this, STORE_INDEX));
-    
     setAttribute(RuntimeArray.RETR_INDEX_ATTR, new RuntimeInternalCallable(systemModule, this, RETR_INDEX));
   }
   

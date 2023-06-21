@@ -4,7 +4,6 @@ import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
-import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.loading.ContextualInstr;
 
 public class RuntimeCodeObject extends RuntimeInstance{

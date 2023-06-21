@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
 
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.runtime.alloc.Cleaner;
@@ -19,6 +18,9 @@ import jg.sh.runtime.threading.fiber.FiberStatus;
 import jg.sh.runtime.threading.pool.ThreadPool;
 import jg.sh.runtime.threading.thread.RuntimeThread;
 
+/**
+ * Manages the threads and fibers of the Seahorse interpreter.
+ */
 public class ThreadManager {
   
   private final Map<IOption, Object> options;
@@ -26,15 +28,21 @@ public class ThreadManager {
   private final HeapAllocator allocator;
   private final ModuleFinder finder;
   private final ThreadPool threadPool;
+  private final Cleaner cleaner;
   private final ConcurrentHashMap<Integer, Fiber> allFibers;
 
   private final Lock completionLock;
   private final Condition complCond;
-
-  private final Cleaner cleaner;
   
   private volatile boolean stopScheduling;
   
+  /**
+   * Constructs a ThreadManager.
+   * @param allocator - the HeapAllocator to use
+   * @param finder - the ModuleFinder to use
+   * @param cleaner - the Cleaner to invoke for garbage collection
+   * @param options - the interpreter options to abide by
+   */
   public ThreadManager(HeapAllocator allocator, ModuleFinder finder, Cleaner cleaner, Map<IOption, Object> options) {
     this.allocator = allocator;
     this.finder = finder;
@@ -79,6 +87,12 @@ public class ThreadManager {
     }
   }
   
+  /**
+   * Creates and schedules a Fiber for execution
+   * @param callable - the function to execute on this Fiber
+   * @param vector - the ArgVector for the function
+   * @return the created Fiber
+   */
   public Fiber spinFiber(Callable callable, ArgVector vector) {
     Fiber executor = new Fiber(allocator, finder, this, cleaner);
     try {
@@ -91,16 +105,34 @@ public class ThreadManager {
     return executor;
   }
   
+  /**
+   * Creates a RuntimeThread to be managed by this ThreadManager
+   * @param callable - the function to run on this thread
+   * @return the created {@link RuntimeThread}
+   * 
+   * Note: unlike {@link spinFiber}, the created {@link RuntimeThread} hasn't been started.
+   */
   public RuntimeThread makeThread(Callable callable) {
     RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, callable, this::reportFiber);    
     reportFiber(thread);
     return thread;
   }
 
+  /**
+   * Initialize this ThreadManager.
+   * 
+   * Note: this method must be called prior to {@link start}.
+   */
   public void initialize() {
     threadPool.initialize();
   }
   
+  /**
+   * Starts this ThreadManager.
+   * 
+   * @param blockUntilDone - if true, this method will block until all {@link Fiber} - including {@link RuntimeThread}
+   *                         have been terminated or completed.
+   */
   public void start(boolean blockUntilDone) {    
     threadPool.start();
 
@@ -121,19 +153,28 @@ public class ThreadManager {
     }
   }
   
+  /**
+   * Stops all scheduled Fibers.
+   * 
+   * Note: this doesn't stop any running {@link RuntimeThread}.
+   */
   public void stop() {
     stopScheduling = true;
     threadPool.stop();
   }
 
+  /**
+   * Whether this ThreadManager has been stopped
+   * @return true if {@link stop()} has been called, false if else.
+   */
   public boolean hasStopped() {
     return stopScheduling;
   }
-  
-  public boolean poolHasJobs() {
-    return threadPool.hasStopped();
-  }
 
+  /**
+   * Returns the map of interpreter options provided to this ThreadManager
+   * @return the map of interpreter options provided to this ThreadManager
+   */
   public Map<IOption, Object> getOptions() {
     return options;
   }

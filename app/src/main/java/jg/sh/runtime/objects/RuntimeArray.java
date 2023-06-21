@@ -1,7 +1,6 @@
 package jg.sh.runtime.objects;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import jg.sh.common.FunctionSignature;

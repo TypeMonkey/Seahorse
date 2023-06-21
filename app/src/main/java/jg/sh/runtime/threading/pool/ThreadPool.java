@@ -2,13 +2,9 @@ package jg.sh.runtime.threading.pool;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import jg.sh.runtime.threading.fiber.Fiber;
-import jg.sh.runtime.threading.fiber.FiberStatus;
 
 /**
  * A pool of worker threads (instances of RunnerThread) that
@@ -23,9 +19,6 @@ public class ThreadPool {
 
   private final Consumer<Fiber> fiberReporter;
 
-  private final Lock completionLock;
-  private final Condition complCond;
-
   private boolean hasBeenInitialized;
   private boolean hasStarted;
   private boolean hasStopped;
@@ -38,8 +31,6 @@ public class ThreadPool {
     this.runners = new RunnerThread[poolSize];
     this.fiberQueue = new ConcurrentLinkedQueue<>();
     this.allFibers = new ConcurrentHashMap<>();
-    this.completionLock = new ReentrantLock();
-    this.complCond = completionLock.newCondition();
     this.fiberReporter = reporter;
   }
 

@@ -1,7 +1,6 @@
 package jg.sh.runtime.objects.literals;
 
 import jg.sh.runtime.alloc.Cleaner;
-import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.objects.RuntimeObject;
 
 /**

@@ -49,6 +49,7 @@ public class RunnerThread extends Thread {
         exec.advanceFrame();
         if(exec.hasFrame()) {
           //If the fiber has a pending frame, add it back to the taskqueue
+          exec.setStatus(FiberStatus.IN_QUEUE);
           taskQueue.add(exec);
         }
         else {

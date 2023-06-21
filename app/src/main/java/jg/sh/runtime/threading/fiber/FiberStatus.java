@@ -1,5 +1,8 @@
 package jg.sh.runtime.threading.fiber;
 
+/**
+ * Represents the state of a {@link Fiber}
+ */
 public enum FiberStatus {
   /**
    * The Fiber has been created. It has yet to run.

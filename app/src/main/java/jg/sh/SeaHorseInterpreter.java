@@ -175,14 +175,11 @@ public class SeaHorseInterpreter {
     
     System.out.println(new File("").getAbsolutePath());
     String mainModule = "../sampleSrcs/thread_create_measure.shr";
-    //String mainModule = "../sampleSrcs/objects.shr";
-    //String [] otherModules = {"objects.shr"};
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, true);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
-    //options.put(IOption.ADDITIONAL, otherModules);
     
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
     interpreter.init();

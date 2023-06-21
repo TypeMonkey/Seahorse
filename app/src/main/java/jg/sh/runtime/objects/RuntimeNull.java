@@ -2,6 +2,11 @@ package jg.sh.runtime.objects;
 
 import jg.sh.runtime.alloc.Cleaner;
 
+/**
+ * Represents the null value.
+ * 
+ * Note: there is only one RuntimeNull instance.
+ */
 public class RuntimeNull extends RuntimeInstance {
   
   public static final RuntimeNull NULL = new RuntimeNull();
