@@ -1,3 +1,10 @@
+const a := 1589;
+const b := 4245;
+var start := system.now();
+1589+4245;
+var end := system.now();
+system.println("*** add Time: "+(end - start));
+
 func fibSlow(n){
   if(n < 0){
      return -10000;
@@ -30,7 +37,8 @@ func fib(n){
   }
 }
 
-const start := system.now();
+start = system.now();
 var value := fibSlow(28);
-system.println("*** fibbSlow(28) Time: "+(system.now() - start));
+end = system.now();
+system.println("*** fibbSlow(28) Time: "+(end - start));
 

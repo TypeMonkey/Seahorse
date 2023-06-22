@@ -4,7 +4,7 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.RuntimeInstance;
 
 /**
- * Marks a Java method that can be immediately called
+ * Marks a Java-based method that can be immediately called
  * without making a seperate {@link JavaFrame} for it.
  * 
  * This annotation is meant for Seahorse native types and their 

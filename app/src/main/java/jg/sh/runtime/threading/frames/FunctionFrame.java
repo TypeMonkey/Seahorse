@@ -312,8 +312,7 @@ public class FunctionFrame extends StackFrame {
           try {
             final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
             if (result != null) {
-              System.out.println(" ===> Fast call was done!!!");
-              returnValue(result);
+              pushOperand(result);
             }
             else {
               StackFrame newFrame = makeFrame(actualCallable, args, allocator);

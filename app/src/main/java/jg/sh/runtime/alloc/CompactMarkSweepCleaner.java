@@ -29,13 +29,15 @@ public class CompactMarkSweepCleaner implements Cleaner {
   }
   
   private void compact(HeapAllocator allocator) {
+    /*
     List<WeakReference<RuntimeInstance>> instances = allocator.getStorage();
-    
     System.out.println("--- instances: "+instances.size());
+    
     for(int i = instances.size() - 1; i >= 0; i--) {
       if (instances.get(i).get() == null) {
         instances.remove(i);
       }
+    */
       
       /*
       if (instances.get(i).getGcFlag() != GC_MARK_VALUE) {
@@ -48,7 +50,6 @@ public class CompactMarkSweepCleaner implements Cleaner {
       }
       \
       */
-    }
     //System.out.println("--- instances DONE: "+instances.size());
   }
 

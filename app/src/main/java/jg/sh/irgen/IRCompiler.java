@@ -22,6 +22,7 @@ import jg.sh.compile.parsing.nodes.atoms.Parameter;
 import jg.sh.compile.parsing.nodes.atoms.Parenthesized;
 import jg.sh.compile.parsing.nodes.atoms.Unary;
 import jg.sh.compile.parsing.nodes.atoms.constants.Bool;
+import jg.sh.compile.parsing.nodes.atoms.constants.Constant;
 import jg.sh.compile.parsing.nodes.atoms.constants.FloatingPoint;
 import jg.sh.compile.parsing.nodes.atoms.constants.Int;
 import jg.sh.compile.parsing.nodes.atoms.constants.Str;
@@ -58,6 +59,8 @@ import jg.sh.irgen.pool.component.ErrorHandlingRecord;
 import jg.sh.irgen.pool.component.FloatConstant;
 import jg.sh.irgen.pool.component.IntegerConstant;
 import jg.sh.irgen.pool.component.StringConstant;
+import jg.sh.runtime.objects.literals.RuntimeFloat;
+import jg.sh.runtime.objects.literals.RuntimeInteger;
 
 /**
  * Houses logic for the compilation
@@ -875,9 +878,19 @@ public class IRCompiler {
       ConstantPool constantPool, 
       ContextManager contextManager, 
       boolean needsStorage){
-    
+
     ArrayList<Instruction> operandInstrs = new ArrayList<>();
-    
+
+    final ASTNode leftUnwrapped = unwrap(binOpExpr.getLeft());
+    final ASTNode rightUnwrapped = unwrap(binOpExpr.getRight());
+    if (leftUnwrapped instanceof Constant && rightUnwrapped instanceof Constant) {
+      final Instruction singleInstr = constantFold((Constant<?>) leftUnwrapped, (Constant<?>)rightUnwrapped, binOpExpr, constantPool);
+      if (singleInstr != null) {
+        operandInstrs.add(singleInstr);
+        return operandInstrs;
+      }
+    }
+        
     if (binOpExpr.getOperator() == OperatorKind.ASSIGN) {
       //Value instructions should be executed first.
       operandInstrs.addAll(compileExpr(binOpExpr.getRight(), constantPool, contextManager, needsStorage));
@@ -1024,6 +1037,234 @@ public class IRCompiler {
 
     
     return operandInstrs;
+  }
+
+  private static Instruction constantFold(Constant<?> leftConstant, Constant<?> rightConstant, BinaryOpExpr expr, ConstantPool constantPool) {
+    if (leftConstant instanceof FloatingPoint && rightConstant instanceof FloatingPoint) {
+      final FloatingPoint leftFloat = (FloatingPoint) leftConstant;
+      final FloatingPoint rightFloat = (FloatingPoint) rightConstant;
+
+      switch (expr.getOperator()) {
+        case PLUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() + rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MINUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() - rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case TIMES: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() * rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case DIV: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() / rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MOD:{
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() % rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        
+        //Bitwise operator (not supported for floating point values)
+        //case BAND: return allocator.allocateFloat(leftFloat.getValue() & rightFloat.getValue());
+        //case BOR: return allocator.allocateFloat(leftFloat.getValue() | rightFloat.getValue());
+          
+        //Comparative operators
+        case LESS: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() < rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREAT: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() > rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case LESSQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() <= rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREATQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() >= rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }        
+        case EQUAL: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() == rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        default: return null;
+      }
+    }
+    else if (leftConstant instanceof FloatingPoint && rightConstant instanceof Int) {
+      final FloatingPoint leftFloat = (FloatingPoint) leftConstant;
+      final Int rightLong = (Int) rightConstant;
+
+      switch (expr.getOperator()) {
+        case PLUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() + rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MINUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() - rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case TIMES: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() * rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case DIV: {
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() / rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MOD:{
+          final int index = constantPool.addComponent(new FloatConstant(leftFloat.getValue() % rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        
+        //Bitwise operator (not supported for floating point values)
+        //case BAND: return allocator.allocateFloat(leftFloat.getValue() & rightFloat.getValue());
+        //case BOR: return allocator.allocateFloat(leftFloat.getValue() | rightFloat.getValue());
+          
+        //Comparative operators
+        case LESS: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() < rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREAT: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() > rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case LESSQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() <= rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREATQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue() >= rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }        
+        case EQUAL: {
+          final int index = constantPool.addComponent(new BoolConstant(leftFloat.getValue().doubleValue() == rightLong.getValue().longValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        default: return null;
+      }
+    }
+    else if (leftConstant instanceof Int && rightConstant instanceof FloatingPoint) {
+      final Int leftLong = (Int) leftConstant;
+      final FloatingPoint rightFloat = (FloatingPoint) rightConstant;
+
+      switch (expr.getOperator()) {
+        case PLUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftLong.getValue() + rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MINUS: {
+          final int index = constantPool.addComponent(new FloatConstant(leftLong.getValue() - rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case TIMES: {
+          final int index = constantPool.addComponent(new FloatConstant(leftLong.getValue() * rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case DIV: {
+          final int index = constantPool.addComponent(new FloatConstant(leftLong.getValue() / rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MOD:{
+          final int index = constantPool.addComponent(new FloatConstant(leftLong.getValue() % rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        
+        //Bitwise operator (not supported for floating point values)
+        //case BAND: return allocator.allocateFloat(leftFloat.getValue() & rightFloat.getValue());
+        //case BOR: return allocator.allocateFloat(leftFloat.getValue() | rightFloat.getValue());
+          
+        //Comparative operators
+        case LESS: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() < rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREAT: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() > rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case LESSQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() <= rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREATQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() >= rightFloat.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }        
+        case EQUAL: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue().doubleValue() == rightFloat.getValue().longValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        default: return null;
+      }
+    }
+    else if (leftConstant instanceof Int && rightConstant instanceof Int) {
+      final Int leftLong = (Int) leftConstant;
+      final Int rightLong = (Int) rightConstant;
+
+      switch (expr.getOperator()) {
+        case PLUS: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() + rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MINUS: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() - rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case TIMES: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() * rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case DIV: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() / rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case MOD:{
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() % rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        
+        //Bitwise operator (not supported for floating point values)
+        case BIT_AND: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() & rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case BIT_OR: {
+          final int index = constantPool.addComponent(new IntegerConstant(leftLong.getValue() | rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+          
+        //Comparative operators
+        case LESS: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() < rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREAT: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() > rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case LESSQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() <= rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        case GREATQ: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue() >= rightLong.getValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }        
+        case EQUAL: {
+          final int index = constantPool.addComponent(new BoolConstant(leftLong.getValue().doubleValue() == rightLong.getValue().longValue()));
+          return new ArgInstr(expr.getLine(), expr.getColumn(), OpCode.LOADC, index);
+        }
+        default: return null;
+      }
+    }
+    else {
+      return null;
+    }
   }
   
   private static ASTNode unwrap(ASTNode expr) {

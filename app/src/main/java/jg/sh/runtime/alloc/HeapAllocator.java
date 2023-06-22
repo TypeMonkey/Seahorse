@@ -31,12 +31,12 @@ public class HeapAllocator {
     }
   }
     
-  private List<WeakReference<RuntimeInstance>> storage;
+  //private List<WeakReference<RuntimeInstance>> storage;
   private int storageLimit;
   private int heapPointer;
   
   public HeapAllocator(int storageLimit) {
-    this.storage = new ArrayList<>();    
+    //this.storage = new ArrayList<>();    
     this.storageLimit = storageLimit;
     this.heapPointer = 0;
   }
@@ -52,7 +52,7 @@ public class HeapAllocator {
     }
     
     final RuntimeError object = new RuntimeError(allocateString(msg));
-    storage.add(new WeakReference<>(object));
+    //storage.add(new WeakReference<>(object));
     heapPointer++;
     
     return object;
@@ -65,7 +65,7 @@ public class HeapAllocator {
     }
     
     final RuntimeObject object = new RuntimeObject();
-    storage.add(new WeakReference<>(object));
+    ///storage.add(new WeakReference<>(object));
     heapPointer++;
     
     return object;
@@ -78,7 +78,7 @@ public class HeapAllocator {
     }
     
     final RuntimeArray array = new RuntimeArray();
-    storage.add(new WeakReference<>(array));
+    //storage.add(new WeakReference<>(array));
     heapPointer++;
     
     return array;
@@ -96,7 +96,7 @@ public class HeapAllocator {
     }
     
     final RuntimeInteger integer = new RuntimeInteger(value);
-    storage.add(new WeakReference<>(integer));
+    //storage.add(new WeakReference<>(integer));
     heapPointer++;
     
     return integer;
@@ -114,7 +114,7 @@ public class HeapAllocator {
     }
     
     final RuntimeFloat floatValue = new RuntimeFloat(value);
-    storage.add(new WeakReference<>(floatValue));
+    //storage.add(new WeakReference<>(floatValue));
     heapPointer++;
     
     return floatValue;
@@ -127,7 +127,7 @@ public class HeapAllocator {
     }
     
     final RuntimeString str = new RuntimeString(value);
-    storage.add(new WeakReference<>(str));
+    //storage.add(new WeakReference<>(str));
     heapPointer++;
     
     return str;
@@ -140,7 +140,7 @@ public class HeapAllocator {
     }
     
     final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, signature, keywordIndexes, instrs, captures);
-    storage.add(new WeakReference<>(codeObject));
+    //storage.add(new WeakReference<>(codeObject));
     heapPointer++;
     
     return codeObject;
@@ -155,7 +155,7 @@ public class HeapAllocator {
     
     
     final RuntimeCallable callable = new RuntimeCallable(hostModule, self, codeObject);
-    storage.add(new WeakReference<>(callable));
+    //storage.add(new WeakReference<>(callable));
     heapPointer++;
     
     return callable;
@@ -168,21 +168,25 @@ public class HeapAllocator {
     }
     
     final RuntimeCallable callable = new RuntimeCallable(hostModule, self, codeObject, captures);
-    storage.add(new WeakReference<>(callable));
+    //storage.add(new WeakReference<>(callable));
     heapPointer++;
     
     return callable;
   }
   
+  /*
   public RuntimeInstance getInstance(int address) {
     return storage.get(address).get();
   }
+  */
   
   public int getHeapPointer() {
     return heapPointer;
   }
   
+  /*
   public List<WeakReference<RuntimeInstance>> getStorage() {
     return storage;
   }
+  */
 }
