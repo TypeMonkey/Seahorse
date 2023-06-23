@@ -2,38 +2,38 @@ package jg.sh.compile.parsing.nodes;
 
 public enum ReservedWords {
 
-  VAR("var"),
-  CONST("const"),
-  FUNC("func"),
-  CONSTR("constr"),
-  RETURN("return"),
-  DATA("data"),
+  VAR("var"),  //
+  CONST("const"),//
+  FUNC("func"),//
+  CONSTR("constr"),//
+  RETURN("return"),//
+  DATA("data"),//
   
-  FOR("for"),
-  WHILE("while"),
-  IF("if"),
-  ELSE("else"),
-  ELIF("elif"),
+  FOR("for"),//
+  WHILE("while"),//
+  IF("if"),//
+  ELSE("else"),//
+  ELIF("elif"),//
   SWITCH("switch"),
   DO("do"),
   DEFAULT("default"),
   CASE("case"),
-  CONTINUE("continue"),
-  BREAK("break"),
-  TRY("try"),
-  CATCH("catch"),  
-  THROW("throw"),
+  CONTINUE("continue"),//
+  BREAK("break"),//
+  TRY("try"),//
+  CATCH("catch"),  //
+  THROW("throw"),//
   //NEW("new"),
-  IS("is"),
+  IS("is"),//
     
   MODULE("module"),
-  SELF("self"),
+  SELF("self"),//
   CAPTURE("capture"),
   
-  USE("use"),
-  FROM("from"),
+  USE("use"),//
+  FROM("from"),//
   
-  EXPORT("export"),
+  EXPORT("export"),//
     
   SEMICOLON(";"),
   OP_CURLY("{"),

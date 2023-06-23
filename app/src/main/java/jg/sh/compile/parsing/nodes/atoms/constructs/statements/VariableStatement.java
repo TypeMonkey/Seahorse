@@ -58,4 +58,8 @@ public class VariableStatement extends Statement{
   public String toString() {
     return "VAR_DEC ~ ["+getModifiers()+"] , NAME: "+name+" := "+value;
   }
+
+  public Object repr() {
+    return null;
+  }
 }
