@@ -1,6 +1,8 @@
 package jg.sh.intake;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -12,6 +14,7 @@ import java.util.function.Supplier;
 
 import jg.sh.intake.nodes.Node;
 import jg.sh.intake.nodes.constructs.CaptureStatement;
+import jg.sh.common.FunctionSignature;
 import jg.sh.intake.Location;
 import jg.sh.intake.nodes.Module;
 import jg.sh.intake.nodes.constructs.FuncDef;
@@ -115,7 +118,7 @@ public class Parser {
           takenSymbols.add(dataDef.getName());
           dataDefs.put(dataDef.getName(), dataDef);
         }
-      } else if (match(TokenType.FINAL, TokenType.LET)) {
+      } else if (match(TokenType.CONST, TokenType.VAR)) {
         final VariableDeclr varDeclr = varDeclr(prev());
 
         matchError(TokenType.SEMICOLON, "Expected ';' at " + varDeclr.end);
@@ -210,6 +213,9 @@ public class Parser {
 
     final LinkedHashMap<String, Parameter> parameters = new LinkedHashMap<>();
 
+    int positionalParamCount = 0;
+    final HashSet<String> optionalParams = new HashSet<>();
+
     // check for the first parameter, and then check for the rest after
     if (match(TokenType.IDENTIFIER, TokenType.CONST)) {
       boolean allowPositionals = true;
@@ -237,6 +243,7 @@ public class Parser {
           final Node initialVal = checkRuleError(this::expr, "Expected an initial value at "+tokenEnd(prev()));
           final Parameter parameter = new Parameter(paramName.getContent(), initialVal, isConstant, tokenStart(firstToken), initialVal.end);
           parameters.put(parameter.getName(), parameter);
+          optionalParams.add(parameter.getName());
         }
         else {
           if (!allowPositionals) {
@@ -245,6 +252,7 @@ public class Parser {
 
           final Parameter parameter = new Parameter(paramName.getContent(), null, isConstant, tokenStart(firstToken), tokenEnd(firstToken));
           parameters.put(parameter.getName(), parameter);
+          positionalParamCount++;
         }
       } while (match(TokenType.COMMA));
     }
@@ -258,19 +266,26 @@ public class Parser {
     // Consume function block
     final BlockExpr funcBody = blockExpr(bodyLeftCurl);
 
+    final FunctionSignature signature = new FunctionSignature(positionalParamCount, optionalParams);
+
     if (funcBody.getStatements().size() > 0 && funcBody.getStatements().get(0) instanceof CaptureStatement) {
       final CaptureStatement captureStatement = (CaptureStatement) funcBody.getStatements().get(0);
       return new FuncDef(tokenStart(funcKeyword), 
                          funcBody.end, 
                          funcName.getContent(), 
-                         null, 
+                         signature, 
                          captureStatement, 
                          parameters, 
                          funcBody);
     }
 
     return new FuncDef(tokenStart(funcKeyword), 
-                       funcBody.end, funcName.getContent(), null, null, parameters, funcBody);
+                       funcBody.end, 
+                       funcName.getContent(), 
+                       signature, 
+                       null,
+                        parameters, 
+                        funcBody);
   }
 
   /*
@@ -315,38 +330,15 @@ public class Parser {
   }
   */
 
-  private DataDef dataDef(Token dataKeyword) {
-    final Token name = matchError(TokenType.IDENTIFIER, "Data type name expected at " + tokenEnd(dataKeyword));
-
+  private FuncDef dataDef(Token dataKeyword) {
     /*
-    if (match(TokenType.COLON)) {
-      // This data def implements a few interfaces
+     * A data definition is a syntactic sugar for a way for structuring
+     * the construction of an object.
+     * 
+     * Internally, a data definition is a function.
+     */
 
-      while (!match(TokenType.LEFT_CURL)) {
-        final Token interfaceName = matchError(TokenType.IDENTIFIER, "");
-        final Identifier identifier = new Identifier(interfaceName.getContent(),
-            tokenStart(interfaceName),
-            tokenEnd(interfaceName));
-
-        if (interfaces.contains(identifier)) {
-          throw new IllegalStateException(
-              "Repeated interface implementation '" + interfaceName.getContent() + "', at " + identifier.end);
-        } else {
-          interfaces.add(identifier);
-        }
-
-        if (match(TokenType.COMMA)) {
-          continue;
-        } else if (match(TokenType.LEFT_CURL)) {
-          break;
-        } else {
-          throw new IllegalStateException("Unknown token: " + peek());
-        }
-      }
-    } else {
-      matchError(TokenType.LEFT_CURL, "'{' expected at " + tokenEnd(name));
-    }
-    */
+    final Token name = matchError(TokenType.IDENTIFIER, "Data type name expected at " + tokenEnd(dataKeyword));
 
     matchError(TokenType.LEFT_CURL, "'{' expected at " + tokenEnd(name));
 

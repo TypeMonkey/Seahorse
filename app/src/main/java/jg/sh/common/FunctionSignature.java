@@ -18,34 +18,26 @@ public class FunctionSignature {
   /**
    * A signature for a function that strictly accepts no arguments.
    */
-  public static final FunctionSignature NO_ARG = new FunctionSignature(Collections.emptySet(), 0, Collections.emptySet(), false);
+  public static final FunctionSignature NO_ARG = new FunctionSignature(0, Collections.emptySet());
   
   /**
    * A signature for a function that strictly accepts one positional argument.
    */
-  public static final FunctionSignature ONE_ARG = new FunctionSignature(Collections.emptySet(), 1, Collections.emptySet(), false);
+  public static final FunctionSignature ONE_ARG = new FunctionSignature(1, Collections.emptySet());
   
-  private final Set<ReservedWords> modifiers;
   private final int positionalParamCount;
   private final Set<String> keywordParams;
-  private final boolean hasVariableParams;
   
   /**
    * Constructs a FunctionSignature
    */
-  public FunctionSignature(Set<ReservedWords> modifiers, int positionalParamCount, Set<String> keywordParams, boolean hasVariableParams) {
-    this.modifiers = modifiers;
+  public FunctionSignature(int positionalParamCount, Set<String> keywordParams) {
     this.positionalParamCount = positionalParamCount;
     this.keywordParams = keywordParams;
-    this.hasVariableParams = hasVariableParams;
   }
   
-  public FunctionSignature(Set<ReservedWords> modifiers, int positionalParamCount) {
-    this(modifiers, positionalParamCount, new HashSet<>(), false);
-  }
-
-  public Set<ReservedWords> getModifiers() {
-    return modifiers;
+  public FunctionSignature(int positionalParamCount) {
+    this(positionalParamCount, Collections.emptySet());
   }
   
   public int getPositionalParamCount() {
@@ -54,10 +46,6 @@ public class FunctionSignature {
   
   public Set<String> getKeywordParams() {
     return keywordParams;
-  }
-  
-  public boolean hasVariableParams() {
-    return hasVariableParams;
   }
   
   /**
@@ -73,6 +61,6 @@ public class FunctionSignature {
   
   @Override
   public String toString() {    
-    return "POS "+positionalParamCount+" , KEYS "+keywordParams+" , VAR? "+hasVariableParams;
+    return "POS "+positionalParamCount+" , KEYS "+keywordParams;
   }
 }
