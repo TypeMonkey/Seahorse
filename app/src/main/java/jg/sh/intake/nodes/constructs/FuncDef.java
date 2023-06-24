@@ -28,15 +28,20 @@ import jg.sh.intake.nodes.simple.Parameter;
  *  //function body
  * }
  * 
+ * Note: boundName is required if recursion is needed for that function
+ * 
  * where the format of paramter is:
  *   parameter = identifier | identifier := expr
  */
 public class FuncDef extends Node {
+
+  public static final String DATA_CONSTR_NAME_ATTR = "type";
   
   private final String boundName;
   private final FunctionSignature signature;
   private final CaptureStatement captures;
   private final LinkedHashMap<String, Parameter> allParams;
+  private final boolean export;
   private final BlockExpr body;
     
   public FuncDef(Location start, 
@@ -45,13 +50,19 @@ public class FuncDef extends Node {
                  FunctionSignature signature, 
                  CaptureStatement captures,
                  LinkedHashMap<String, Parameter> allParams,
+                 boolean export,
                  BlockExpr body) {
     super(start, end);
     this.boundName = boundName;
     this.body = body;
     this.captures = captures;
     this.allParams = allParams;
+    this.export = export;
     this.signature = signature;
+  }
+
+  public boolean isExportable() {
+    return export;
   }
   
   public BlockExpr getBody() {

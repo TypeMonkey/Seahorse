@@ -7,27 +7,34 @@ import jg.sh.intake.nodes.Context;
 import jg.sh.intake.nodes.Node;
 import jg.sh.intake.Location;
 import jg.sh.intake.nodes.Visitor;
+import jg.sh.intake.nodes.constructs.VariableDeclr;
 
 /**
  * Represents a dictionary literal declaration:
  * 
- * dict {
- *    let key1 := expr1;
+ * dict [sealed] {
+ *    (const | var) key1 := expr1;
  *    ...
  * }
  */
-public class DictLiteralExpr extends Node {
+public class ObjectLiteralExpr extends Node {
 
-  private final Map<Identifier, Node> attrs;
+  private final Map<Identifier, VariableDeclr> attrs;
+  private final boolean isSealed;
 
-  public DictLiteralExpr(Map<Identifier, Node> attrs, Location start, Location end) {
+  public ObjectLiteralExpr(Map<Identifier, VariableDeclr> attrs, boolean isSealed, Location start, Location end) {
     super(start, end);
     this.attrs = attrs;
+    this.isSealed = isSealed;
+  }
+
+  public boolean isSealed() {
+    return isSealed;
   }
 
   @Override
   public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext){
-    return visitor.visitDictionary(parentContext, this);
+    return visitor.visitObjectLiteral(parentContext, this);
   }
 
   @Override
@@ -43,7 +50,7 @@ public class DictLiteralExpr extends Node {
     return false;
   }
   
-  public Map<Identifier, Node> getAttrs() {
+  public Map<Identifier, VariableDeclr> getAttrs() {
     return attrs;
   }
 }

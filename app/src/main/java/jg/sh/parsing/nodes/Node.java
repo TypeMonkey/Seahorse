@@ -1,10 +1,14 @@
-package jg.sh.intake.nodes;
+package jg.sh.parsing.nodes;
 
-import jg.sh.intake.Location;
+import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.Visitor;
 
+/**
+ * Root type for all nodes in a syntax tree.
+ */
 public abstract class Node {
-
-  public final jg.sh.common.Location start;
+  public final Location start;
   public final Location end;
 
   public Node(Location start, Location end) {

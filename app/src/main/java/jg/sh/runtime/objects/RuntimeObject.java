@@ -26,8 +26,7 @@ import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
 public class RuntimeObject extends RuntimeInstance {
     
   public static enum AttrModifier{
-    CONSTANT,
-    EXPORT
+    CONSTANT;
   }
 
   private static final InternalFunction RETR_INDEX = create(FunctionSignature.ONE_ARG, 

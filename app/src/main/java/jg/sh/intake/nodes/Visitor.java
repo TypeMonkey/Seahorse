@@ -10,11 +10,11 @@ import jg.sh.intake.nodes.constructs.blocks.WhileBlock;
 import jg.sh.intake.nodes.simple.ArrayLiteral;
 import jg.sh.intake.nodes.simple.AttrAccess;
 import jg.sh.intake.nodes.simple.BinaryOpExpr;
-import jg.sh.intake.nodes.simple.DictLiteralExpr;
 import jg.sh.intake.nodes.simple.FuncCallExpr;
 import jg.sh.intake.nodes.simple.Identifier;
 import jg.sh.intake.nodes.simple.IndexAccessExpr;
 import jg.sh.intake.nodes.simple.Keyword;
+import jg.sh.intake.nodes.simple.ObjectLiteralExpr;
 import jg.sh.intake.nodes.simple.Operator;
 import jg.sh.intake.nodes.simple.Parameter;
 import jg.sh.intake.nodes.simple.ParenthesizedExpr;
@@ -50,8 +50,6 @@ public interface Visitor<T, C extends Context> {
 
     public T visitIdentifier(C parentContext , Identifier node);
 
-    public T visitDictionary(C parentContext , DictLiteralExpr node);
-
     public T visitStatement(C parentContext , Statement node);
 
     public T visitBlock(C parentContext , BlockExpr node);
@@ -79,4 +77,6 @@ public interface Visitor<T, C extends Context> {
     public T visitFunc(C parentContext, FuncDef funcDef);
 
     public T visitParameter(C parentContext, Parameter parameter);
+
+    public T visitObjectLiteral(C parentContext, ObjectLiteralExpr objectLiteralExpr);
 }

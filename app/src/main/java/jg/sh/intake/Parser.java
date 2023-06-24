@@ -32,6 +32,7 @@ import jg.sh.intake.nodes.simple.FuncCallExpr;
 import jg.sh.intake.nodes.simple.Identifier;
 import jg.sh.intake.nodes.simple.IndexAccessExpr;
 import jg.sh.intake.nodes.simple.Keyword;
+import jg.sh.intake.nodes.simple.ObjectLiteralExpr;
 import jg.sh.intake.nodes.simple.Operator;
 import jg.sh.intake.nodes.simple.ParenthesizedExpr;
 import jg.sh.intake.nodes.simple.UnaryExpr;
@@ -198,6 +199,8 @@ public class Parser {
   private FuncDef funcDef(Token funcKeyword, boolean topLevel) {
     System.out.println(" --> in funcDef()");
 
+    final boolean isExportable = match(TokenType.EXPORT);
+
     Token funcName = null;
     if (topLevel) {
       // Top level functions require a bound name
@@ -276,6 +279,7 @@ public class Parser {
                          signature, 
                          captureStatement, 
                          parameters, 
+                         isExportable,
                          funcBody);
     }
 
@@ -284,94 +288,107 @@ public class Parser {
                        funcName.getContent(), 
                        signature, 
                        null,
-                        parameters, 
-                        funcBody);
+                       parameters, 
+                       isExportable,
+                       funcBody);
   }
-
-  /*
-  private InterfaceDef interfaceDef(Token interfaceKeyword) {
-    final Token name = matchError(TokenType.IDENTIFIER,
-        "Interface type name expected at " + tokenEnd(interfaceKeyword));
-    matchError(TokenType.LEFT_CURL, "'{' expected at " + tokenEnd(name));
-
-    final LinkedHashMap<Identifier, FuncTypeAnnotation> funcs = new LinkedHashMap<>();
-
-    while (match(TokenType.IDENTIFIER)) {
-      final Token nameToken = prev();
-      final Identifier attrName = new Identifier(nameToken.getContent(), tokenStart(nameToken), tokenEnd(nameToken));
-
-      final Token colonToken = matchError(TokenType.COLON, "':' expected at " + attrName.end);
-
-      TypeAnnotation attrType = checkRuleError(() -> type(),
-          "Attribute type declaration expected at " + tokenEnd(colonToken));
-      if (!(attrType instanceof FuncTypeAnnotation)) {
-        throw new IllegalStateException("Only function types are expected in an interface, at " + tokenEnd(colonToken));
-      }
-      if (attrType.getName().equals(name.getContent())) {
-        // If this attribute's type is the data def itself, replace the type annotation
-        // to be "self" instead
-        attrType = new TypeAnnotation(TokenType.SELF.name().toLowerCase(),
-            attrType.isNullable(),
-            attrType.start,
-            attrType.end);
-      }
-
-      matchError(TokenType.SEMICOLON, "';' expected at " + attrType.end);
-
-      if (funcs.containsKey(attrName)) {
-        throw new IllegalStateException("'" + attrName.getName() + "' has already been used, at " + attrName.start);
-      } else {
-        funcs.put(attrName, (FuncTypeAnnotation) attrType);
-      }
-    }
-
-    final Token rightCurl = matchError(TokenType.RIGHT_CURL, "'}' expected at " + tokenEnd(name));
-    return new InterfaceDef(name.getContent(), funcs, tokenStart(interfaceKeyword), tokenEnd(rightCurl));
-  }
-  */
 
   private FuncDef dataDef(Token dataKeyword) {
     /*
      * A data definition is a syntactic sugar for a way for structuring
      * the construction of an object.
      * 
-     * Internally, a data definition is a function.
+     * Internally, a data definition is a function. It's also only a top-level construct
+     * 
+     * Format:
+     * 
+     * data [export] <dataTypeName> ([parameter, ....]) {
+     *   statements....
+     * }
+     * 
+     * it's translated to:
+     * 
+     * func [export] <dataTypeName> ([parameter, ....]) {
+     *    const obj := object sealed {
+     *       parameter1 := parameter1; 
+     *       .....
+     *    };
+     * 
+     *    statements....
+     *    
+     *    return obj;
+     * } 
      */
-
+    final boolean isExportable = match(TokenType.EXPORT);
     final Token name = matchError(TokenType.IDENTIFIER, "Data type name expected at " + tokenEnd(dataKeyword));
 
-    matchError(TokenType.LEFT_CURL, "'{' expected at " + tokenEnd(name));
+    //Check for left parenthesis
+    matchError(TokenType.LEFT_PAREN, "'(' expected at " + tokenEnd(name));
 
-    final LinkedHashMap<Identifier, TypeAnnotation> attrs = new LinkedHashMap<>();
+    final LinkedHashMap<String, Parameter> parameters = new LinkedHashMap<>();
 
-    while (match(TokenType.IDENTIFIER)) {
-      final Token nameToken = prev();
-      final Identifier attrName = new Identifier(nameToken.getContent(), tokenStart(nameToken), tokenEnd(nameToken));
+    int positionalParamCount = 0;
+    final HashSet<String> optionalParams = new HashSet<>();
 
-      final Token colonToken = matchError(TokenType.COLON, "':' expected at " + attrName.end);
+    // check for the first parameter, and then check for the rest after
+    if (match(TokenType.IDENTIFIER, TokenType.CONST)) {
+      boolean allowPositionals = true;
 
-      TypeAnnotation attrType = checkRuleError(() -> type(),
-          "Attribute type declaration expected at " + tokenEnd(colonToken));
-      if (attrType.getName().equals(name.getContent())) {
-        // If this attribute's type is the data def itself, replace the type annotation
-        // to be "self" instead
-        attrType = new TypeAnnotation(TokenType.SELF.name().toLowerCase(),
-            attrType.isNullable(),
-            attrType.start,
-            attrType.end);
-      }
+      do {
+        final Token firstToken = prev();
 
-      matchError(TokenType.SEMICOLON, "';' expected at " + attrType.end);
+        boolean isConstant = false;
+        Token paramName = null;
+        if (firstToken.getType() == TokenType.IDENTIFIER) {
+          paramName = firstToken;
+        }
+        else {
+          isConstant = true;
+          paramName = matchError(TokenType.IDENTIFIER, "Parameter name expected at " + tokenEnd(firstToken));
+        }
 
-      if (attrs.containsKey(attrName)) {
-        throw new IllegalStateException("'" + attrName.getName() + "' has already been used, at " + attrName.start);
-      } else {
-        attrs.put(attrName, attrType);
-      }
+        if (parameters.containsKey(paramName)) {
+          throw new ParseException("Repeated parameter '"+paramName.getContent()+"'", tokenStart(paramName));
+        }
+
+        if (match(TokenType.ASSIGNMENT)) {
+          allowPositionals = false;
+
+          final Node initialVal = checkRuleError(this::expr, "Expected an initial value at "+tokenEnd(prev()));
+          final Parameter parameter = new Parameter(paramName.getContent(), initialVal, isConstant, tokenStart(firstToken), initialVal.end);
+          parameters.put(parameter.getName(), parameter);
+          optionalParams.add(parameter.getName());
+        }
+        else {
+          if (!allowPositionals) {
+            throw new ParseException("All positional parameters must be placed before positional parameters.", tokenEnd(prev()));
+          }
+
+          final Parameter parameter = new Parameter(paramName.getContent(), null, isConstant, tokenStart(firstToken), tokenEnd(firstToken));
+          parameters.put(parameter.getName(), parameter);
+          positionalParamCount++;
+        }
+      } while (match(TokenType.COMMA));
     }
 
-    final Token rightCurl = matchError(TokenType.RIGHT_CURL, "'}' expected at " + tokenEnd(name));
-    return new DataDef(name.getContent(), attrs, tokenStart(dataKeyword), tokenEnd(rightCurl));
+    // consume ')'
+    final Token rightParen = matchError(TokenType.RIGHT_PAREN, "')' expected at " + tokenEnd(prev()));
+
+    // Consume '{'
+    final Token bodyLeftCurl = matchError(TokenType.LEFT_CURL, "'{' expected at " + tokenEnd(rightParen));
+
+    // Consume function block
+    final BlockExpr funcBody = blockExpr(bodyLeftCurl);
+
+    // Translated function signature
+    final FunctionSignature signature = new FunctionSignature(positionalParamCount, optionalParams);
+
+    // Translate to functionDef
+    
+
+    final ObjectLiteralExpr obj = new ObjectLiteralExpr(null, isExportable, null, null);
+
+    return null;
   }
 
   private VariableDeclr varDeclr(Token signifier) {

@@ -1,4 +1,4 @@
-package jg.sh.intake.token;
+package jg.sh.parsing.token;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -73,7 +73,7 @@ public enum TokenType {
   MULT,
   LESS,
   GREAT,
-  EQUAL,
+  EQUAL,  //checks if two objects are equal (reference and value)
   EXPONENT,
   ASSIGNMENT,
   DIV,
