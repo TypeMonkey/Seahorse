@@ -54,7 +54,7 @@ public class SystemModule extends NativeModule{
       }
     )));
 
-    systemObject.setAttribute("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(Collections.emptySet(), 0,  Collections.emptySet(), true), 
+    systemObject.setAttribute("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
       (fiber, args) -> {
         for(int i = ARG_INDEX; i < args.getPositionals().size(); i++) {
           System.out.print(args.getPositional(i));
@@ -65,7 +65,7 @@ public class SystemModule extends NativeModule{
       }
     )));
     
-    systemObject.setAttribute("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(Collections.emptySet(), 2),
+    systemObject.setAttribute("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(2, Collections.emptySet(), false),
       (fiber, args) ->  {
         RuntimeInstance targetObject = args.getPositional(ARG_INDEX);
         RuntimeInstance targetFunction = args.getPositional(ARG_INDEX + 1);
@@ -79,7 +79,7 @@ public class SystemModule extends NativeModule{
         throw new InvocationException("Object provided isn't a callable", (Callable) args.getPositional(0));
       }
     )));
-    systemObject.setAttribute("input", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(Collections.emptySet(), 0,  Collections.emptySet(), true), 
+    systemObject.setAttribute("input", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
       (fiber, args) -> {
         /*
          * Basically does what println does first before getting input

@@ -793,9 +793,11 @@ public class FunctionFrame extends StackFrame {
        * (in the future, these may be extended to object attributes in general)
        */
       case EXPORTMV: {
+        /*
         ArgInstr exportInstr = (ArgInstr) instr;
         String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
         getHostModule().getModuleObject().setAttrModifiers(varName, AttrModifier.EXPORT);
+        */
         break;
       }
       case CONSTMV: {

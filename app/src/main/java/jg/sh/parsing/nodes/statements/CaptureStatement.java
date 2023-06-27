@@ -11,7 +11,7 @@ import jg.sh.parsing.nodes.Identifier;
  * 
  * Format:
  * 
- * capture var1, ...
+ * capture var1, ... ;
  * 
  * where varN is an identifier.
  * 

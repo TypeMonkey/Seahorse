@@ -228,7 +228,7 @@ public abstract class StackFrame implements Markable {
     if (args.getPositionals().size() - 2 < signature.getPositionalParamCount()) {
       throw new InvocationException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
     }
-    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount() && !signature.hasVariableParams()) {
+    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount()) {
       throw new InvocationException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
     }
     
@@ -277,6 +277,7 @@ public abstract class StackFrame implements Markable {
       //System.out.println("------------> DONE WITH ARGS");
       
       //Put any leftover positional arguments in an array
+      /*
       if (signature.hasVariableParams()) {
         final int variableArgsIndex = positionalIndex;
 
@@ -293,6 +294,7 @@ public abstract class StackFrame implements Markable {
           frame.storeLocalVar(variableArgsIndex, null);
         }
       }
+      */
       
       toReturn = frame;
     }

@@ -976,7 +976,7 @@ public class ExpressionBuilder extends SeaHorseWholeAnalyzer {
       constructor = new FuncDef(-1, 
                                   -1, 
                                   ReservedWords.CONSTR.actualWord,
-                                  new FunctionSignature(new HashSet<>(), 0, new HashSet<>(), false),
+                                  new FunctionSignature(0, new HashSet<>()),
                                   new LinkedHashSet<>(),
                                   new LinkedHashMap<>(),
                                   new ArrayList<>());
@@ -1519,10 +1519,8 @@ public class ExpressionBuilder extends SeaHorseWholeAnalyzer {
     }
     
     return new FuncSigInfo(
-        new FunctionSignature(Keyword.toReservedWords(modifiers), 
-                              positionalCount, 
-                              keywordParams.keySet(), 
-                              hasVariableParam), 
+        new FunctionSignature(positionalCount, 
+                              keywordParams.keySet()), 
         allParamNames);
   }
   //HELPER methods DONE

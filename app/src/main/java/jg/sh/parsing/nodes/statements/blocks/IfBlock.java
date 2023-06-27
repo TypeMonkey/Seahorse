@@ -7,6 +7,17 @@ import jg.sh.parsing.nodes.Keyword;
 import jg.sh.parsing.nodes.Node;
 import jg.sh.parsing.nodes.statements.Statement;
 
+/**
+ * Conditional control flow.
+ * 
+ * Format:
+ * 
+ * if (expr) {
+ * 
+ * }
+ * (elif(expr) {} )*
+ * [else {}]
+ */
 public class IfBlock extends Block {
 
   private final Keyword keyword;

@@ -4,9 +4,9 @@ import jg.sh.common.Location;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.Visitor;
 
-public class Float extends Value<Double> {
+public class FloatingPoint extends Value<Double> {
 
-  public Float(Double value, Location start, Location end) {
+  public FloatingPoint(Double value, Location start, Location end) {
     super(value, start, end);
   }
 

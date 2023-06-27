@@ -91,7 +91,7 @@ public class IRReader {
         
     final String moduleName = StringUtils.getBareFileName(path.getName());   
     final RuntimeCodeObject moduleCodeObject = new RuntimeCodeObject(moduleName, 
-                               new FunctionSignature(new HashSet<>(), 0), 
+                               new FunctionSignature(0, Collections.emptySet()), 
                                Collections.emptyMap(), 
                                instrs, 
                                new int[0]);
@@ -146,7 +146,7 @@ public class IRReader {
     }
     
     final boolean hasVariableArgs = object.get(HAS_VAR_PARAMS).getAsBoolean();
-    return new FunctionSignature(modifiers, positionalCount, keywordParams, hasVariableArgs);
+    return new FunctionSignature(positionalCount, keywordParams);
   }
   
   public static RuntimeInstance allocatePoolComponent(HeapAllocator allocator, JsonObject object) {

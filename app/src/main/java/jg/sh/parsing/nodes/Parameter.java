@@ -15,9 +15,13 @@ import jg.sh.parsing.Visitor;
  * 
  * Format:
  * 
- * (const | var) paramName [:= node]
+ * [const] [var] paramName [:= node]
  * 
- * where node is the initial value of the parameter
+ * where node is the initial value of the parameter.
+ * 
+ * Note: a varying/"var" parameter packs any remaining positional arguments into an
+ *       array and passes that to the callee function. If "const var" parameter is still
+ *       varying, but the parameter variable just can't be reassigned.
  */
 public class Parameter extends Node {
 
@@ -26,10 +30,14 @@ public class Parameter extends Node {
   private final Set<Keyword> descriptors;
 
   public Parameter(Identifier name, Node initValue, Keyword ... descriptors) {
+    this(name, initValue, new HashSet<>(Arrays.asList(descriptors)));
+  }
+
+  public Parameter(Identifier name, Node initValue, Set<Keyword> descriptors) {
     super(name.start, name.end);
     this.name = name;
     this.initValue = initValue;
-    this.descriptors = new HashSet<>(Arrays.asList(descriptors));
+    this.descriptors = descriptors;
   }
 
   @Override
@@ -54,6 +62,15 @@ public class Parameter extends Node {
     return initValue;
   }
 
+  public boolean isConst() {
+    return Keyword.hasKeyword(TokenType.CONST, descriptors);
+  }
+
+  public boolean isVarying() {
+    //This parameter takes an indefinite list of arguments.
+    return Keyword.hasKeyword(TokenType.VAR, descriptors);
+  }
+
   public Set<Keyword> getDescriptors() {
     return descriptors;
   }
@@ -73,7 +90,10 @@ public class Parameter extends Node {
 
   @Override
   public String repr() {
-    throw new UnsupportedOperationException("Unimplemented method 'repr'");
+    return (isConst() ? "const " : "") + 
+           (isVarying() ? "var " : "") + 
+           name.getIdentifier() + 
+           (hasValue() ? initValue.repr() : "");
   }
 
   @Override

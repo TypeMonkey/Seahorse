@@ -28,11 +28,15 @@ public class VarDeclr extends Node {
   private final Set<Keyword> descriptors;
 
   public VarDeclr(Identifier name, boolean isConst, Node initialValue, Location start, Location end, Keyword ... descriptors) {
+    this(name, isConst, initialValue, start, end, new HashSet<>(Arrays.asList(descriptors)));
+  }
+
+  public VarDeclr(Identifier name, boolean isConst, Node initialValue, Location start, Location end, Set<Keyword> descriptors) {
     super(start, end);
     this.name = name;
     this.isConst = isConst;
     this.initialValue = initialValue;
-    this.descriptors = new HashSet<>(Arrays.asList(descriptors));
+    this.descriptors = descriptors;
   }
 
   public boolean isConst() {
@@ -47,16 +51,12 @@ public class VarDeclr extends Node {
     return initialValue;
   }
 
+  public boolean hasInitialValue(){ 
+    return initialValue != null;
+  }
+
   public Set<Keyword> getDescriptors() {
     return descriptors;
-  }
-
-  public boolean hasDescriptor(Keyword keyword) {
-    return descriptors.contains(keyword);
-  }
-
-  public boolean hasDescriptor(TokenType keyword) {
-    return descriptors.stream().anyMatch(x -> x.getKeyword() == keyword);
   }
 
   @Override

@@ -33,7 +33,7 @@ public class BinaryOpExpr extends Node {
 
   @Override
   public String repr() {
-    return left.repr() + operator.getOp() + right.repr();
+    return left.repr() + operator.repr() + right.repr();
   }
 
   public Node getLeft() {

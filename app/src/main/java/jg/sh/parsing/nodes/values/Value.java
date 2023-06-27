@@ -32,6 +32,10 @@ public abstract class Value<V> extends Node {
     return value.toString();
   }
 
+  public V getValue() {
+    return value;
+  }
+
   @Override
   public boolean isLValue() {
     return false;

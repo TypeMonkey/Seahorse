@@ -18,34 +18,40 @@ public class FunctionSignature {
   /**
    * A signature for a function that strictly accepts no arguments.
    */
-  public static final FunctionSignature NO_ARG = new FunctionSignature(0, Collections.emptySet());
+  public static final FunctionSignature NO_ARG = new FunctionSignature(0, Collections.emptySet(), false);
   
   /**
    * A signature for a function that strictly accepts one positional argument.
    */
-  public static final FunctionSignature ONE_ARG = new FunctionSignature(1, Collections.emptySet());
+  public static final FunctionSignature ONE_ARG = new FunctionSignature(1, Collections.emptySet(), false);
   
   private final int positionalParamCount;
   private final Set<String> keywordParams;
+  private final boolean hasVariableParams;
   
   /**
    * Constructs a FunctionSignature
    */
-  public FunctionSignature(int positionalParamCount, Set<String> keywordParams) {
+  public FunctionSignature(int positionalParamCount, Set<String> keywordParams, boolean hasVariableParams) {
     this.positionalParamCount = positionalParamCount;
     this.keywordParams = keywordParams;
+    this.hasVariableParams = hasVariableParams;
   }
   
-  public FunctionSignature(int positionalParamCount) {
-    this(positionalParamCount, Collections.emptySet());
+  public FunctionSignature(int positionalParamCount, Set<String> keywordParams) {
+    this(positionalParamCount, keywordParams, false);
   }
-  
+
   public int getPositionalParamCount() {
     return positionalParamCount;
   }
   
   public Set<String> getKeywordParams() {
     return keywordParams;
+  }
+
+  public boolean hasVariableParams() {
+    return hasVariableParams;
   }
   
   /**

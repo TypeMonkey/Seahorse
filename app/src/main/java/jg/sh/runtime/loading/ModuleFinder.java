@@ -362,7 +362,7 @@ public class ModuleFinder implements Markable {
     LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getPool());    
     
     final CodeObject moduleCodeObject = new CodeObject(
-        new FunctionSignature(new HashSet<>(), 0), 
+        new FunctionSignature(0, Collections.emptySet()), 
         "$module_"+compiledFile.getName()+"_start",
         new HashMap<>(), 
         compiledFile.getModuleInstrs(), 

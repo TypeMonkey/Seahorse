@@ -17,7 +17,15 @@ public class Block extends Statement {
     this.statements = statements;
   }
 
+  public Statement get(int index) {
+    return statements.get(index);
+  }
+
   public List<Statement> getStatements() {
     return statements;
+  }
+
+  public int size() {
+    return statements.size();
   }
 }

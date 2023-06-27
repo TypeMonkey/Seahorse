@@ -44,7 +44,7 @@ public abstract class NativeModule {
   protected NativeModule(String name) {
     this.runtimeModule = new RuntimeModule(name, null, Collections.emptyMap());
     
-    this.loadingFunction = new InternalFunction(new FunctionSignature(Collections.emptySet(), 0, Collections.emptySet(), false)) {      
+    this.loadingFunction = new InternalFunction(FunctionSignature.NO_ARG) {      
       @Override
       public RuntimeInstance invoke(Fiber executor, ArgVector args)
           throws InvocationException {

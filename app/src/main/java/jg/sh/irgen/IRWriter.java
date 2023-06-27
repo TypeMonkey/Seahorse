@@ -222,10 +222,10 @@ public class IRWriter {
   
   public static String writeSignature(FunctionSignature signature) {
     return "{"
-         +   " "+MODIFIERS+": ["+signature.getModifiers().stream().map(x -> String.valueOf(x.ordinal())).collect(Collectors.joining(","))+"], "
+         //+   " "+MODIFIERS+": ["+signature.getModifiers().stream().map(x -> String.valueOf(x.ordinal())).collect(Collectors.joining(","))+"], "
          +   " "+POSITIONAL_CNT+": "+signature.getPositionalParamCount()+", "
          +   " "+KEYWORD_PARAMS+": ["+signature.getKeywordParams().stream().map(x -> String.valueOf('"')+x+String.valueOf('"')).collect(Collectors.joining(","))+"], "
-         +   " "+HAS_VAR_PARAMS+": "+signature.hasVariableParams()
+         //+   " "+HAS_VAR_PARAMS+": "+signature.hasVariableParams()
          + "}";
   }
   

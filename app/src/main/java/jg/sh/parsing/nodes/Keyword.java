@@ -1,7 +1,12 @@
 package jg.sh.parsing.nodes;
 
-import jg.sh.common.Location;
 import jg.sh.parsing.token.TokenType;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+
+import jg.sh.common.Location;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.Visitor;
 import jg.sh.parsing.token.Token;
@@ -24,6 +29,11 @@ import jg.sh.parsing.token.Token;
 public class Keyword extends Node {
 
   private final TokenType keyword;
+
+  public Keyword(TokenType keyword, Location start, Location end) {
+    super(start, end);
+    this.keyword = keyword;
+  }
   
   public Keyword(Token keywordToken) {
     super(keywordToken.getStart(), keywordToken.getEnd());
@@ -59,4 +69,11 @@ public class Keyword extends Node {
     return false;
   }
   
+  public static boolean hasKeyword(TokenType keyword, Collection<Keyword> keywords) {
+    return keywords.stream().anyMatch(x -> x.getKeyword() == keyword);
+  }
+
+  public static boolean hasKeyword(TokenType keyword, Keyword ... keywords) {
+    return hasKeyword(keyword, new HashSet<>(Arrays.asList(keywords)));
+  }
 }

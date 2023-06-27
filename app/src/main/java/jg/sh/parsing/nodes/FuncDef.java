@@ -3,6 +3,7 @@ package jg.sh.parsing.nodes;
 import java.util.LinkedHashMap;
 import java.util.Set;
 
+import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.Visitor;
@@ -33,19 +34,23 @@ import jg.sh.parsing.nodes.statements.blocks.Block;
 public class FuncDef extends Node {
 
   private final Identifier boundName;
+  private final FunctionSignature signature;
   private final Set<Identifier> captures;
   private final LinkedHashMap<String, Parameter> parameters;
   private final boolean toExport;
   private final Block body;
 
   public FuncDef(Identifier boundName, 
+                 FunctionSignature signature,
                  Set<Identifier> captures, 
                  LinkedHashMap<String, Parameter> parameters,
                  boolean toExport, 
                  Block body,
+                 Location start,
                  Location end) {
-    super(boundName.start, end);
+    super(start, end);
     this.boundName = boundName;
+    this.signature = signature;
     this.captures = captures;
     this.parameters = parameters;
     this.body = body;
@@ -63,9 +68,17 @@ public class FuncDef extends Node {
     throw new UnsupportedOperationException("Unimplemented method 'repr'");
   }
 
+  public FunctionSignature getSignature() {
+    return signature;
+  }
+
   @Override
   public boolean isLValue() {
     return false;
+  }
+
+  public boolean hasBoundName() {
+    return boundName != null;
   }
 
   public Identifier getBoundName() {

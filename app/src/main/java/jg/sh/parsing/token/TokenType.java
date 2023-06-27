@@ -33,6 +33,7 @@ public enum TokenType {
   SELF,//
   BREAK,//
   CONTINUE,//
+  CAPTURE,
   RETURN,//
   IS,//
   THROW,//
@@ -44,14 +45,13 @@ public enum TokenType {
   FOR,//
   IF,//
   ELIF,//
-  ELSE,//
   TRY,//
   CATCH,//
+  ELSE,//
 
   //KEYWORDS - END
 
   //Symbols
-  ARROW,
   LEFT_PAREN,
   RIGHT_PAREN,
   LEFT_SQ_BR,
@@ -67,6 +67,7 @@ public enum TokenType {
   //binary operators
   NOT_EQ,
   GR_EQ, 
+  ARROW,
   LS_EQ,
   PLUS,
   MINUS,

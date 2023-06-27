@@ -1,6 +1,6 @@
 package jg.sh.parsing.exceptions;
 
-import jg.sh.intake.Location;
+import jg.sh.common.Location;
 
 public class TokenizerException extends Exception {
   

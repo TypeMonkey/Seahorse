@@ -12,9 +12,10 @@ import jg.sh.parsing.nodes.ObjectLiteral;
 import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
+import jg.sh.parsing.nodes.UnaryExpr;
 import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.values.Bool;
-import jg.sh.parsing.nodes.values.Float;
+import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
 import jg.sh.parsing.nodes.values.Null;
 import jg.sh.parsing.nodes.values.Str;
@@ -27,7 +28,7 @@ public interface Visitor<T, C extends Context> {
 
   public T visitBoolean(C parentContext, Bool bool);
 
-  public T visitFloat(C parentContext, Float floatingPoint);
+  public T visitFloat(C parentContext, FloatingPoint floatingPoint);
 
   public T visitNull(C parentContext, Null nullVal);
 
@@ -56,5 +57,7 @@ public interface Visitor<T, C extends Context> {
   public T visitIndexAccess(C parentContext, IndexAccess arrayAccess);
 
   public T visitVarDeclr(C parentContext, VarDeclr varDeclr);
+
+  public T visitUnary(C parentContext, UnaryExpr unaryExpr);
   
 }
