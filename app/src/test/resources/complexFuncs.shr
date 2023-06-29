@@ -1,3 +1,5 @@
 func hello(const a, b, var c) {
   return a + b + c[0];
 }
+
+const b := 10;

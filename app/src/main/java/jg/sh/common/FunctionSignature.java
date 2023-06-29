@@ -34,7 +34,7 @@ public class FunctionSignature {
    */
   public FunctionSignature(int positionalParamCount, Set<String> keywordParams, boolean hasVariableParams) {
     this.positionalParamCount = positionalParamCount;
-    this.keywordParams = keywordParams;
+    this.keywordParams = keywordParams == null ? Collections.emptySet() : keywordParams;
     this.hasVariableParams = hasVariableParams;
   }
   

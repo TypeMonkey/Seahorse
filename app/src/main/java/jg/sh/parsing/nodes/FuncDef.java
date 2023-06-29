@@ -64,8 +64,13 @@ public class FuncDef extends Node {
 
   @Override
   public String repr() {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'repr'");
+    String r = "func "+(hasBoundName() ? boundName.getIdentifier() : "$anon") 
+                      + "("+signature.toString()+")" 
+                      + System.lineSeparator();
+
+    r += " => Export? "+ toExport + System.lineSeparator();
+
+    return r + body.repr();
   }
 
   public FunctionSignature getSignature() {

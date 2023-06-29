@@ -66,7 +66,7 @@ public class VarDeclr extends Node {
 
   @Override
   public String repr() {
-    throw new UnsupportedOperationException("Unimplemented method 'repr'");
+    return name.getIdentifier() + (hasInitialValue() ? " := " + initialValue.repr() : "");
   }
 
   @Override

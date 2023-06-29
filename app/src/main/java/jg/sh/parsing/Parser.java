@@ -128,6 +128,8 @@ public class Parser {
       } 
       else if (match(TokenType.CONST, TokenType.VAR)) {
         final LinkedHashSet<VarDeclr> varDeclrs = varDeclrs(prev(), true);
+
+
         matchError(SEMICOLON, "';' expected.", peek().getEnd());
 
         for (VarDeclr modVar : varDeclrs) {
@@ -145,6 +147,8 @@ public class Parser {
         }
       } 
       else {
+        System.out.println("  ==> top level peek? "+peek());
+
         final Statement topLevelStatement = statement();
         statements.add(topLevelStatement);
         System.out.println("---else: "+prev().getType());
@@ -154,6 +158,8 @@ public class Parser {
                                  unknown.getEnd());
       }
     }
+
+    System.out.println(peek() + "<--- last");
 
     final Module program = new Module(moduleName, useStatements, statements);
     return program;
@@ -235,6 +241,8 @@ public class Parser {
     matchError(LEFT_PAREN, "'(' expected.", name != null ? name.getEnd() : keyword.getEnd());
 
     final LinkedHashMap<String, Parameter> paramMap = new LinkedHashMap<>();
+    final HashSet<String> optionalParams = new HashSet<>();
+
     boolean hasVarParam = false;
     int positionalCount = 0;
 
@@ -257,6 +265,9 @@ public class Parser {
         else if(!parameter.hasValue()) {
           positionalCount++;
         }
+        else {
+          optionalParams.add(parameter.getName().getIdentifier());
+        }
       } while(match(COMMA));
 
       matchError(RIGHT_PAREN, "')' expected.", prev().getEnd());
@@ -273,7 +284,7 @@ public class Parser {
                                                 null;
 
     return new FuncDef(name != null ? new Identifier(name) : null, 
-                       new FunctionSignature(positionalCount, paramMap.keySet(), hasVarParam),
+                       new FunctionSignature(positionalCount, optionalParams, hasVarParam),
                        captureStatement != null ? captureStatement.getCaptures() : null, 
                        paramMap, 
                        toExport, 
@@ -496,6 +507,8 @@ public class Parser {
       if (vars.contains(var)) {
         throw new ParseException("'"+varName.getContent()+"' has already been used..", identifier.start, identifier.end);
       }
+
+      vars.add(var);
     } while(match(COMMA));
 
     return vars;
@@ -882,7 +895,7 @@ public class Parser {
   private boolean match(TokenType... types) {
     for (TokenType t : types) {
       //System.out.println(" >>> matching? "+t+" | peek: "+peek()+" | hasNext"+hasNext());
-      System.out.println(" >>> matching? "+t+" | hasNext "+hasNext());
+      //System.out.println(" >>> matching? "+t+" | hasNext "+hasNext());
       if (check(t)) {
         consumeToken();
         return true;
@@ -899,7 +912,7 @@ public class Parser {
   private boolean check(TokenType type) {
     if (hasNext()) {
       final Token peeked = peek();
-      System.out.println(" --- CHECK: "+peeked.getType()+" == "+type);
+      //System.out.println(" --- CHECK: "+peeked.getType()+" == "+type);
       return peeked.getType() == type;
     }
     return false;

@@ -25,6 +25,11 @@ public abstract class Value<V> extends Node {
   }
 
   @Override
+  public boolean equals(Object obj) {
+    return obj instanceof Value && ((Value<?>) obj).value.equals(value);
+  }
+
+  @Override
   public abstract <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext);
 
   @Override

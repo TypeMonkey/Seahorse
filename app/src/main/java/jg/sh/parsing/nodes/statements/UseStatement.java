@@ -43,6 +43,20 @@ public class UseStatement extends Statement {
     this.moduleAlias = alias;
   }
 
+  @Override
+  public String repr() {
+    if (compAliasMap == null) {
+      return "importing " + moduleName.getIdentifier() 
+                          + (moduleAlias != null ? moduleAlias.getIdentifier() : "")
+                          + ";";
+    }
+    final String compMapStr = compAliasMap.entrySet()
+                                          .stream()
+                                          .map(x -> x.getKey().getIdentifier() + (x.getValue() != null ? " -> " + x.getValue().getIdentifier() : ""))
+                                          .toString();
+    return "importing components "+compMapStr+";";
+  }
+
   public Identifier getModuleAlias() {
     return moduleAlias;
   }

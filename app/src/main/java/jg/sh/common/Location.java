@@ -6,6 +6,8 @@ package jg.sh.common;
  */
 public class Location {
 
+  public static final Location DUMMY = new Location(-1, -1);
+
   public final int line;
   public final int column;
 

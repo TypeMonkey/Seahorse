@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
@@ -27,12 +28,15 @@ import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.IndexAccess;
 import jg.sh.parsing.nodes.Node;
 import jg.sh.parsing.nodes.Parameter;
+import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.FuncCall.Argument;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.statements.blocks.Block;
 import jg.sh.parsing.nodes.values.Int;
 import jg.sh.parsing.nodes.values.Str;
+
+import static jg.sh.parsing.utils.ParseTestUtils.*;
 
 public class ParserTest {
   @Test
@@ -104,18 +108,18 @@ public class ParserTest {
     Module prog = null;
     try {
       prog = parser.parseProgram("SampleProgram");
+      System.out.println(prog);
     } catch (ParseException e) {
       fail(e);
     }
 
-    assertEquals(1, prog.getStatements().size());    
-    assertInstanceOf(FuncDef.class, prog.getStatements().get(0).getExpr());
+    assertEquals(2, prog.getStatements().size());    
 
-    final FuncDef func = (FuncDef) prog.getStatements().get(0).getExpr();
-
-    assertEquals("hello", func.getBoundName().getIdentifier());
-    assertEquals(2, func.getSignature().getPositionalParamCount());
-    assertTrue(func.getSignature().hasVariableParams());
+    final FuncDef func = assertHasFunc("hello", 
+                                       2, 
+                                       Collections.emptySet(), 
+                                       true, 
+                                       prog.getStatements());
 
     final Iterator<Entry<String, Parameter>> params = func.getParameters().entrySet().iterator();
 
@@ -160,23 +164,10 @@ public class ParserTest {
     final IndexAccess access = (IndexAccess) firstRight.getRight();
     assertEquals("c", assertAndCast(Identifier.class, access.getTarget()).getIdentifier());
     assertEquals(0, assertAndCast(Int.class, access.getIndex()).getValue());
+
+    //Now, test the other top level statement
+    final VarDeclr varDeclr = assertHasVar("b", true, false, true, prog.getStatements());
+    assertEquals(10, assertAndCast(Int.class, varDeclr.getInitialValue()).getValue());
   }
 
-  private <T> T assertAndCast(Class<T> c, Object value) {
-    assertInstanceOf(c, value);
-    return (T) value;
-  }
-
-  private static FuncDef isFuncPresent(Collection<Statement> statements, String name) {
-    for (Statement statement : statements) {
-      if (statement.getExpr() instanceof FuncDef) {
-        final FuncDef funcDef = (FuncDef) statement.getExpr();
-
-        if (funcDef.getBoundName() != null && funcDef.getBoundName().getIdentifier().equals(name)) {
-          return funcDef;
-        }
-      }
-    }
-    return null;
-  }
 }

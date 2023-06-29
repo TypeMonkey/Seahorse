@@ -14,6 +14,11 @@ public class ReturnStatement extends Statement {
     super(value, returnKeyword.start, end);
   }
 
+  @Override
+  public String repr() {
+    return "RETURN "+getValue().repr()+";";
+  }
+
   public boolean hasValue() {
     return getExpr() != null;
   }
