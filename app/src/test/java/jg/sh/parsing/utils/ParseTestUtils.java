@@ -7,10 +7,16 @@ import java.util.Set;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
+import jg.sh.parsing.nodes.BinaryOpExpr;
 import jg.sh.parsing.nodes.FuncDef;
 import jg.sh.parsing.nodes.Identifier;
+import jg.sh.parsing.nodes.IndexAccess;
 import jg.sh.parsing.nodes.Keyword;
+import jg.sh.parsing.nodes.Node;
+import jg.sh.parsing.nodes.Operator;
+import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.VarDeclr;
+import jg.sh.parsing.nodes.Operator.Op;
 import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.values.Bool;
 import jg.sh.parsing.nodes.values.FloatingPoint;
@@ -85,7 +91,55 @@ public final class ParseTestUtils {
     return (T) value;
   }
 
+  public static void assertInt(long expected, Node node) {
+    assertEquals(expected, assertAndCast(Int.class, node).getValue());
+  }
+
+  public static void assertStr(String expected, Node node) {
+    assertEquals(expected, assertAndCast(Str.class, node).getValue());
+  }
+
+  public static void assertFloat(double expected, Node node) {
+    assertEquals(expected, assertAndCast(FloatingPoint.class, node).getValue());
+  }
+
+  public static void assertBool(boolean expected, Node node) {
+    assertEquals(expected, assertAndCast(Bool.class, node).getValue());
+  }
+
+  public static void assertName(String expected, Node node) {
+    assertEquals(expected, assertAndCast(Identifier.class, node).getIdentifier());
+  }
+
+  public static void assertIndex(String name, long index, IndexAccess access) {
+    assertName(name, access.getTarget());
+    assertInt(index, access.getIndex());
+  }
+
+  public static <T> T assertNest(Class<T> c, int expectedLevel, Parenthesized parenthesized) {
+    Node ret = parenthesized;
+    while (expectedLevel > 0) {
+      if (ret instanceof Parenthesized) {
+        ret = ((Parenthesized) ret).getInner();
+      }
+      else {
+        fail(expectedLevel+" layers left!");
+      }
+      expectedLevel--;
+    }
+
+    if (ret instanceof Parenthesized) {
+      fail("Latest layer is still parenthesized!");
+    }
+
+    return assertAndCast(c, ret);
+  }
+
   //Wrapper methods
+  public static BinaryOpExpr bin(Node left, Op op, Node right) {
+    return new BinaryOpExpr(left, right, new Operator(op,  Location.DUMMY, Location.DUMMY));
+  }
+
   public static Int num(long i) {
     return new Int(i, Location.DUMMY, Location.DUMMY);
   }
@@ -100,5 +154,13 @@ public final class ParseTestUtils {
 
   public static Str str(String s) {
     return new Str(s, Location.DUMMY, Location.DUMMY);
+  }
+
+  public static Identifier name(String name) {
+    return new Identifier(name, Location.DUMMY, Location.DUMMY);
+  }
+
+  public static Parenthesized paren(Node node) {
+    return new Parenthesized(node, Location.DUMMY, Location.DUMMY);
   }
 }

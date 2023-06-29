@@ -28,8 +28,10 @@ import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.IndexAccess;
 import jg.sh.parsing.nodes.Node;
 import jg.sh.parsing.nodes.Parameter;
+import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.FuncCall.Argument;
+import jg.sh.parsing.nodes.Operator.Op;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.statements.blocks.Block;
@@ -145,29 +147,36 @@ public class ParserTest {
     assertInstanceOf(BinaryOpExpr.class, returnStatement.getExpr());
 
     final BinaryOpExpr returnExpr = (BinaryOpExpr) returnStatement.getExpr();
+    assertEquals(Op.PLUS, returnExpr.getOperator().getOp());
 
     //first operand: a
-    assertInstanceOf(Identifier.class, returnExpr.getLeft());
-    final Identifier firstLeft = (Identifier) returnExpr.getLeft();
-    assertEquals("a", firstLeft.getIdentifier());
+    assertName("a", returnExpr.getLeft());
 
-    assertInstanceOf(BinaryOpExpr.class, returnExpr.getRight());
-    final BinaryOpExpr firstRight = (BinaryOpExpr) returnExpr.getRight();
+    final BinaryOpExpr firstRight = assertAndCast(BinaryOpExpr.class, returnExpr.getRight());
+    assertEquals(Op.PLUS, firstRight.getOperator().getOp());
 
     //second operand: b
-    assertInstanceOf(Identifier.class, firstRight.getLeft());
-    final Identifier secondLeft = (Identifier) firstRight.getLeft();
-    assertEquals("b", secondLeft.getIdentifier());
+    assertName("b", firstRight.getLeft());
 
     //third operand: c[0]
-    assertInstanceOf(IndexAccess.class, firstRight.getRight());
-    final IndexAccess access = (IndexAccess) firstRight.getRight();
-    assertEquals("c", assertAndCast(Identifier.class, access.getTarget()).getIdentifier());
-    assertEquals(0, assertAndCast(Int.class, access.getIndex()).getValue());
+    assertIndex("c", 0, assertNest(IndexAccess.class, 1, assertAndCast(Parenthesized.class, firstRight.getRight())));
 
     //Now, test the other top level statement
     final VarDeclr varDeclr = assertHasVar("b", true, false, true, prog.getStatements());
-    assertEquals(10, assertAndCast(Int.class, varDeclr.getInitialValue()).getValue());
+    
+    final BinaryOpExpr value = assertAndCast(BinaryOpExpr.class, varDeclr.getInitialValue());
+    assertEquals(Op.PLUS, value.getOperator().getOp());
+
+    final Parenthesized fLeft = assertAndCast(Parenthesized.class, value.getLeft());
+    final Parenthesized fRight = assertAndCast(Parenthesized.class, value.getRight());
+
+    //check first left
+    assertInt(10, assertNest(BinaryOpExpr.class, 1, fLeft).getLeft());
+    assertEquals(Op.MINUS, assertNest(BinaryOpExpr.class, 1, fLeft).getOperator().getOp());
+    assertInt(90, assertAndCast(BinaryOpExpr.class, assertNest(BinaryOpExpr.class, 1, fLeft).getRight()).getLeft());
+
+    
+
   }
 
 }

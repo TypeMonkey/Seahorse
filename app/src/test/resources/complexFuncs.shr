@@ -1,5 +1,5 @@
 func hello(const a, b, var c) {
-  return a + b + c[0];
+  return a + b + (c[0]);
 }
 
-const b := 10;
+const b := (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));

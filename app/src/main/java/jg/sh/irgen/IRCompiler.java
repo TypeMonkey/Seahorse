@@ -59,8 +59,6 @@ import jg.sh.irgen.pool.component.ErrorHandlingRecord;
 import jg.sh.irgen.pool.component.FloatConstant;
 import jg.sh.irgen.pool.component.IntegerConstant;
 import jg.sh.irgen.pool.component.StringConstant;
-import jg.sh.runtime.objects.literals.RuntimeFloat;
-import jg.sh.runtime.objects.literals.RuntimeInteger;
 
 /**
  * Houses logic for the compilation
