@@ -19,6 +19,14 @@ public class UnaryExpr extends Node {
     return visitor.visitUnary(parentContext, this);
   }
 
+  public Node getTarget() {
+    return target;
+  }
+
+  public Operator getOperator() {
+    return unaryOperator;
+  }
+
   @Override
   public String repr() {
     return unaryOperator.repr()+" "+target.repr();

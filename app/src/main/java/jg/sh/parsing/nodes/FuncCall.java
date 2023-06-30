@@ -42,6 +42,10 @@ public class FuncCall extends Node {
       return argument;
     }
 
+    public boolean hasName() {
+      return paramName != null;
+    }
+
     @Override
     public String toString() {
       return (paramName != null ? paramName.getIdentifier() + " := " : "") + argument;

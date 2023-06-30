@@ -701,12 +701,17 @@ public class Parser {
       final Token identifierToken = prev();
       result = new Identifier(identifierToken);
       recent = result.end;
-    } 
+    }
     else if (match(NULL)) {
       final Token nullToken = prev();
       result = new Null(nullToken.getStart(), nullToken.getEnd());
       recent = result.end;
-    } 
+    }
+    else if(match(MODULE, SELF)) {
+      final Token keyword = prev();
+      result = new Keyword(keyword);
+      recent = result.end;
+    }
     else if (match(LEFT_PAREN)) {
       final Token leftParen = prev();
       final Node inner = expr();

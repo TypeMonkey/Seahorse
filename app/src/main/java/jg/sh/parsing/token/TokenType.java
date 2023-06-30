@@ -31,6 +31,7 @@ public enum TokenType {
   FROM,//
   CONST,//
   SELF,//
+  MODULE,
   BREAK,//
   CONTINUE,//
   CAPTURE,

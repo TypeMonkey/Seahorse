@@ -172,7 +172,11 @@ public class CompContext extends Context<CompContext> {
   }
   
   public boolean isWithinContext(ContextType contextType) {
-    return search(c -> c.currentContext == contextType, true) != null;
+    return getNearestContext(contextType) != null;
+  }
+
+  public CompContext getNearestContext(ContextType contextType) {
+    return search(c -> c.currentContext == contextType, true);
   }
   
   public ConstantPool getConstantPool() {
