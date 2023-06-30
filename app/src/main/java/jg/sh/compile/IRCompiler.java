@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 
+import jg.sh.common.OperatorKind;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompContext.ContextType;
 import jg.sh.compile.CompContext.IdentifierInfo;
@@ -12,8 +13,10 @@ import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
+import jg.sh.compile.instrs.LabelInstr;
 import jg.sh.compile.instrs.LoadCellInstr;
 import jg.sh.compile.instrs.NoArgInstr;
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
@@ -157,8 +160,7 @@ public class IRCompiler implements Visitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitParameter(CompContext parentContext, Parameter parameter) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitParameter'");
+    return valid();
   }
 
   @Override
@@ -169,14 +171,242 @@ public class IRCompiler implements Visitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitOperator(CompContext parentContext, Operator operator) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitOperator'");
+    return valid();
   }
 
   @Override
   public NodeResult visitBinaryExpr(CompContext parentContext, BinaryOpExpr binaryOpExpr) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitBinaryExpr'");
+    final ConstantPool pool = parentContext.getConstantPool();
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+    final Op op = binaryOpExpr.getOperator().getOp();
+
+    if(op == Op.ASSIGNMENT) {
+      /*
+       * Compile value expression first
+       */
+      final NodeResult valResult = binaryOpExpr.getRight().accept(this, parentContext);
+      if(valResult.hasExceptions()) {
+        exceptions.addAll(valResult.getExceptions());
+      }
+      else {
+        instrs.addAll(valResult.getInstructions());
+      }
+
+      final CompContext leftContext = new CompContext(parentContext, parentContext.getCurrentContext());
+      leftContext.setContextValue(ContextKey.NEED_STORAGE, true);
+
+      /*
+       * Compile assignee next.
+       */
+      final NodeResult assigneeRes = binaryOpExpr.getRight().accept(this, leftContext);
+      if(assigneeRes.hasExceptions()) {
+        exceptions.addAll(assigneeRes.getExceptions());
+      }
+      else {
+        instrs.addAll(assigneeRes.getInstructions());
+      }
+    }
+    else if(Op.mutatesLeft(op)) {
+      /*
+       * Expand expression, from a += b to a = a * b
+       * where * is any operator
+       */
+
+      final BinaryOpExpr valueExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
+                                                      binaryOpExpr.getRight(), 
+                                                      new Operator(Op.getMutatorOperator(op), 
+                                                                   binaryOpExpr.getOperator().start, 
+                                                                   binaryOpExpr.getOperator().end));
+      final BinaryOpExpr assignExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
+                                                       valueExpr, 
+                                                       new Operator(Op.ASSIGNMENT, 
+                                                                    binaryOpExpr.getOperator().start, 
+                                                                    binaryOpExpr.getOperator().end));
+      return assignExpr.accept(this, parentContext);
+    }
+    else if(op == Op.BOOL_AND) {
+      final String operandFalse = genLabelName("sc_op_false");
+      final String endBranch =  genLabelName("sc_done");
+
+      /*
+       * If the left operand is false, jump to operandFalse
+       */
+      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (left.hasExceptions()) {
+        exceptions.addAll(left.getExceptions());
+      }
+      else {
+        instrs.addAll(left.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+      }
+
+      /**
+       * At this point, the left operand must have evaulated to true.
+       * Given that, let's evaluate the right operand. If that evaluates to false,
+       * jump to operandFalse
+       */
+      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+      if (right.hasExceptions()) {
+        exceptions.addAll(right.getExceptions());
+      }
+      else {
+        instrs.addAll(right.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+      }
+
+      /*
+       * At this point, both operands are true. Jump to endBranch
+       */
+      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+      //operandFalse label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
+      final int falseConstant = pool.addComponent(new BoolConstant(false));
+      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+
+      //endBranch label end
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
+    }
+    else if(op == Op.BOOL_OR) {
+      final String operandTrue = genLabelName("sc_op_true");
+      final String endBranch =  genLabelName("sc_done");
+
+      /*
+       * If the left operand is true, jump to operandTrue
+       */
+      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (left.hasExceptions()) {
+        exceptions.addAll(left.getExceptions());
+      }
+      else {
+        instrs.addAll(left.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+      }
+
+      /**
+       * At this point, the left operand must have evaulated to false.
+       * Given that, let's evaluate the right operand. If that evaluates to true,
+       * jump to operandTrue
+       */
+      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+      if (right.hasExceptions()) {
+        exceptions.addAll(right.getExceptions());
+      }
+      else {
+        instrs.addAll(right.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+      }
+
+      //At this point, neither operand is true. Push true and jump to endBranch
+      final int falseConstant = pool.addComponent(new BoolConstant(false));
+      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+      //operandTrue label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
+      final int trueConstantAddr = pool.addComponent(new BoolConstant(true));
+      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstantAddr));
+
+      //endBranch label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
+    }
+    else if(op == Op.ARROW) {
+      /**
+       * targetExpr -> newSelf (changes what "self" is for the targetExpr, which is expected to be a function)
+       * 
+       * Internally, this is call to system.bind()
+       */
+      instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, MAKEARGV));
+
+      /**
+       * Compile left operand first.
+       */
+      final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (leftResult.hasExceptions()) {
+        exceptions.addAll(leftResult.getExceptions());
+      }
+      else {
+        instrs.addAll(leftResult.getInstructions());
+        instrs.add(new ArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, ARG, -1));
+      }
+            
+      /**
+       * Compile the right operand next
+       */
+      final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
+      if (rightResult.hasExceptions()) {
+        exceptions.addAll(rightResult.getExceptions());
+      }
+      else {
+        instrs.addAll(rightResult.getInstructions());
+        instrs.add(new ArgInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, -1));
+      }
+      
+      final int systemModuleName = pool.addComponent(new StringConstant("system"));
+      final int bindName = pool.addComponent(new StringConstant("bind"));
+      
+      /**
+       * Call system.bind()
+       */
+      instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADMV, systemModuleName));
+      instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADATTR, bindName));
+      instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, CALL));
+    }
+    else {
+      /**
+       * Compile left operand first.
+       */
+      final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (leftResult.hasExceptions()) {
+        exceptions.addAll(leftResult.getExceptions());
+      }
+      else {
+        instrs.addAll(leftResult.getInstructions());
+      }
+            
+      /**
+       * Compile the right operand next
+       */
+      final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
+      if (rightResult.hasExceptions()) {
+        exceptions.addAll(rightResult.getExceptions());
+      }
+      else {
+        instrs.addAll(rightResult.getInstructions());
+      }
+
+      final OpCode opCode = opToCode(op);
+      if (opCode == null) {
+        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                               binaryOpExpr.getOperator().start, 
+                                               binaryOpExpr.getOperator().end));
+      }
+      else {
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+      }
+    }
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
+  }
+
+  private static OpCode opToCode(Op op) {
+    switch (op) {
+      case PLUS: return ADD;
+      case MINUS: return SUB;
+      case MULT: return MUL;
+      case DIV: return DIV;
+      case MOD: return MOD;
+      case LESS: return LESS;
+      case GREAT: return GREAT;
+      case GR_EQ: return GREATE;
+      case LS_EQ: return LESSE;
+      case EQUAL: return EQUAL;
+      case NOT_EQ: return NOTEQUAL;
+      case AND: return BAND;
+      case OR: return BOR;
+      default: return null;
+    }
   }
 
   @Override
@@ -298,7 +528,6 @@ public class IRCompiler implements Visitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitArray(CompContext parentContext, ArrayLiteral arrayLiteral) {
-    final ConstantPool constantPool = parentContext.getConstantPool();
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
@@ -407,4 +636,13 @@ public class IRCompiler implements Visitor<NodeResult, CompContext> {
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
   }
 
+  //Utility methods - START
+  private static long labelTag = 0;
+  
+  private static String genLabelName(String labelName) {
+    String ret = labelName+labelTag;
+    labelTag++;
+    return ret;
+  }
+  //Utility methods - END
 }

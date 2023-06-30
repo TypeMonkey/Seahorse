@@ -26,6 +26,7 @@ public class Operator extends Node {
     EQUAL("="),
     EXPONENT("^"),
     ASSIGNMENT(":="),
+    ARROW("->"),
     DIV("/"),
     MOD("%"),
     AND("&"),
@@ -71,9 +72,21 @@ public class Operator extends Node {
     public static boolean mutatesLeft(Op op) {
       return mutatesLeft.contains(op);
     }
+
+    public static Op getMutatorOperator(Op op) {
+      switch(op) {
+        case ASSIGNMENT: return ASSIGNMENT;
+        case EQ_MULT: return MULT;
+        case EQ_ADD: return PLUS;
+        case EQ_DIV: return DIV;
+        case EQ_MIN: return MINUS;
+        case EQ_MOD: return MOD;
+        default: return null;
+      }
+    }
   }
 
-  private final Op op;
+  private final Op op; 
 
   public Operator(Token token) {
     super(token.getStart(), token.getEnd());
