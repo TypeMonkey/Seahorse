@@ -5,11 +5,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import jg.sh.InterpreterOptions.IOption;
-import jg.sh.compile.CompilationException;
-import jg.sh.compile.SeahorseCompiler;
-import jg.sh.compile.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile.validation.FileValidationReport;
-import jg.sh.compile.validation.Validator;
+import jg.sh.compile_old.CompilationException;
+import jg.sh.compile_old.SeahorseCompiler;
+import jg.sh.compile_old.parsing.nodes.atoms.constructs.Module;
+import jg.sh.compile_old.validation.FileValidationReport;
+import jg.sh.compile_old.validation.Validator;
 import jg.sh.irgen.CompiledFile;
 import jg.sh.irgen.IRCompiler;
 import jg.sh.runtime.alloc.CompactMarkSweepCleaner;

@@ -37,7 +37,7 @@ public class ContextManager {
     CL_VAR_INDEX;
   }
   
-  public enum ContextType{
+  public enum ContextType {
     /*
      * Currently inside a module
      */

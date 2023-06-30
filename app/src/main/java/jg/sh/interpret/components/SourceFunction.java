@@ -3,7 +3,7 @@ package jg.sh.interpret.components;
 import java.util.List;
 import java.util.Map;
 
-import jg.sh.compile.parsing.nodes.atoms.constructs.statements.Statement;
+import jg.sh.compile_old.parsing.nodes.atoms.constructs.statements.Statement;
 import jg.sh.interpret.Interpreter;
 
 public class SourceFunction implements Callable {

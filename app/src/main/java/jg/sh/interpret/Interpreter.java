@@ -3,8 +3,8 @@ package jg.sh.interpret;
 import java.util.List;
 import java.util.Map;
 
-import jg.sh.compile.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile.parsing.nodes.atoms.constructs.statements.Statement;
+import jg.sh.compile_old.parsing.nodes.atoms.constructs.Module;
+import jg.sh.compile_old.parsing.nodes.atoms.constructs.statements.Statement;
 import jg.sh.interpret.alloc.CallStack;
 import jg.sh.interpret.alloc.Heap;
 import jg.sh.interpret.objects.ModuleInstance;

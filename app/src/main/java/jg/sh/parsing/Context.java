@@ -11,17 +11,11 @@ import jg.sh.parsing.nodes.Node;
  * A Context keeps track of both any contextual information, as
  * well as it's parent Context.
  */
-public abstract class Context {
+public abstract class Context<T extends Context<?>> {
 
-  private final Node node;
-  private final Context parent;
+  private final T parent;
 
-  public Context(Node node) {
-    this(node, null);
-  }
-
-  public Context(Node node, Context parent) {
-    this.node = node;
+  public Context(T parent) {
     this.parent = parent;
   }
 
@@ -32,18 +26,21 @@ public abstract class Context {
    * @param includeSelf - whether to test the current Context 
    * @return the matching Context, or null if no such Context was found
    */
-  public Context search(Predicate<Context> predicate, boolean includeSelf) {
-    if (includeSelf && predicate.test(this)) {
-      return this;
+  public T search(Predicate<T> predicate, boolean includeSelf) {
+    T current = includeSelf ? (T) this : parent;
+    while (current != null) {
+      if(predicate.test(current)) {
+        return current;
+      }
+      else {
+        current = parent;
+      }
     }
-    return parent != null ? parent.search(predicate, true) : null;
+
+    return null;
   }
 
-  public Node node() {
-    return node;
-  }
-
-  public Context parent() {
+  public T parent() {
     return parent;
   }
 

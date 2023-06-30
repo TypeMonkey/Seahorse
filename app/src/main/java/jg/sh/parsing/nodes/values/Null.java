@@ -1,7 +1,7 @@
 package jg.sh.parsing.nodes.values;
 
 import jg.sh.common.Location;
-import jg.sh.compile.parsing.nodes.atoms.NullValue;
+import jg.sh.compile_old.parsing.nodes.atoms.NullValue;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.Visitor;
 

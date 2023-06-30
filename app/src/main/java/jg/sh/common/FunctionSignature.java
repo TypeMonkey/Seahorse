@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import jg.sh.compile.parsing.nodes.ReservedWords;
+import jg.sh.compile_old.parsing.nodes.ReservedWords;
 
 /**
  * Represents a function's signature, which is composed of its

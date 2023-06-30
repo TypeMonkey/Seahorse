@@ -14,7 +14,7 @@ import com.google.gson.JsonParser;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile.parsing.nodes.ReservedWords;
+import jg.sh.compile_old.parsing.nodes.ReservedWords;
 import jg.sh.irgen.instrs.ArgInstr;
 import jg.sh.irgen.instrs.CommentInstr;
 import jg.sh.irgen.instrs.Instruction;
