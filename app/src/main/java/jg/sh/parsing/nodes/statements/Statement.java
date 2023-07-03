@@ -11,8 +11,6 @@ import jg.sh.parsing.nodes.Node;
 public class Statement extends Node {
 
   private final Node expr;
-  private final Location start;
-  private final Location end;
 
   public Statement(Node expr) {
     this(expr, expr.start, expr.end);
@@ -25,8 +23,6 @@ public class Statement extends Node {
   public Statement(Node expr, Location start, Location end) {
     super(start, end);
     this.expr = expr;
-    this.start = start;
-    this.end = end;
   }
 
   public String repr() {

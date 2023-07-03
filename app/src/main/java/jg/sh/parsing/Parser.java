@@ -167,7 +167,7 @@ public class Parser {
 
   /*
    * Use declarations are of the following format:
-   *      use <module name> ;
+   *      use <module name> [as <alias>];
    * or
    *      use <module name>::<module component name> (, <module component name>)* ;
    * 
@@ -341,6 +341,20 @@ public class Parser {
       }
     }
 
+    if (constructor == null) {
+      /*
+       * Create no-arg constructor
+       */
+      final Identifier contrIden = new Identifier(TokenType.CONSTR.name().toLowerCase(), Location.DUMMY, Location.DUMMY);
+      constructor = new FuncDef(contrIden, 
+                                FunctionSignature.NO_ARG,
+                                Collections.emptySet(), 
+                                new LinkedHashMap<>(), 
+                                false, 
+                                new Block(Collections.emptyList(), Location.DUMMY, Location.DUMMY), 
+                                Location.DUMMY, Location.DUMMY);
+    }
+
     return new DataDefinition(new Identifier(dataTypeName), constructor, methods, toExport, prev().getEnd());
   }
 
@@ -453,7 +467,7 @@ public class Parser {
   /**
    * Format:
    * 
-   * var (varNam [:= expr],)+
+   * var [export] (varNam [:= expr],)+
    * 
    * or 
    * 

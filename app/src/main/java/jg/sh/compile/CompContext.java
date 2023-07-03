@@ -1,12 +1,18 @@
 package jg.sh.compile;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadStorePair;
 import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.parsing.Context;
+import jg.sh.parsing.nodes.Keyword;
+import jg.sh.parsing.token.TokenType;
 
 public class CompContext extends Context<CompContext> {
 
@@ -25,6 +31,11 @@ public class CompContext extends Context<CompContext> {
      * Value is an int/Integer
      */
     LOCAL_VAR_INDEX,
+
+    /**
+     * Value is a VarAllocator
+     */
+    VAR_ALLOCATOR,
     
     /**
      * Value is a LoadCellInstruction
@@ -80,30 +91,54 @@ public class CompContext extends Context<CompContext> {
   public static class IdentifierInfo {
     private final CompContext context;
     
-    private final LoadCellInstr loadInstr;
-    private final StoreCellInstr storeInstr;
-    
-    private IdentifierInfo(CompContext context, LoadCellInstr loadInstr, StoreCellInstr storeInstr) {
+    private final Set<Keyword> descriptors;
+    private final LoadStorePair pair;
+
+    private IdentifierInfo(CompContext context, 
+                           LoadStorePair pair,
+                           Set<Keyword> descriptors) {
       this.context = context;
-      this.loadInstr = loadInstr;
-      this.storeInstr = storeInstr;
+      this.pair = pair;
+      this.descriptors = descriptors;
+    }
+    
+    private IdentifierInfo(CompContext context, 
+                           LoadStorePair pair,
+                           Keyword ... descriptors) {
+      this(context, pair, new HashSet<>(Arrays.asList(descriptors)));
     }
     
     public LoadCellInstr getLoadInstr() {
-      return loadInstr;
+      return pair.load;
     }
     
     public StoreCellInstr getStoreInstr() {
-      return storeInstr;
+      return pair.store;
+    }
+
+    public LoadStorePair getPairInstr() {
+      return pair;
     }
     
     public CompContext getContext() {
       return context;
     }
+
+    public Set<Keyword> getDescriptors() {
+      return descriptors;
+    }
+
+    public boolean isConstant() {
+      return Keyword.hasKeyword(TokenType.CONST, descriptors);
+    }
+
+    public boolean isExported() {
+      return Keyword.hasKeyword(TokenType.EXPORT, descriptors);
+    }
     
     @Override
     public String toString() {
-      return "@var || "+context+" || LOAD: "+loadInstr+" || STORE: "+storeInstr;
+      return "@var || "+context+" || LOAD: "+pair.load+" || STORE: "+pair.store;
     }
   }
   
@@ -135,17 +170,37 @@ public class CompContext extends Context<CompContext> {
   /**
    * Adds a variable to this context manager's immediate variable map
    * @param varName - the varName 
-   * @param loadInstr - the instruction to use to load this variable's value
-   * @param storeInstr - the instruction to use to change this variable's value
+   * @param pair - the LoadStorePair for loading/storing the given variable
+   * @param keywords - Keyword descriptors regarding the variable
    * @return false - if a variable with the same name is already in this ContextManager, true if else
    */
-  public boolean addVariable(String varName, LoadCellInstr loadInstr, StoreCellInstr storeInstr) {
+  public boolean addVariable(String varName, LoadStorePair pair, Keyword ... descriptors) {
     if (varMap.containsKey(varName)) {
       return false;
     }
 
-    varMap.put(varName, new IdentifierInfo(this, loadInstr, storeInstr));
+    varMap.put(varName, new IdentifierInfo(this, pair, descriptors));
     return true;
+  }
+
+  /**
+   * Adds a variable to this context manager's immediate variable map
+   * @param varName - the varName 
+   * @param pair - the LoadStorePair for loading/storing the given variable
+   * @param keywords - Keyword descriptors regarding the variable
+   * @return false - if a variable with the same name is already in this ContextManager, true if else
+   */
+  public boolean addVariable(String varName, LoadStorePair pair, Set<Keyword> descriptors) {
+    if (varMap.containsKey(varName)) {
+      return false;
+    }
+
+    varMap.put(varName, new IdentifierInfo(this, pair, descriptors));
+    return true;
+  }
+
+  public IdentifierInfo getDirect(String varName) {
+    return varMap.get(varName);
   }
 
   public IdentifierInfo getVariable(String varName) {

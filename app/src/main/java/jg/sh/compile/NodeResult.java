@@ -12,7 +12,7 @@ public class NodeResult {
   private final List<ValidationException> exceptions;
   private final List<Instruction> instructions;
 
-  private NodeResult(List<ValidationException> exceptions, List<Instruction> instructions) {
+  protected NodeResult(List<ValidationException> exceptions, List<Instruction> instructions) {
     this.exceptions = exceptions;
     this.instructions = instructions;
   }

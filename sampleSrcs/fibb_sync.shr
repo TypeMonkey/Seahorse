@@ -1,3 +1,5 @@
+var yo := fibSlow(10);
+
 const a := 1589;
 const b := 4245;
 var start := system.now();

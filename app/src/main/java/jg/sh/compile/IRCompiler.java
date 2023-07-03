@@ -1,8 +1,14 @@
 package jg.sh.compile;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 
 import jg.sh.common.Location;
@@ -17,6 +23,7 @@ import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
 import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadStorePair;
 import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.instrs.StoreCellInstr;
@@ -92,37 +99,194 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     }
   }
 
+  /**
+   * Utility class for passing information
+   * about the load/store instructions of a variable.
+   */
+  private static class VarResult extends NodeResult {
+
+    private final LinkedHashMap<Identifier, LoadStorePair> vars;
+
+    private VarResult(List<ValidationException> exceptions, 
+                      LinkedHashMap<Identifier, LoadStorePair> vars,
+                      List<Instruction> instrs) {
+      super(exceptions, instrs);  
+      this.vars = vars;
+    }
+
+    public LinkedHashMap<Identifier, LoadStorePair> getVars() {
+      return vars;
+    }
+
+    public static VarResult single(Identifier var, 
+                                   LoadStorePair loadStore, 
+                                   Instruction ... instrs) {
+      LinkedHashMap<Identifier, LoadStorePair> map = new LinkedHashMap<>();
+      map.put(var, loadStore);
+      return new VarResult(Collections.emptyList(), map, Arrays.asList(instrs));
+    }
+
+    public static VarResult single(Identifier var, 
+                                   LoadStorePair loadStore, 
+                                   List<Instruction> instrs) {
+      LinkedHashMap<Identifier, LoadStorePair> map = new LinkedHashMap<>();
+      map.put(var, loadStore);
+      return new VarResult(Collections.emptyList(), map, instrs);
+    }
+  }
+
   public IRCompiler() {}
 
   public CompilerResult compileModule(Module module) {
     final ArrayList<Instruction> instrs = new ArrayList<>();
+    final ArrayList<ValidationException> exceptions = new ArrayList<>();
+
     final ConstantPool constantPool = new ConstantPool();
     final CompContext moduleContext = new CompContext(ContextType.MODULE, constantPool);
+
+    /*
+     * Module var allocator (any variable declared at top-level will be compiled using this)
+     */
+    final VarAllocator allocator = (name, start, end) -> {
+      final int moduleNameIndex = constantPool.addComponent(new StringConstant(name));
+      return new LoadStorePair(new LoadCellInstr(start, end, LOADMV, moduleNameIndex), 
+                               new StoreCellInstr(start, end, STOREMV, moduleNameIndex));
+    };
+    moduleContext.setContextValue(ContextKey.VAR_ALLOCATOR, allocator);
 
     /*
      * Unbounded functions and toplevel statements, when referring to "self", means
      * they're referring to the module instance.
      */
-    final LoadCellInstr moduleSelfLoad = new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1);
+    final LoadStorePair moduleLoadStore = new LoadStorePair(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1), 
+                                                            new StoreCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1));
+    final Keyword constantKeyword = new Keyword(TokenType.CONST, Location.DUMMY, Location.DUMMY);
+    
     moduleContext.addVariable(TokenType.SELF.name().toLowerCase(), 
-                              moduleSelfLoad, 
-                              new StoreCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1));
-    moduleContext.setContextValue(ContextKey.SELF_CODE, moduleSelfLoad);
+                              moduleLoadStore,
+                              constantKeyword);
+    moduleContext.addVariable(TokenType.MODULE.name().toLowerCase(), 
+                              moduleLoadStore,
+                              constantKeyword);
+    moduleContext.setContextValue(ContextKey.SELF_CODE, moduleLoadStore.load);
 
     /*
      * First few instrs: module start label
      */
-    instrs.add(new CommentInstr(Location.DUMMY, Location.DUMMY, "<-- Module Start -->"));
-    instrs.add(new LabelInstr(Location.DUMMY, Location.DUMMY, "moduleStart"));
+    instrs.add(new CommentInstr("<-- Module Start -->"));
+    final LabelInstr moduleStart = new LabelInstr(Location.DUMMY, Location.DUMMY, "moduleStart_"+module.getName());
+    instrs.add(moduleStart);
+
+    /*
+     * A map of taken top-level symbols and their initial uses.
+     */
+    final Set<Identifier> takenTopLevelSymbols = new HashSet<>();
 
     /*
      * Compile import statements
      */
     for (UseStatement useStatement : module.getImports()) {
-      
+      final VarResult result = (VarResult) useStatement.accept(this, moduleContext);
+
+      /*
+       * Iterate through compiled component imports and add them into
+       * our module context
+       */
+      for (Entry<Identifier, LoadStorePair> res : result.getVars().entrySet()) {
+        if (takenTopLevelSymbols.contains(res.getKey())) {
+          exceptions.add(new ValidationException("'"+res.getKey()+"' is already a top-level symbol.", 
+                                                 res.getKey().start,
+                                                 res.getKey().end));
+        }
+        else {
+          takenTopLevelSymbols.add(res.getKey());
+          instrs.addAll(result.getInstructions());
+          moduleContext.addVariable(res.getKey().getIdentifier(), res.getValue());
+        }
+      }
     }
 
-    return null;
+    final ArrayList<Statement> toCompile = new ArrayList<>();
+
+    /**
+     * Iterate through statements and for functions and data definitions,
+     * generate load and store instructions, but don't compile their bodies.
+     * 
+     * For Variable declarations, do both.
+     */
+    for (Statement statement : module.getStatements()) {
+      if(statement instanceof DataDefinition){
+        final DataDefinition dataDef = (DataDefinition) statement;
+
+        final LoadStorePair dataDefModVar = allocator.generate(dataDef.getName().getIdentifier(), 
+                                                               dataDef.getName().start, 
+                                                               dataDef.getName().end);
+
+        if (takenTopLevelSymbols.contains(dataDef.getName())) {
+          exceptions.add(new ValidationException("'"+dataDef.getName().getIdentifier()+"' is already a top-level symbol.", 
+                                                 dataDef.getName().start, 
+                                                 dataDef.getName().end));
+        }
+        else {
+          takenTopLevelSymbols.add(dataDef.getName());
+          toCompile.add(dataDef);
+          moduleContext.addVariable(dataDef.getName().getIdentifier(), dataDefModVar);
+        }
+      }
+      else if(statement.getExpr() instanceof FuncDef) {
+        final FuncDef func = (FuncDef) statement.getExpr();
+
+        final LoadStorePair funcDefModVar = allocator.generate(func.getBoundName().getIdentifier(), 
+                                                               func.getBoundName().start, 
+                                                               func.getBoundName().end);
+
+        //Top level functions will always have a bound name.
+        if (takenTopLevelSymbols.contains(func.getBoundName())) {
+          exceptions.add(new ValidationException("'"+func.getBoundName().getIdentifier()+"' is already a top-level symbol.", 
+                                                 func.getBoundName().start, 
+                                                 func.getBoundName().end));
+        }
+        else {
+          takenTopLevelSymbols.add(func.getBoundName());
+          toCompile.add(statement);
+          moduleContext.addVariable(func.getBoundName().getIdentifier(), funcDefModVar);
+        }
+      }
+      else if(statement.getExpr() instanceof VarDeclr) {
+        final VarDeclr varDeclr = (VarDeclr) statement.getExpr();
+
+
+        final VarResult varResult = (VarResult) varDeclr.accept(this, moduleContext);
+
+        if (takenTopLevelSymbols.contains(varDeclr.getName())) {
+          exceptions.add(new ValidationException("'"+varDeclr.getName().getIdentifier()+"' is already a top-level symbol.", 
+                                                 varDeclr.getName().start, 
+                                                 varDeclr.getName().end));
+        }
+        else if(varResult.hasExceptions()) {
+          exceptions.addAll(varResult.getExceptions());
+        }
+        else {
+          takenTopLevelSymbols.add(varDeclr.getName());
+          moduleContext.addVariable(varDeclr.getName().getIdentifier(), 
+                                    varResult.getVars().get(varDeclr.getName()), 
+                                    varDeclr.getDescriptors());
+        }
+      }
+      else {
+        final NodeResult result = statement.accept(this, moduleContext);
+        if (result.hasExceptions()) {
+          exceptions.addAll(result.getExceptions());
+        }
+        else {
+          instrs.addAll(result.getInstructions());
+        }
+      }
+    }
+    
+
+    final ObjectFile objectFile = new ObjectFile(module.getName(), moduleStart.getName(), constantPool, instrs);
+    return exceptions.isEmpty() ? new CompilerResult(objectFile) : new CompilerResult(exceptions);
   }
 
   @Override
@@ -132,9 +296,90 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   }
 
   @Override
-  public NodeResult visitUseStatement(CompContext parentContext, UseStatement useStatement) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitUseStatement'");
+  public VarResult visitUseStatement(CompContext parentContext, UseStatement useStatement) {
+    final ConstantPool constantPool = parentContext.getConstantPool();
+    final Identifier moduleName = useStatement.getModuleName();
+    final VarAllocator varAllocator = (VarAllocator) parentContext.getValue(ContextKey.VAR_ALLOCATOR);
+
+    //Allocate constant string for module name
+    final int moduleNameIndex = constantPool.addComponent(new StringConstant(moduleName.getIdentifier()));
+    
+    if(useStatement.getCompAliasMap().isEmpty()) {
+      /*
+       * If the useStatement isn't importing any components, then
+       * just import the module itself
+       */
+
+      //The variable name to refer to the imported module
+      final Identifier moduleVarHandle = useStatement.getModuleAlias() != null ?
+                                           useStatement.getModuleAlias() : 
+                                           moduleName;
+      /*
+       * Use statements are just top-level variables 
+       * whose values are the module instance (and components, if specificed)
+       * 
+       * use module1; <=> module1 = load("module1")  //internal function
+       * use module1 as m;  <=>  m = load("module1")
+       * 
+       * use module1::comp, boo; <=> comp = load("module1").comp; etc....
+       * use module1::comp as c; <=> c = load("module1").comp 
+       * 
+       * Note: the implementation of load() 
+       */
+      final LoadStorePair loadStore = varAllocator.generate(moduleVarHandle.getIdentifier(), 
+                                                            moduleVarHandle.start, 
+                                                            moduleVarHandle.end);
+      return VarResult.single(moduleVarHandle, 
+                              loadStore, 
+
+                              //Load Module and store it in respective module variable
+                              new CommentInstr("*** Bare loading of "+useStatement.getModuleName().getIdentifier()+""),
+                              new LoadCellInstr(useStatement.start,
+                                                useStatement.end,
+                                                LOADMOD, 
+                                                moduleNameIndex),
+                              loadStore.store);
+    }
+    else {
+      final LinkedHashMap<Identifier, LoadStorePair> compMap = new LinkedHashMap<>();
+      final ArrayList<Instruction> instrs = new ArrayList<>();
+
+      /*
+       * Iterate through imported components.
+       */
+      for (Entry<Identifier, Identifier> compEntry : useStatement.getCompAliasMap().entrySet()) {
+        instrs.add(new CommentInstr("*** Importing '"+compEntry.getKey()+"' from "+moduleName.getIdentifier()+" ***"));
+
+        //Load module
+        instrs.add(new LoadCellInstr(useStatement.start,
+                                     useStatement.end,
+                                     LOADMOD, 
+                                     moduleNameIndex));
+
+        //The variable name to refer to the imported module component
+        final Identifier moduleVarHandle = compEntry.getValue() != null ?
+                                            compEntry.getValue() : 
+                                            compEntry.getKey();
+
+        final int compNameIndex = constantPool.addComponent(new StringConstant(compEntry.getKey().getIdentifier()));
+
+        //Load and store instructions for impoted module components
+        final LoadStorePair loadStore = varAllocator.generate(moduleVarHandle.getIdentifier(), 
+                                                              moduleVarHandle.start, 
+                                                              moduleVarHandle.end);
+
+        //Load the specific attribute so it can be stored in our module
+        instrs.add(new LoadCellInstr(compEntry.getKey().start, 
+                                     compEntry.getKey().end, 
+                                     LOADATTR, 
+                                     compNameIndex));
+        
+        instrs.add(loadStore.store);
+        compMap.put(moduleVarHandle, loadStore);
+      }
+
+      return new VarResult(Collections.emptyList(), compMap, instrs);
+    }
   }
 
   @Override
@@ -223,6 +468,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     }
 
     if ((boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
+      if (identifierInfo.isConstant()) {
+        return invalid(new ValidationException("'"+identifier.getIdentifier()+"' is constant and cannot be re-assigned.", 
+                                               identifier.start, 
+                                               identifier.end));
+      }
       return valid(identifierInfo.getStoreInstr());
     }
     return valid(identifierInfo.getLoadInstr());
@@ -726,9 +976,41 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   }
 
   @Override
-  public NodeResult visitVarDeclr(CompContext parentContext, VarDeclr varDeclr) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitVarDeclr'");
+  public VarResult visitVarDeclr(CompContext parentContext, VarDeclr varDeclr) {
+    final VarAllocator varAllocator = (VarAllocator) parentContext.getValue(ContextKey.VAR_ALLOCATOR);
+    final LoadStorePair varLoadStore = varAllocator.generate(varDeclr.getName().getIdentifier(), varDeclr.start, varDeclr.end);
+
+    final List<Instruction> instrs = new ArrayList<>();
+    
+    if (varDeclr.hasInitialValue()) {
+      final NodeResult result = varDeclr.getInitialValue().accept(this, parentContext);
+      if (result.hasExceptions()) {
+        return new VarResult(result.getExceptions(), new LinkedHashMap<>(), Collections.emptyList());
+      }
+      
+      instrs.addAll(result.getInstructions());
+    }
+    else {
+      //If variable has no initial value, then it's initial value is null by default.
+      instrs.add(new NoArgInstr(varDeclr.end, varDeclr.end, LOADNULL));
+    }
+
+    //Store value in variable
+    instrs.add(varLoadStore.store);
+
+    if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
+      /*
+       * If variable is exported, add EXPORTMV instruction
+       * 
+       * (only module/top-level variable can be exported)
+       */
+      instrs.add(new ArgInstr(varDeclr.getName().start, 
+                              varDeclr.getName().end, 
+                              EXPORTMV, 
+                              varLoadStore.store.getIndex()));
+    }
+
+    return VarResult.single(varDeclr.getName(), varLoadStore, instrs);
   }
 
   @Override
@@ -772,6 +1054,12 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     String ret = labelName+labelTag;
     labelTag++;
     return ret;
+  }
+
+  private static <T> List<T> concat(List<T> left, List<T> right) {
+    final ArrayList<T> newList = new ArrayList<>(left);
+    newList.addAll(right);
+    return newList;
   }
   //Utility methods - END
 }
