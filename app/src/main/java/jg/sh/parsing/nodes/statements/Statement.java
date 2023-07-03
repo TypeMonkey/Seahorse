@@ -1,12 +1,14 @@
 package jg.sh.parsing.nodes.statements;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.Node;
 
 /**
  * A statement is an isolated expression, terminated by a semicolon ';'.
  */
-public class Statement {
+public class Statement extends Node {
 
   private final Node expr;
   private final Location start;
@@ -21,6 +23,7 @@ public class Statement {
   }
 
   public Statement(Node expr, Location start, Location end) {
+    super(start, end);
     this.expr = expr;
     this.start = start;
     this.end = end;
@@ -40,5 +43,15 @@ public class Statement {
   
   public Node getExpr() {
     return expr;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitStatement(parentContext, this);
+  }
+
+  @Override
+  public boolean isLValue() {
+    return false;
   }
 }

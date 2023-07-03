@@ -2,7 +2,7 @@ package jg.sh.parsing.nodes;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 /**
  * Root type for all nodes in a syntax tree.
@@ -16,7 +16,7 @@ public abstract class Node {
     this.end = end;
   }
 
-  public abstract <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext);
+  public abstract <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext);
 
   public abstract String repr();
 

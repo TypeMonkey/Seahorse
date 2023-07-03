@@ -9,7 +9,7 @@ import java.util.Set;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.token.Token;
 
 public class Operator extends Node {
@@ -107,7 +107,7 @@ public class Operator extends Node {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitOperator(parentContext, this);
   }
 

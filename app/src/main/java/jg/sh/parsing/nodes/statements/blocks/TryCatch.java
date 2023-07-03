@@ -3,6 +3,8 @@ package jg.sh.parsing.nodes.statements.blocks;
 import java.util.List;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.statements.Statement;
 
@@ -34,6 +36,11 @@ public class TryCatch extends Block{
     super(testStatements, start, end);
     this.exceptionHandler = exceptionHandler;
     this.catchBlock = catchBlock;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitTryCatchBlock(parentContext, this);
   }
 
   public Block getCatchBlock() {

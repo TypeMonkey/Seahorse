@@ -3,6 +3,8 @@ package jg.sh.parsing.nodes.statements;
 import java.util.Map;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.Identifier;
 
 /**
@@ -41,6 +43,11 @@ public class UseStatement extends Statement {
     this.moduleName = moduleName;
     this.compAliasMap = compAliasMap;
     this.moduleAlias = alias;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitUseStatement(parentContext, this);
   }
 
   @Override

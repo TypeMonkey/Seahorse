@@ -5,12 +5,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 
+import jg.sh.common.Location;
 import jg.sh.common.OperatorKind;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompContext.ContextType;
 import jg.sh.compile.CompContext.IdentifierInfo;
 import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.ArgInstr;
+import jg.sh.compile.instrs.CommentInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
@@ -23,7 +25,8 @@ import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.StringConstant;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.Module;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.ArrayLiteral;
 import jg.sh.parsing.nodes.AttrAccess;
 import jg.sh.parsing.nodes.BinaryOpExpr;
@@ -39,6 +42,15 @@ import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.UnaryExpr;
 import jg.sh.parsing.nodes.VarDeclr;
+import jg.sh.parsing.nodes.statements.CaptureStatement;
+import jg.sh.parsing.nodes.statements.DataDefinition;
+import jg.sh.parsing.nodes.statements.ReturnStatement;
+import jg.sh.parsing.nodes.statements.Statement;
+import jg.sh.parsing.nodes.statements.UseStatement;
+import jg.sh.parsing.nodes.statements.blocks.Block;
+import jg.sh.parsing.nodes.statements.blocks.IfBlock;
+import jg.sh.parsing.nodes.statements.blocks.TryCatch;
+import jg.sh.parsing.nodes.statements.blocks.WhileBlock;
 import jg.sh.parsing.nodes.FuncCall.Argument;
 import jg.sh.parsing.nodes.Operator.Op;
 import jg.sh.parsing.nodes.values.Bool;
@@ -51,9 +63,121 @@ import jg.sh.parsing.token.TokenType;
 import static jg.sh.compile.NodeResult.*;
 import static jg.sh.compile.instrs.OpCode.*;
 
-public class IRCompiler implements Visitor<NodeResult, CompContext> {
+public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
+
+  public static class CompilerResult {
+    private final ObjectFile objectFile;
+    private final List<ValidationException> validationExceptions;
+
+    public CompilerResult(ObjectFile objectFile) {
+      this.objectFile = objectFile;
+      this.validationExceptions = null;
+    }
+
+    public CompilerResult(List<ValidationException> validationExceptions) {
+      this.validationExceptions = validationExceptions;
+      this.objectFile = null;
+    }
+
+    public boolean isSuccessful() {
+      return objectFile != null;
+    }
+
+    public ObjectFile getObjectFile() {
+      return objectFile;
+    }
+
+    public List<ValidationException> getValidationExceptions() {
+      return validationExceptions;
+    }
+  }
 
   public IRCompiler() {}
+
+  public CompilerResult compileModule(Module module) {
+    final ArrayList<Instruction> instrs = new ArrayList<>();
+    final ConstantPool constantPool = new ConstantPool();
+    final CompContext moduleContext = new CompContext(ContextType.MODULE, constantPool);
+
+    /*
+     * Unbounded functions and toplevel statements, when referring to "self", means
+     * they're referring to the module instance.
+     */
+    final LoadCellInstr moduleSelfLoad = new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1);
+    moduleContext.addVariable(TokenType.SELF.name().toLowerCase(), 
+                              moduleSelfLoad, 
+                              new StoreCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1));
+    moduleContext.setContextValue(ContextKey.SELF_CODE, moduleSelfLoad);
+
+    /*
+     * First few instrs: module start label
+     */
+    instrs.add(new CommentInstr(Location.DUMMY, Location.DUMMY, "<-- Module Start -->"));
+    instrs.add(new LabelInstr(Location.DUMMY, Location.DUMMY, "moduleStart"));
+
+    /*
+     * Compile import statements
+     */
+    for (UseStatement useStatement : module.getImports()) {
+      
+    }
+
+    return null;
+  }
+
+  @Override
+  public NodeResult visitStatement(CompContext parentContext, Statement statement) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitStatement'");
+  }
+
+  @Override
+  public NodeResult visitUseStatement(CompContext parentContext, UseStatement useStatement) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitUseStatement'");
+  }
+
+  @Override
+  public NodeResult visitReturnStatement(CompContext parentContext, ReturnStatement returnStatement) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitReturnStatement'");
+  }
+
+  @Override
+  public NodeResult visitDataDefinition(CompContext parentContext, DataDefinition dataDefinition) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitDataDefinition'");
+  }
+
+  @Override
+  public NodeResult visitCaptureStatement(CompContext parentContext, CaptureStatement captureStatement) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitCaptureStatement'");
+  }
+
+  @Override
+  public NodeResult visitBlock(CompContext parentContext, Block block) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitBlock'");
+  }
+
+  @Override
+  public NodeResult visitIfBlock(CompContext parentContext, IfBlock ifBlock) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitIfBlock'");
+  }
+
+  @Override
+  public NodeResult visitTryCatchBlock(CompContext parentContext, TryCatch tryCatch) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitTryCatchBlock'");
+  }
+
+  @Override
+  public NodeResult visitWhileBlock(CompContext parentContext, WhileBlock whileBlock) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'visitWhileBlock'");
+  }
 
   @Override
   public NodeResult visitString(CompContext parentContext, Str str) {
@@ -165,8 +289,13 @@ public class IRCompiler implements Visitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitFuncDef(CompContext parentContext, FuncDef funcDef) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitFuncDef'");
+    final ConstantPool pool = parentContext.getConstantPool();
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    final CompContext funcContext = new CompContext(parentContext, ContextType.FUNCTION);
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override

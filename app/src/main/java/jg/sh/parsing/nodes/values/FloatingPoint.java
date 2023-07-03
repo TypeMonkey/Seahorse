@@ -2,7 +2,7 @@ package jg.sh.parsing.nodes.values;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 public class FloatingPoint extends Value<Double> {
 
@@ -11,7 +11,7 @@ public class FloatingPoint extends Value<Double> {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitFloat(parentContext, this);
   }
   

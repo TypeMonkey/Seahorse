@@ -2,7 +2,7 @@ package jg.sh.parsing.nodes.values;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.Node;
 
 /**
@@ -30,7 +30,7 @@ public abstract class Value<V> extends Node {
   }
 
   @Override
-  public abstract <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext);
+  public abstract <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext);
 
   @Override
   public String repr() {

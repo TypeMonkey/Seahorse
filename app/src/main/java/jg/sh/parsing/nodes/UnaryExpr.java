@@ -1,7 +1,7 @@
 package jg.sh.parsing.nodes;
 
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 public class UnaryExpr extends Node {
 
@@ -15,7 +15,7 @@ public class UnaryExpr extends Node {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitUnary(parentContext, this);
   }
 

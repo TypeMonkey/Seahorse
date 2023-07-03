@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.statements.Statement;
 
 /**
@@ -16,6 +18,11 @@ public class Block extends Statement {
   public Block(List<Statement> statements, Location start, Location end) {
     super(start, end);
     this.statements = statements;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitBlock(parentContext, this);
   }
 
   @Override

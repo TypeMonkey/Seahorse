@@ -6,7 +6,7 @@ import java.util.Set;
 
 import jg.sh.parsing.token.TokenType;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 /**
  * A paramter are the recievers of a value
@@ -84,7 +84,7 @@ public class Parameter extends Node {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitParameter(parentContext, this);
   }
 

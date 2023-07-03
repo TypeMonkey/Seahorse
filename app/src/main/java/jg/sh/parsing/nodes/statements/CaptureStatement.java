@@ -3,6 +3,8 @@ package jg.sh.parsing.nodes.statements;
 import java.util.Set;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.Identifier;
 
 /**
@@ -25,6 +27,11 @@ public class CaptureStatement extends Statement {
   public CaptureStatement(Set<Identifier> captures, Location start, Location end) {
     super(start, end);
     this.captures = captures;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitCaptureStatement(parentContext, this);
   }
   
   public Set<Identifier> getCaptures() {

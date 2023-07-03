@@ -27,9 +27,10 @@ public class CompContext extends Context<CompContext> {
     LOCAL_VAR_INDEX,
     
     /**
-     * Value is a Instruction[]
+     * Value is a LoadCellInstruction
      * 
-     * Code should fulfill the loaidng of the "self" object
+     * Code should fulfill the loading of the "self" object, relevant to the
+     * current CompContext
      */
     SELF_CODE,
 

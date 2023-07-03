@@ -3,6 +3,8 @@ package jg.sh.parsing.nodes.statements;
 import java.util.LinkedHashMap;
 
 import jg.sh.common.Location;
+import jg.sh.parsing.Context;
+import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.FuncDef;
 import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.statements.blocks.Block;
@@ -55,6 +57,11 @@ public class DataDefinition extends Statement {
     this.typeName = typeName;
     this.methods = methods;
     this.toExport = toExport;
+  }
+
+  @Override
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
+    return visitor.visitDataDefinition(parentContext, this);
   }
   
   public Identifier getName() {

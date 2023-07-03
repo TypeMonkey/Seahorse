@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 /**
  * Represents an array literal.
@@ -29,7 +29,7 @@ public class ArrayLiteral extends Node {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitArray(parentContext, this);
   }
 

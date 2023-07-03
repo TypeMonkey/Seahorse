@@ -2,7 +2,7 @@ package jg.sh.parsing.nodes;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
-import jg.sh.parsing.Visitor;
+import jg.sh.parsing.NodeVisitor;
 
 /**
  * An expression enclosed by a set of parenthesis
@@ -20,7 +20,7 @@ public class Parenthesized extends Node {
   }
 
   @Override
-  public <T, C extends Context> T accept(Visitor<T, C> visitor, C parentContext) {
+  public <T, C extends Context<?>> T accept(NodeVisitor<T, C> visitor, C parentContext) {
     return visitor.visitParenthesized(parentContext, this);
   }
 
