@@ -234,6 +234,11 @@ public enum OpCode {
   /*
    * Allocates an object and pushes the address to the operand stack
    * 
+   * This instruction requires a numerical value indicating whether the object is sealed
+   * 
+   * If index != 0, object is sealed 
+   * Else, object is unsealed 
+   * 
    * TOP -> argVector
    *      |
    * BOTTOM

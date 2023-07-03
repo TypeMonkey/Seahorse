@@ -562,8 +562,13 @@ public class Parser {
     }
     else if(match(BREAK, CONTINUE)) {
       final Keyword keyword = new Keyword(prev());
-       final Token semicolon = matchError(SEMICOLON, "';' expected.", keyword.end);
+      final Token semicolon = matchError(SEMICOLON, "';' expected.", keyword.end);
       return new Statement(keyword, keyword.start, semicolon.getEnd());
+    }
+    else if(match(SEMICOLON)) {
+      //empty statement. Still valid
+      final Token semicolon = prev();
+      return new Statement(semicolon.getStart(), semicolon.getEnd());
     }
     else {
       final Node expr = expr();

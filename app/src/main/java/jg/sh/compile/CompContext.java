@@ -83,6 +83,7 @@ public class CompContext extends Context<CompContext> {
     /*
      * Currently inside a scoped block
      */
+    BLOCK;
   }
 
   /**
