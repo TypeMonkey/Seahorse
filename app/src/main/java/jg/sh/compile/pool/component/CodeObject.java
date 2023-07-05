@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.irgen.instrs.Instruction;
+import jg.sh.compile.instrs.Instruction;
 
 public class CodeObject implements PoolComponent{
   

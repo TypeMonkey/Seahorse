@@ -29,6 +29,20 @@ public class NodeResult {
     return instructions;
   }
 
+  public NodeResult pipeInstr(List<Instruction> target) {
+    if (!instructions.isEmpty()) {
+      target.addAll(instructions);
+    }
+    return this;
+  }
+
+  public NodeResult pipeErr(List<ValidationException> target) {
+    if (!exceptions.isEmpty()) {
+      target.addAll(exceptions);
+    }
+    return this;
+  }
+
   public static NodeResult invalid(ValidationException ... exceptions) {
     return new NodeResult(Arrays.asList(exceptions), Collections.emptyList());
   }

@@ -29,9 +29,12 @@ import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.CodeObject;
+import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.StringConstant;
+import jg.sh.compile_old.parsing.nodes.atoms.constructs.blocks.IfElse;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.ArrayLiteral;
@@ -325,7 +328,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else if (result.first.getExpr() instanceof FuncDef) {
         final FuncDef func = (FuncDef) result.first.getExpr();
-        final IdentifierInfo funcIdenInfo = moduleContext.getVariable(func.getBoundName().getIdentifier());
+        final IdentifierInfo funcIdenInfo = moduleContext.getDirect(func.getBoundName().getIdentifier());
         final NodeResult funcResult = func.accept(this, moduleContext);
 
         if (funcResult.hasExceptions()) {
@@ -352,7 +355,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.addAll(vResult.getInstructions());
 
         //Load that value into our variable
-        instrs.add(vResult.getVars().get(varDeclr.getName()).load);
+        instrs.add(loadStore.load);
 
         if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
           instrs.add(new ArgInstr(varDeclr.start, varDeclr.end, EXPORTMV, loadStore.store.getIndex()));
@@ -472,8 +475,18 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitReturnStatement(CompContext parentContext, ReturnStatement returnStatement) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitReturnStatement'");
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    if (returnStatement.hasValue()) {
+      returnStatement.getExpr().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
+    }
+    else {
+      instrs.add(new NoArgInstr(returnStatement.start, returnStatement.end, LOADNULL));
+    }
+
+    instrs.add(new NoArgInstr(returnStatement.start, returnStatement.end, RET));
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
@@ -490,8 +503,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitBlock(CompContext parentContext, Block block) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitBlock'");
+    return compileStatements(block.getStatements(), parentContext, block.start, block.end);
   }
 
   private NodeResult compileStatements(List<Statement> stmts, CompContext parentContext, Location start, Location end) {
@@ -499,37 +511,276 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     final CompContext blockContext = new CompContext(parentContext, ContextType.BLOCK);
+    final VarAllocator allocator = (VarAllocator) blockContext.getValue(ContextKey.LOCAL_VAR_INDEX);
 
+    final ArrayList<Pair<Statement, NodeResult>> toCompile = new ArrayList<>();
+
+    /**
+     * Iterate through statements and look for functions, generate load and store instructions, but don't compile their bodies.
+     * 
+     * For Variable declarations, do both.
+     */
     for (Statement stmt : stmts) {
       if (stmt.getExpr() instanceof FuncDef) {
-        
+        final FuncDef func = (FuncDef) stmt.getExpr();
+        if (func.hasBoundName()) {
+          final LoadStorePair pair = allocator.generate(func.getBoundName().getIdentifier(), func.start, func.end);
+          blockContext.addVariable(func.getBoundName().getIdentifier(), pair);
+        }
+
+        toCompile.add(new Pair<>(stmt, null));
       }
       else if(stmt.getExpr() instanceof VarDeclr) {
+        final VarDeclr varDeclr = (VarDeclr) stmt.getExpr();
+        final IdentifierInfo existingVar = blockContext.getVariable(varDeclr.getName().getIdentifier());
+        if (existingVar != null && existingVar.getContext().getCurrentContext() != ContextType.MODULE) {
+          /*
+           * Check if a variable in the current scope (or any enclosing one) of the same name exists.
+           * If so, this is a validation error, unless the original variable is top-evel (module)
+           */
+          exceptions.add(new ValidationException("'"+varDeclr.getName().getIdentifier()+"' has already been declared.", 
+                                                 varDeclr.getName().start, 
+                                                 varDeclr.getName().end));
+        }
 
+        final VarResult varResult = (VarResult) varDeclr.accept(this, blockContext);
+
+        if(varResult.hasExceptions()) {
+          exceptions.addAll(varResult.getExceptions());
+        }
+        else {
+          blockContext.addVariable(varDeclr.getName().getIdentifier(), 
+                                   varResult.getVars().get(varDeclr.getName()), 
+                                   varDeclr.getDescriptors());
+          toCompile.add(new Pair<>(stmt, varResult));
+        }
       }
-      final NodeResult result = stmt.accept(this, blockContext);
+      else {
+        toCompile.add(new Pair<>(stmt, null));
+      }
     }
 
+    //Now, compile everything
+    for (Pair<Statement, NodeResult> target : toCompile) {
+      instrs.add(new CommentInstr(" => For statement at: "+target.first.start));
+
+      if (target.first.getExpr() instanceof FuncDef) {
+        final FuncDef func = (FuncDef) target.first.getExpr();
+        final NodeResult funcResult = func.accept(this, blockContext);
+
+        if (funcResult.hasExceptions()) {
+          exceptions.addAll(funcResult.getExceptions());
+        }
+        else {
+          instrs.addAll(funcResult.getInstructions());
+        }
+
+        if (func.hasBoundName()) {
+          /*
+           * Store function to a local var if it has a bound name
+           */
+          final IdentifierInfo funcIdenInfo = blockContext.getDirect(func.getBoundName().getIdentifier());
+          instrs.add(funcIdenInfo.getStoreInstr());
+        }
+      }
+      else if(target.first.getExpr() instanceof VarDeclr) {
+        //This component has already been validated + compiled 
+        final VarDeclr varDeclr = (VarDeclr) target.first.getExpr();
+        final VarResult vResult = (VarResult) target.second;
+        final LoadStorePair loadStore = vResult.getVars().get(varDeclr.getName());
+
+        //Add the instrs of the variable's value
+        instrs.addAll(vResult.getInstructions());
+
+        //Load that value into our variable
+        instrs.add(loadStore.load);
+      }
+      else {        
+        final NodeResult stmtResult = target.first.accept(this, blockContext);
+        if (stmtResult.hasExceptions()) {
+          exceptions.addAll(stmtResult.getExceptions());
+        }
+        else {
+          instrs.addAll(stmtResult.getInstructions());
+        }
+      }
+    }
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
   public NodeResult visitIfBlock(CompContext parentContext, IfBlock ifBlock) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitIfBlock'");
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    //The label each branch jumps to upon completion
+    final String doneLabel = genLabelName("done");
+    
+    //compile the initial branch code
+    final String initBranch = genLabelName("initBranch");
+    instrs.add(new LabelInstr(ifBlock.start, ifBlock.end, initBranch));
+
+    ifBlock.getCondition().accept(this, parentContext)
+                          .pipeErr(exceptions)
+                          .pipeInstr(instrs);
+    
+    //Make new ContextManager for IfElse
+    //final ContextManager firstIfContext = new ContextManager(contextManager, ContextType.BLOCK);
+    
+    //If there's no other branches, just jump to the done label
+    if(ifBlock.getOtherBranches().isEmpty()) {
+      instrs.add(new JumpInstr(ifBlock.start, ifBlock.end, OpCode.JUMPF, doneLabel));
+
+      compileStatements(ifBlock.getStatements(), 
+                        parentContext, 
+                        ifBlock.start, 
+                        ifBlock.end).pipeErr(exceptions)
+                                    .pipeInstr(instrs);
+    }
+    else {
+      //Label for the next branch
+      String nextLabel = genLabelName("branch");
+      
+      //if Condition is false, jump to the next branch's label
+      instrs.add(new JumpInstr(ifBlock.start, ifBlock.end, OpCode.JUMPF, nextLabel));   
+      instrs.add(new CommentInstr(ifBlock.start, ifBlock.end, "For line #"+ifBlock.start));
+      
+      compileStatements(ifBlock.getStatements(), 
+                        parentContext, 
+                        ifBlock.start, 
+                        ifBlock.end).pipeErr(exceptions)
+                                    .pipeInstr(instrs);
+
+      instrs.add(new JumpInstr(ifBlock.start, ifBlock.end, OpCode.JUMP, doneLabel));
+      instrs.add(new CommentInstr(" ===> END OF INIT IF"));
+      
+      for (int i = 0; i < ifBlock.getOtherBranches().size(); i++) {
+        final IfBlock currentBranch = ifBlock.getOtherBranches().get(i);
+
+        //Add branch label first
+        instrs.add(new LabelInstr(currentBranch.start, currentBranch.end, nextLabel));
+        
+        //generate label name for the next branch
+        nextLabel = genLabelName("branch");
+        
+        //Make new ContextManager for other IfElse
+        //final ContextManager otherBranchContext = new ContextManager(contextManager, ContextType.BLOCK);
+        
+        //This is an elif block
+        if(currentBranch.getCondition() != null) {
+          currentBranch.getCondition().accept(this, parentContext)
+                                      .pipeErr(exceptions)
+                                      .pipeInstr(instrs);
+          
+          //If this is the last elif block, then jump to done. Else, jump to the next elif/else label
+          String nextLabelToJump = i == ifBlock.getOtherBranches().size() - 1 ? doneLabel : nextLabel;
+          instrs.add(new JumpInstr(currentBranch.start, currentBranch.end, OpCode.JUMPF, nextLabelToJump));
+        }
+
+        //Compile branch statements
+        compileStatements(currentBranch.getStatements(), 
+                          parentContext, 
+                          currentBranch.start, 
+                          currentBranch.end).pipeErr(exceptions)
+                                            .pipeInstr(instrs);
+        
+        //If this is an elif block, jump to the done label after this branch is done executing.
+        if(currentBranch.getCondition() != null) {
+          instrs.add(new JumpInstr(currentBranch.start, currentBranch.end, OpCode.JUMP, doneLabel));
+        }
+      }
+    }
+    
+    //Add done labal
+    instrs.add(new LabelInstr(ifBlock.start, ifBlock.end, doneLabel));
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
   public NodeResult visitTryCatchBlock(CompContext parentContext, TryCatch tryCatch) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitTryCatchBlock'");
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    final ConstantPool constantPool = parentContext.getConstantPool();
+    final VarAllocator allocator = (VarAllocator) parentContext.getValue(ContextKey.VAR_ALLOCATOR);
+
+    final String tryStartLabel = genLabelName("tryStart");
+    final String tryEndLabel = genLabelName("tryEnd");
+    final String catchLabel = genLabelName("catch");
+    
+    //Make an ErrorHandlingRecord for this try-catch block
+    constantPool.addComponent(new ErrorHandlingRecord(tryStartLabel, tryEndLabel, catchLabel));
+    
+    //add instructions for try block first
+    instrs.add(new LabelInstr(tryCatch.start, tryCatch.end, tryStartLabel));
+    compileStatements(tryCatch.getStatements(), 
+                      parentContext, 
+                      tryCatch.start, 
+                      tryCatch.end).pipeErr(exceptions)
+                                   .pipeInstr(instrs);
+    instrs.add(new LabelInstr(tryCatch.start, tryCatch.end, tryEndLabel));
+
+    //Create new CompContext for catch-block
+    final CompContext catchContext = new CompContext(parentContext, ContextType.BLOCK);
+
+    //Compile the catch part    
+    //Add label for catch block
+    instrs.add(new LabelInstr(tryCatch.start, tryCatch.end, catchLabel));
+    
+    final Identifier errorIdentifier = tryCatch.getExceptionHandler();
+    final LoadStorePair errorHandlerInstrs = allocator.generate(errorIdentifier.getIdentifier(), 
+                                                               errorIdentifier.start, 
+                                                               errorIdentifier.end);
+    
+    //Add instructions for storing the error object
+    instrs.add(new NoArgInstr(errorIdentifier.start, errorIdentifier.end, OpCode.POPERR));
+    instrs.add(errorHandlerInstrs.store);
+    
+    //add error variable to the context manager
+    catchContext.addVariable(errorIdentifier.getIdentifier(), errorHandlerInstrs);
+
+    tryCatch.getCatchBlock().accept(this, catchContext)
+                            .pipeErr(exceptions)
+                            .pipeInstr(instrs);
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
   public NodeResult visitWhileBlock(CompContext parentContext, WhileBlock whileBlock) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitWhileBlock'");
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    final String loopLabel = genLabelName("while_loop");
+    final String endLabel = genLabelName("loop_end");
+    
+    //Loop context
+    final CompContext loopContext = new CompContext(parentContext, ContextType.LOOP);
+    loopContext.setContextValue(ContextKey.CONT_LOOP_LABEL, loopLabel);
+    loopContext.setContextValue(ContextKey.BREAK_LOOP_LABEL, endLabel);
+    
+    //Create label for while loop
+    instrs.add(new LabelInstr(whileBlock.start, whileBlock.end, loopLabel));
+    
+    //Add instructions for loop condition first
+    whileBlock.getCondition().accept(this, parentContext)
+                             .pipeErr(exceptions)
+                             .pipeInstr(instrs);
+    
+    instrs.add(new JumpInstr(whileBlock.start, whileBlock.end, OpCode.JUMPF, endLabel));
+    
+    compileStatements(whileBlock.getStatements(), 
+                      loopContext, 
+                      whileBlock.start, 
+                      whileBlock.end).pipeErr(exceptions)
+                                     .pipeInstr(instrs);
+    
+    instrs.add(new JumpInstr(whileBlock.start, whileBlock.end, OpCode.JUMP, loopLabel));
+    instrs.add(new LabelInstr(whileBlock.start, whileBlock.end, endLabel));
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
@@ -665,17 +916,134 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, 0);
     final VarAllocator localVarAlloc = (name, start, end) -> {
       final int varIndex = (int) funcContext.getValue(ContextKey.LOCAL_VAR_INDEX);
-      return new LoadStorePair(new LoadCellInstr(start, end, LOAD, varIndex), 
-                               new StoreCellInstr(start, end, STORE, varIndex));
+      final LoadStorePair LS = new LoadStorePair(new LoadCellInstr(start, end, LOAD, varIndex), 
+                                                 new StoreCellInstr(start, end, STORE, varIndex));
+      funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, varIndex + 1);
+      return LS;
     };
 
     //set closure index to 0
     funcContext.setContextValue(ContextKey.CL_VAR_INDEX, 0);
-    final VarAllocator closureVarAlloc = (name, start, end) -> {
-      final int varIndex = (int) funcContext.getValue(ContextKey.CL_VAR_INDEX);
-      return new LoadStorePair(new LoadCellInstr(start, end, LOAD_CL, varIndex), 
-                               new StoreCellInstr(start, end, STORE_CL, varIndex));
-    };
+
+    //int[] for captured variables
+    final int [] captures = new int[funcDef.getCaptures().size()];
+
+    //index for captured variables
+    int captureIndex = 0;
+
+    //Compile capture first
+    for (Identifier capture : funcDef.getCaptures()) {
+      final IdentifierInfo capturedInfo = funcContext.getVariable(capture.getIdentifier());
+      if (capturedInfo == null) {
+        exceptions.add(new ValidationException("'"+capture.getIdentifier()+"' is unfound.", 
+                                               capture.start, 
+                                               capture.end));
+      }
+      else {
+        final LoadStorePair capLoadStore = capturedInfo.getPairInstr();
+
+        /*
+         * If the identifier is a local variable (not module-level), change the load instruction 
+         * to be a LOAD/STORE_CL - if it hasn't yet.
+         */
+        if(capLoadStore.load.getOpCode() != LOAD_CL && capLoadStore.store.getOpCode() != STORE_CL) {
+          capLoadStore.load.setOpCode(LOAD_CL);
+          capLoadStore.store.setOpCode(STORE_CL);
+
+          final int closureIndex = (int) capturedInfo.getContext().getValue(ContextKey.CL_VAR_INDEX);
+          capLoadStore.load.setIndex(closureIndex);
+          capLoadStore.store.setIndex(closureIndex);
+          capturedInfo.getContext().setContextValue(ContextKey.CL_VAR_INDEX, closureIndex + 1);
+        }
+
+        final LoadStorePair loadStore = new LoadStorePair(new LoadCellInstr(capture.start, capture.end, LOAD_CL, captureIndex), 
+                                                        new StoreCellInstr(capture.start, capture.end, STORE_CL, captureIndex));
+
+        funcContext.addVariable(capture.getIdentifier(), loadStore);
+        captures[captureIndex] = capturedInfo.getLoadInstr().getIndex();
+        captureIndex++;
+      }
+    }
+
+    /*
+     * The first local variable - at index 0 - is the function itself
+     */
+    {
+      /*
+       * If this function has a bound name, recursion is possible!
+       */
+      final String funcBoundName = funcDef.hasBoundName() ? 
+                                      funcDef.getBoundName().getIdentifier() : 
+                                      "$recurse";
+      
+      final LoadStorePair recurseLS = localVarAlloc.generate(funcBoundName, Location.DUMMY, Location.DUMMY);
+      funcContext.addVariable(funcBoundName, recurseLS);
+    }
+
+    /*
+     * The second local variable - at index 1 - is the self object.
+     * 
+     * For module functions, the self object is simply the module object
+     * 
+     * For class functions/methods, the self object is the instance of the class on which the method is being invoked on
+     * 
+     * For anonymous functions, it varies:
+     *  -> if an anonymous function is defined within an object literal, self is the nearest object they're in
+     *  -> else, the anonymous function inherits the self of their host function
+     */
+    {
+      final String selfLowerCase = TokenType.SELF.name().toLowerCase();
+      final LoadStorePair selfLS = localVarAlloc.generate(selfLowerCase, Location.DUMMY, Location.DUMMY);
+      funcContext.addVariable(selfLowerCase, selfLS);
+    }
+
+    //Generate label for function
+    final String funcLabel = genLabelName(funcDef.hasBoundName() ? funcDef.getBoundName()+"_" : "anonFunc_");
+    instrs.add(new LabelInstr(funcDef.start, funcDef.end, funcLabel));
+
+    /*
+     * Keeps track of the local var index of keyword parameters. 
+     * 
+     * This is needed when the function is being called and the caller is preparing the
+     * callee's parameter values.
+     */
+    final Map<String, Integer> keywordParamToIndexMap = new HashMap<>();
+
+    //Compile parameters
+    for (Parameter parameter : funcDef.getParameters().values()) {
+      final Identifier paramName = parameter.getName();
+      final LoadStorePair paramLS = localVarAlloc.generate(paramName.getIdentifier(), paramName.start, paramName.end);
+
+      if (parameter.hasValue()) {
+        //This is an optional parameter
+        parameter.getInitValue().accept(this, funcContext)
+                                .pipeErr(exceptions)
+                                .pipeInstr(instrs);
+
+        keywordParamToIndexMap.put(paramName.getIdentifier(), paramLS.load.getIndex());
+      }
+
+      funcContext.addVariable(paramName.getIdentifier(), paramLS, parameter.getDescriptors());
+    }
+
+    //Compile function body
+    funcDef.getBody().accept(this, funcContext).pipeErr(exceptions).pipeInstr(instrs);
+
+    //We'll append a "return null" at the end of the function as a catch-all for all execution paths
+    instrs.add(new CommentInstr(" -> Catch-all return null <- "));
+    instrs.add(new NoArgInstr(Location.DUMMY, Location.DUMMY, LOADNULL));
+    instrs.add(new NoArgInstr(Location.DUMMY, Location.DUMMY, RET));
+
+    //Now, allocate this function as a code object instance
+    final CodeObject funcCodeObj = new CodeObject(funcDef.getSignature(), funcLabel, keywordParamToIndexMap, instrs, captures);
+    final int funcCodeObjIndex = pool.addComponent(funcCodeObj);
+
+    //Add on nearest "self" code loading code
+    final Instruction [] selfLoadCode = (Instruction[]) funcContext.getValue(ContextKey.SELF_CODE);
+
+    instrs.addAll(Arrays.asList(selfLoadCode));
+    instrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
+    instrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
