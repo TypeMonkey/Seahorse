@@ -283,6 +283,11 @@ public class Parser {
                                                 (CaptureStatement) funcBlock.getStatements().get(0) : 
                                                 null;
 
+    if (captureStatement != null) {
+      //Remove capture statement from body
+      funcBlock.getStatements().remove(0);
+    }
+
     return new FuncDef(name != null ? new Identifier(name) : null, 
                        new FunctionSignature(positionalCount, optionalParams, hasVarParam),
                        captureStatement != null ? captureStatement.getCaptures() : null, 
@@ -318,6 +323,7 @@ public class Parser {
     matchError(LEFT_CURL, "'{' expected.", dataTypeName.getEnd());
 
     final LinkedHashMap<Identifier, FuncDef> methods = new LinkedHashMap<>();
+    final Set<Identifier> attributes = new HashSet<>();
 
     FuncDef constructor = null;
 
@@ -329,16 +335,28 @@ public class Parser {
       }
       else if(match(CONSTR)) {
         constructor = method = contructor(prev());
+
+        //Add parameters as attributes
+        for (Parameter parameter : constructor.getParameters().values()) {
+          if (attributes.contains(parameter.getName())) {
+            throw new ParseException("'"+parameter.getName().getIdentifier()+"' is already an attribute of '"+dataTypeName.getContent()+"'", 
+                                     method.getBoundName().start);
+          }
+          attributes.add(parameter.getName());
+        }
       }
       else {
         final Token unknown = peek();
         throw new ParseException("Unknown token '"+unknown.getContent()+"'", unknown.getStart(), unknown.getEnd());
       }
 
-      if (methods.containsKey(method.getBoundName())) {
-        throw new ParseException("'"+method.getBoundName()+"' has already been declared for the data type '"+dataTypeName.getContent()+"'", 
+      if (attributes.contains(method.getBoundName())) {
+        throw new ParseException("'"+method.getBoundName()+"' is already an attribute of '"+dataTypeName.getContent()+"'", 
                                  method.getBoundName().start);
       }
+      
+      methods.put(method.getBoundName(), method);
+      attributes.add(method.getBoundName());
     }
 
     if (constructor == null) {
@@ -453,6 +471,11 @@ public class Parser {
     final CaptureStatement captureStatement = funcBlock.size() > 0 && funcBlock.get(0) instanceof CaptureStatement ? 
                                                 (CaptureStatement) funcBlock.getStatements().get(0) : 
                                                 null;
+
+    if (captureStatement != null) {
+      //Remove capture statement from body
+      funcBlock.getStatements().remove(0);
+    }
 
     return new FuncDef(new Identifier(constrKeyword), 
                        new FunctionSignature(positionalCount, paramMap.keySet(), hasVarParam),

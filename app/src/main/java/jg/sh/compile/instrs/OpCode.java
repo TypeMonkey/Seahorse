@@ -158,6 +158,23 @@ public enum OpCode {
    * This instruction re-pops the target object to the operand stack
    */
   STOREATTR,
+
+  /*
+   * Adds a modifier to an object's attribute.
+   * 
+   * This instruction requires an index which corresponds to the string attribute name on the constant pool
+   * 
+   * TOP    -> modifierCode
+   *         | target
+   * BOTTOM ->
+   * 
+   * This instruction re-pops the target object to the operand stack
+   * 
+   * Modifier code corresponds to a positive, non-zero integer. At the moment,
+   * the Seahorse interpreter recoginizes the following modifier codes
+   *  -> 1 = const (make the attribute non re-assignable)
+   */
+  SETDESC,
   
   /*
    * Pushes the null address (0) to the operand stack

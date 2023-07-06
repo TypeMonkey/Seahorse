@@ -30,6 +30,7 @@ import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
+import jg.sh.compile.pool.component.DataRecord;
 import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
@@ -356,13 +357,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
         //Load that value into our variable
         instrs.add(loadStore.load);
-
-        if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
-          instrs.add(new ArgInstr(varDeclr.start, varDeclr.end, EXPORTMV, loadStore.store.getIndex()));
-        }
-        if (Keyword.hasKeyword(TokenType.CONST, varDeclr.getDescriptors())) {
-          instrs.add(new ArgInstr(varDeclr.start, varDeclr.end, CONSTMV, loadStore.store.getIndex()));
-        }
       }
       else {        
         final NodeResult stmtResult = result.first.accept(this, moduleContext);
@@ -479,7 +473,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     if (returnStatement.hasValue()) {
-      returnStatement.getExpr().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
+      returnStatement.getExpr().accept(this, parentContext)
+                               .pipeErr(exceptions)
+                               .pipeInstr(instrs);
     }
     else {
       instrs.add(new NoArgInstr(returnStatement.start, returnStatement.end, LOADNULL));
@@ -491,13 +487,71 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitDataDefinition(CompContext parentContext, DataDefinition dataDefinition) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'visitDataDefinition'");
+    /**
+     * Data definitions are just syntactic sugar templated object creation.
+     * 
+     * Given this:
+     * 
+     * data [export] <dataTypeName> {
+     *  
+     *   [ constr([parameter, ..... ]) {
+     *       statements....
+     *     }
+     *   ]
+     *     
+     *   (
+    *      func methodName([parameter, ...]) {
+     *          statements....
+     *      }
+     *   )*
+     * }
+     * 
+     * we want to output this:
+     * func [export] <dataTypeName> ([parameter, ....]) {
+     *    const obj := object {
+     *       const __type__ := dataTypeRecord;  //This created at compilation
+     *       [const] parameter1 := parameter1; 
+     *       .....
+     *    };
+     * 
+     *    statements....
+     *    
+     *    return obj; 
+     * }
+     */
+
+    final ConstantPool pool = parentContext.getConstantPool();
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+    
+    final FuncDef constructor = dataDefinition.getConstructor();
+
+    //Convert attribute descriptors to numbers
+    final LinkedHashMap<String, Set<Integer>> attrDesc = new LinkedHashMap<>();
+    for (Parameter parameter: constructor.getParameters().values()) {
+      attrDesc.put(parameter.getName().getIdentifier(), DataRecord.keywordToInt(parameter.getDescriptors()));
+    }
+    for (FuncDef method : dataDefinition.getMethods().values()) {
+      attrDesc.put(method.getBoundName().getIdentifier(), Collections.emptySet());
+    }
+
+    //Allocate DataRecord on constant pool
+    final DataRecord record = new DataRecord(dataDefinition.getName().getIdentifier(), constructor.getSignature(), attrDesc);
+    final int recordIndex = pool.addComponent(record);
+
+    //Make object statements
+    
+
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
   public NodeResult visitCaptureStatement(CompContext parentContext, CaptureStatement captureStatement) {
-    // TODO Auto-generated method stub
+    /*
+     * This shouldn't be visited as the capture statement of
+     * functions and constructors are removed from their statement list
+     */
     throw new UnsupportedOperationException("Unimplemented method 'visitCaptureStatement'");
   }
 
@@ -1299,6 +1353,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
+    //These are instructions appended after ALLOCO for constant attrs
+    final List<ArgInstr> constInstrs = new ArrayList<>();
+
     /*
      * Make an argument vector to pass object attributes
      */
@@ -1324,11 +1381,24 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instructions.addAll(valueRes.getInstructions());
         instructions.add(new ArgInstr(attrParam.start, attrParam.end, ARG, attrNameIndex));
       }
+
+      if (attr.getValue().hasDescriptor(TokenType.CONST)) {
+        final int descriptorIndex = constantPool.addComponent(new IntegerConstant(1));
+        constInstrs.add(new ArgInstr(attr.getValue().getName().start, 
+                                     attr.getValue().getName().end, 
+                                     LOADC, 
+                                     descriptorIndex));
+        constInstrs.add(new ArgInstr(attr.getValue().getName().start, 
+                                     attr.getValue().getName().end, 
+                                     SETDESC, 
+                                     attrNameIndex));
+      }
     }
 
     final int isSealed = objectLiteral.isSealed() ? 1 : 0;
 
     instructions.add(new ArgInstr(objectLiteral.start, objectLiteral.end, ALLOCO, isSealed));
+    instructions.addAll(constInstrs);
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
   }
@@ -1504,16 +1574,38 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     //Store value in variable
     instrs.add(varLoadStore.store);
 
-    if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
-      /*
-       * If variable is exported, add EXPORTMV instruction
+    if (!parentContext.isWithinContext(ContextType.FUNCTION)) {
+      /**
+       * We only add special instructions for export/const
+       * if the variable is a module/top-level variable.
        * 
-       * (only module/top-level variable can be exported)
+       * We can determine this if the variable isn't within a function.
        */
-      instrs.add(new ArgInstr(varDeclr.getName().start, 
-                              varDeclr.getName().end, 
-                              EXPORTMV, 
-                              varLoadStore.store.getIndex()));
+
+      if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
+        /*
+        * If variable is exported, add EXPORTMV instruction
+        * 
+        * (only module/top-level variable can be exported)
+        */
+        instrs.add(new ArgInstr(varDeclr.getName().start, 
+                                varDeclr.getName().end, 
+                                EXPORTMV, 
+                                varLoadStore.store.getIndex()));
+      }
+      if (Keyword.hasKeyword(TokenType.CONST, varDeclr.getDescriptors())) {
+        /*
+        * If variable is constant, add EXPORTMV instruction (if it's module/top-level)
+        * 
+        * If it's local, then there's no need to do anything.
+        * 
+        * (only module/top-level variable can be exported)
+        */
+        instrs.add(new ArgInstr(varDeclr.getName().start, 
+                                varDeclr.getName().end, 
+                                CONSTMV, 
+                                varLoadStore.store.getIndex()));
+        }
     }
 
     return VarResult.single(varDeclr.getName(), varLoadStore, instrs);

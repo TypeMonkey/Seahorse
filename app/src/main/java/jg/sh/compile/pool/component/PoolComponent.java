@@ -8,6 +8,7 @@ public interface PoolComponent {
     FLOAT,
     BOOLEAN,
     ERROR_RECORD,
+    DATA_RECORD,
     CODE
   }
    

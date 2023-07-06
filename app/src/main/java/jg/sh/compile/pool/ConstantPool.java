@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.DataRecord;
 import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
@@ -19,7 +20,8 @@ public class ConstantPool {
   private final Map<Double, Integer> floatConstants;
   private final Map<Boolean, Integer> booleanConstants;
   private final List<ErrorHandlingRecord> errorHandlingRecords;
-  
+  private final Map<DataRecord, Integer> dataRecords;
+
   private final List<PoolComponent> allComponents;
   
   private int currentIndex;
@@ -29,6 +31,7 @@ public class ConstantPool {
     this.integerConstants = new HashMap<>();
     this.floatConstants = new HashMap<>();
     this.booleanConstants = new HashMap<>();
+    this.dataRecords = new HashMap<>();
     
     errorHandlingRecords = new ArrayList<>();
     allComponents = new ArrayList<>();
@@ -118,6 +121,17 @@ public class ConstantPool {
         ErrorHandlingRecord errorHandlingRecord = (ErrorHandlingRecord) component;
         errorHandlingRecords.add(errorHandlingRecord);
         return addNewComponent(errorHandlingRecord);
+      }
+      case DATA_RECORD: {
+        DataRecord dataRecord = (DataRecord) component;
+        if (dataRecords.containsKey(dataRecord)) {
+          return dataRecords.get(dataRecord);
+        }
+        else {
+          int index = addNewComponent(component);
+          dataRecords.put(dataRecord, index);
+          return index;
+        }
       }
       default:
         return addNewComponent(component);
