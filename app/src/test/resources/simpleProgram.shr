@@ -1,3 +1,5 @@
+use system:println;
+
 func main(a, b) {
   println("hello world");
 }

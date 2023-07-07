@@ -130,17 +130,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * Unbounded functions and toplevel statements, when referring to "self", means
      * they're referring to the module instance.
      */
-    final LoadStorePair moduleLoadStore = new LoadStorePair(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1), 
-                                                            new StoreCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1));
-    final Keyword constantKeyword = new Keyword(TokenType.CONST, Location.DUMMY, Location.DUMMY);
-    
-    moduleContext.addVariable(TokenType.SELF.name().toLowerCase(), 
-                              moduleLoadStore,
-                              constantKeyword);
-    moduleContext.addVariable(TokenType.MODULE.name().toLowerCase(), 
-                              moduleLoadStore,
-                              constantKeyword);
-    moduleContext.setContextValue(ContextKey.SELF_CODE, moduleLoadStore.load);
+    final Instruction [] moduleLoadInstr = {new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1)};
+    moduleContext.setContextValue(ContextKey.SELF_CODE, moduleLoadInstr);
 
     /*
      * First few instrs: module start label
@@ -207,6 +198,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       if(statement instanceof DataDefinition){
         final DataDefinition dataDef = (DataDefinition) statement;
 
+        System.out.println(" ===> saving datadef "+dataDef.getName()+" for later!");
+
         final LoadStorePair dataDefModVar = allocator.generate(dataDef.getName().getIdentifier(), 
                                                                dataDef.getName().start, 
                                                                dataDef.getName().end);
@@ -224,6 +217,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else if(statement.getExpr() instanceof FuncDef) {
         final FuncDef func = (FuncDef) statement.getExpr();
+
+        System.out.println(" ===> saving module function "+func.getBoundName()+" for later!");
 
         final LoadStorePair funcDefModVar = allocator.generate(func.getBoundName().getIdentifier(), 
                                                                func.getBoundName().start, 
@@ -243,6 +238,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else if(statement.getExpr() instanceof VarDeclr) {
         final VarDeclr varDeclr = (VarDeclr) statement.getExpr();
+
+        System.out.println(" ===> compiling module variable "+varDeclr.getName()+" NOW!");
 
         /**
          * Unlike FuncDef and DataDef, we don't generate load/store instructions
@@ -279,6 +276,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * All module variables have been compiled + validated at this point
      */
     for (Pair<Statement, NodeResult> result : toCompile) {
+      System.out.println(" ===> compiling: "+result.first+" "+(result.second != null));
       if (result.first instanceof DataDefinition) {
         final DataDefinition dataDef = (DataDefinition) result.first;
         final IdentifierInfo dataDefInfo = moduleContext.getVariable(dataDef.getName().getIdentifier());
@@ -299,12 +297,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         final IdentifierInfo funcIdenInfo = moduleContext.getDirect(func.getBoundName().getIdentifier());
         final NodeResult funcResult = func.accept(this, moduleContext);
 
-        if (funcResult.hasExceptions()) {
-          exceptions.addAll(funcResult.getExceptions());
-        }
-        else {
-          instrs.addAll(funcResult.getInstructions());
-        }
+        funcResult.pipeErr(exceptions).pipeInstr(instrs);
 
         //Load the code object as a module variable
         instrs.add(funcIdenInfo.getStoreInstr());
@@ -342,7 +335,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitStatement(CompContext parentContext, Statement statement) {
-    return statement.getExpr() != null ? 
+    return statement.getExpr() == null ? 
               valid(new NoArgInstr(statement.start, statement.end, PASS)) : 
               statement.getExpr().accept(this, parentContext);
   }
@@ -567,7 +560,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     final CompContext blockContext = new CompContext(parentContext, ContextType.BLOCK);
-    final VarAllocator allocator = (VarAllocator) blockContext.getValue(ContextKey.LOCAL_VAR_INDEX);
+    final VarAllocator allocator = (VarAllocator) blockContext.getValue(ContextKey.VAR_ALLOCATOR);
 
     final ArrayList<Pair<Statement, NodeResult>> toCompile = new ArrayList<>();
 
@@ -622,14 +615,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
       if (target.first.getExpr() instanceof FuncDef) {
         final FuncDef func = (FuncDef) target.first.getExpr();
-        final NodeResult funcResult = func.accept(this, blockContext);
 
-        if (funcResult.hasExceptions()) {
-          exceptions.addAll(funcResult.getExceptions());
-        }
-        else {
-          instrs.addAll(funcResult.getInstructions());
-        }
+        func.accept(this, blockContext).pipeErr(exceptions).pipeInstr(instrs);
 
         if (func.hasBoundName()) {
           /*
@@ -652,13 +639,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(loadStore.load);
       }
       else {        
-        final NodeResult stmtResult = target.first.accept(this, blockContext);
-        if (stmtResult.hasExceptions()) {
-          exceptions.addAll(stmtResult.getExceptions());
-        }
-        else {
-          instrs.addAll(stmtResult.getInstructions());
-        }
+        target.first.accept(this, blockContext).pipeErr(exceptions).pipeInstr(instrs);
       }
     }
 
@@ -882,7 +863,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                              identifier.end));
     }
 
-    if ((boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
+    if (parentContext.hasContextValue(ContextKey.NEED_STORAGE) && (boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
       if (identifierInfo.isConstant()) {
         return invalid(new ValidationException("'"+identifier.getIdentifier()+"' is constant and cannot be re-assigned.", 
                                                identifier.start, 
@@ -932,13 +913,13 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         return valid(new LoadCellInstr(keyword.start, keyword.end, LOADMOD, -1));
       }
       case SELF: {
-        final IdentifierInfo info = parentContext.getVariable(TokenType.SELF.name().toLowerCase());
+        final Instruction [] selfLoad = (Instruction[]) parentContext.getValue(ContextKey.SELF_CODE);
 
-        if(info == null) {
+        if(selfLoad == null) {
           return invalid(new ValidationException("'self' is unfound.", keyword.start, keyword.end));
         }
 
-        return valid(info.getLoadInstr());
+        return valid(selfLoad);
       }
       default: invalid(new ValidationException("Unkown keyword '"+keyword.repr()+"'.", keyword.start, keyword.end));
     }
@@ -962,6 +943,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
    */
   @Override
   public FuncResult visitFuncDef(CompContext parentContext, FuncDef funcDef) {
+    System.out.println(" ---> func def: "+funcDef.getBoundName()+" | "+parentContext.getCurrentContext());
+
     final ConstantPool pool = parentContext.getConstantPool();
     final List<Instruction> instrs = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
@@ -1097,11 +1080,12 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     //Add on nearest "self" code loading code
     final Instruction [] selfLoadCode = (Instruction[]) funcContext.getValue(ContextKey.SELF_CODE);
 
-    instrs.addAll(Arrays.asList(selfLoadCode));
-    instrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
-    instrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
+    final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
+    funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));
+    funcLoadingInstrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
+    funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
-    return new FuncResult(exceptions, instrs, funcCodeObj);
+    return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObj);
   }
 
   @Override
@@ -1115,6 +1099,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<Instruction> instrs = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
     final Op op = binaryOpExpr.getOperator().getOp();
+
+    System.out.println(" ===> binary expr: "+binaryOpExpr.repr());
 
     if(op == Op.ASSIGNMENT) {
       /*
@@ -1277,39 +1263,23 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.addAll(rightResult.getInstructions());
         instrs.add(new ArgInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, -1));
       }
-      
-      final int systemModuleName = pool.addComponent(new StringConstant("system"));
-      final int bindName = pool.addComponent(new StringConstant("bind"));
-      
-      /**
-       * Call system.bind()
-       */
-      instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADMV, systemModuleName));
-      instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADATTR, bindName));
-      instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, CALL));
+
+      //Add bind instruction
+      instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, BIND));
     }
     else {
       /**
        * Compile left operand first.
        */
       final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
-      if (leftResult.hasExceptions()) {
-        exceptions.addAll(leftResult.getExceptions());
-      }
-      else {
-        instrs.addAll(leftResult.getInstructions());
-      }
+      leftResult.pipeErr(exceptions).pipeInstr(instrs);
             
       /**
        * Compile the right operand next
        */
       final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
-      if (rightResult.hasExceptions()) {
-        exceptions.addAll(rightResult.getExceptions());
-      }
-      else {
-        instrs.addAll(rightResult.getInstructions());
-      }
+      rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
 
       final OpCode opCode = opToCode(op);
       if (opCode == null) {
@@ -1321,6 +1291,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
       }
     }
+
+    System.out.println("=== binary op expr: "+binaryOpExpr+" instrs: "+instrs);
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -1417,25 +1389,19 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     instructions.add(new NoArgInstr(funcCall.start, funcCall.end, MAKEARGV));
 
     for(Argument arg : funcCall.getArguments()) {
-      final NodeResult result = arg.getArgument().accept(this, parentContext);
+      arg.getArgument().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instructions);
+      /**
+       * If the argument isn't geared towards an optional parameter,
+       * the argNameIndex is -1, signaling that it's a positional argument.
+       */
+      final int argNameIndex = arg.hasName() ? 
+                                  constantPool.addComponent(new StringConstant(arg.getParamName().getIdentifier())) : 
+                                  -1;
 
-      if (result.hasExceptions()) {
-        exceptions.addAll(result.getExceptions());
-      }
-      else {
-        /**
-         * If the argument isn't geared towards an optional parameter,
-         * the argNameIndex is -1, signaling that it's a positional argument.
-         */
-        final int argNameIndex = arg.hasName() ? 
-                                    constantPool.addComponent(new StringConstant(arg.getParamName().getIdentifier())) : 
-                                    -1;
-
-        instructions.add(new ArgInstr(arg.getArgument().start, 
-                                      arg.getArgument().end, 
-                                      ARG, 
-                                      argNameIndex));
-      }
+      instructions.add(new ArgInstr(arg.getArgument().start, 
+                                    arg.getArgument().end, 
+                                    ARG, 
+                                    argNameIndex));
     }
 
     final NodeResult targetResult = funcCall.getTarget().accept(this, parentContext);
@@ -1469,7 +1435,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * Allocate attribute name in the constant pool. 
      */
     final int attrNameIndex = constantPool.addComponent(new StringConstant(attrAccess.getAttrName().getIdentifier()));
-    if ((boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
+    if (parentContext.hasContextValue(ContextKey.NEED_STORAGE) && (boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
       instructions.add(new StoreCellInstr(attrAccess.start, attrAccess.end, STOREATTR, attrNameIndex));
     }
     else {

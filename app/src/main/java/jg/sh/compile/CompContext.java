@@ -205,7 +205,8 @@ public class CompContext extends Context<CompContext> {
   }
 
   public IdentifierInfo getVariable(String varName) {
-    return search(c -> c.varMap.containsKey(varName), true).getVariable(varName);
+    final CompContext compContext = search(c -> c.varMap.containsKey(varName), true);
+    return compContext != null ? compContext.getDirect(varName) : null;
   }
   
   public void setContextValue(ContextKey key, Object value) {
@@ -217,7 +218,8 @@ public class CompContext extends Context<CompContext> {
   }
 
   public Object getValue(ContextKey contextKey) {
-    return search(c -> c.contextMap.containsKey(contextKey), true).getValue(contextKey);
+    final CompContext compContext = search(c -> c.contextMap.containsKey(contextKey), true);
+    return compContext != null ? compContext.contextMap.get(contextKey) : null;
   }
   
   public Map<ContextKey, Object> getContextMaps() {

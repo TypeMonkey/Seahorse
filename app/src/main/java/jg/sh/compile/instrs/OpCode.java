@@ -215,6 +215,17 @@ public enum OpCode {
    * in the constant pool
    */
   CONSTMV,
+
+  /**
+   * Binds a function to an object, changing the value of "self" in that function.
+   * 
+   * TOP      -> function
+   *           | self
+   * BOTTOM   ->
+   * 
+   * This instruction pops back the function
+   */
+  BIND,
   
   /*
    * Creates an instance of a function from a code object at the top of the operand stack

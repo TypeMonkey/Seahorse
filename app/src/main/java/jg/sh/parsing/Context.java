@@ -33,7 +33,7 @@ public abstract class Context<T extends Context<?>> {
         return current;
       }
       else {
-        current = parent;
+        current = (T) current.parent();
       }
     }
 

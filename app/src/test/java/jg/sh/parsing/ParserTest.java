@@ -41,6 +41,7 @@ import jg.sh.parsing.nodes.values.Str;
 import static jg.sh.parsing.utils.ParseTestUtils.*;
 
 public class ParserTest {
+
   @Test
   public void testEmptyProgram() {
     String program = "";
@@ -74,7 +75,7 @@ public class ParserTest {
 
     assertEquals(prog.getName(), "SampleProgram");
     assertEquals(1, prog.getStatements().size());
-    assertEquals(0, prog.getImports().size());
+    assertEquals(1, prog.getImports().size());
 
     final FuncDef mainFunc = (FuncDef) prog.getStatements().get(0).getExpr();
     assertTrue(mainFunc.getBoundName().getIdentifier().equals("main"));

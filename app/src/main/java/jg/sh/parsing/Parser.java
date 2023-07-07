@@ -174,8 +174,8 @@ public class Parser {
    * 
    * Example: 
    *      use ModuleOne;  //Imports the module named "ModuleOne"
-   *      use ModuleOne::funky; //Imports the module component from "ModuleOne" called "funky", but doesn't import ModuleOne
-   *      use ModuleOne::funky, boo, bar; //Imports the funky, boo, and bar components from ModuleOne
+   *      use ModuleOne:funky; //Imports the module component from "ModuleOne" called "funky", but doesn't import ModuleOne
+   *      use ModuleOne:funky, boo, bar; //Imports the funky, boo, and bar components from ModuleOne
    * 
    * Alias - Use declaration can append an alias as to not conflict with any equally-named component
    *         in the module:
@@ -200,9 +200,15 @@ public class Parser {
     else if(match(COLON)) {
       do {
         final Token compName = matchError(IDENTIFIER, "Component name expected.", prev().getEnd());
-        final Token compAlias = match(AS) ? matchError(IDENTIFIER, "Component alias expected.", prev().getEnd()) : null;
+        System.out.println(" ===> is compName null? "+(compName == null));
 
-        compAliasMap.put(new Identifier(compName), new Identifier(compAlias));
+        if (match(AS)) {
+          final Token compAlias = matchError(IDENTIFIER, "Component alias expected.", prev().getEnd());
+          compAliasMap.put(new Identifier(compName), new Identifier(compAlias));
+        }
+        else {
+          compAliasMap.put(new Identifier(compName), null);
+        }
       } while (match(COMMA));
     } 
 
@@ -291,7 +297,7 @@ public class Parser {
 
     return new FuncDef(name != null ? new Identifier(name) : null, 
                        new FunctionSignature(positionalCount, optionalParams, hasVarParam),
-                       captureStatement != null ? captureStatement.getCaptures() : null, 
+                       captureStatement != null ? captureStatement.getCaptures() : Collections.emptySet(), 
                        paramMap, 
                        toExport, 
                        funcBlock, 
@@ -722,6 +728,8 @@ public class Parser {
     Node result = null;
     Location recent = null;
 
+    System.out.println("** new expr: "+peek());
+
     if (match(TRUE, FALSE)) {
       final Token boolToken = prev();
       result = new Bool(Boolean.parseBoolean(boolToken.getContent()), boolToken.getStart(), boolToken.getEnd());
@@ -797,14 +805,18 @@ public class Parser {
       result = new ConstAttrDeclr(access, initValue);
       recent = result.end;
     }
+    /* 
     else {
       throw new ParseException("Unkown token '"+peek()+"'", peek().getEnd());
     }
+    */
 
-    //Exhaust binary operators
-    result = binOpExpr(result);
-    recent = result.end;
+    System.out.println("===> prior to binop: "+result);
 
+    /**
+     * Attribute access, function call and index access is more tightly bound
+     * to an expression than binary operators
+     */
     while (match(LEFT_PAREN, LEFT_SQ_BR, DOT)) {
       final Token op = prev();
       switch (op.getType()) {
@@ -829,6 +841,11 @@ public class Parser {
       }
     }
 
+    //Exhaust binary operators
+    result = binOpExpr(result);
+    recent = result.end;
+
+    System.out.println(" **END: "+result.repr());
     return result;
   }
 
@@ -852,8 +869,11 @@ public class Parser {
       final Operator operator = new Operator(op);
 
       final Node rightOperand = expr();
+      System.out.println("--left: "+leftOperand+" | --right: "+rightOperand+" | op: "+operator);
       leftOperand = new BinaryOpExpr(leftOperand, rightOperand, operator);
     }
+
+    System.out.println(" ===> new binopexpr: "+leftOperand.repr());
 
     return leftOperand;
   }
@@ -862,18 +882,22 @@ public class Parser {
     final ArrayList<Argument> arguments = new ArrayList<>();
 
     while (!match(RIGHT_PAREN)) {
-      Argument arg = null;
-      if (match(IDENTIFIER)) {
-        final Token argTarget = prev();
-        matchError(ASSIGNMENT, "':=' expected for optional argument.", argTarget.getEnd());
+      final Node arg = expr();
+      Argument actualArg = null;
+
+      if (match(ASSIGNMENT)) {
+        if (!(arg instanceof Identifier)) {
+          throw new ParseException("Left hand of assignment must be an identifier.", arg.end);
+        }
+
         final Node value = expr();
-        arg = new Argument(new Identifier(argTarget), value);
+        actualArg = new Argument((Identifier) arg, value);
       }
       else {
-        arg = new Argument(expr());
+        actualArg = new Argument(arg);
       }
 
-      arguments.add(arg);
+      arguments.add(actualArg);
 
       if (match(COMMA)) {
         continue;

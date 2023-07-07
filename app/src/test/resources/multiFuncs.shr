@@ -1,0 +1,11 @@
+use system:println;
+
+func main(a, b) {
+  println("hello world");
+}
+
+func help(a) {
+  if(a = 10) {
+    main(a, self.main() + 1);
+  }
+}
