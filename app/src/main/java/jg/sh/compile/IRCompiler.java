@@ -35,12 +35,12 @@ import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.StringConstant;
-import jg.sh.compile_old.parsing.nodes.atoms.constructs.blocks.IfElse;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.NodeVisitor;
 import jg.sh.parsing.nodes.ArrayLiteral;
 import jg.sh.parsing.nodes.AttrAccess;
 import jg.sh.parsing.nodes.BinaryOpExpr;
+import jg.sh.parsing.nodes.ConstAttrDeclr;
 import jg.sh.parsing.nodes.FuncCall;
 import jg.sh.parsing.nodes.FuncDef;
 import jg.sh.parsing.nodes.Identifier;
@@ -71,8 +71,11 @@ import jg.sh.parsing.nodes.values.Null;
 import jg.sh.parsing.nodes.values.Str;
 import jg.sh.parsing.token.TokenType;
 import jg.sh.util.Pair;
+import jg.sh.compile.results.FuncResult;
+import jg.sh.compile.results.NodeResult;
+import jg.sh.compile.results.VarResult;
 
-import static jg.sh.compile.NodeResult.*;
+import static jg.sh.compile.results.NodeResult.*;
 import static jg.sh.compile.instrs.OpCode.*;
 
 public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
@@ -101,42 +104,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     public List<ValidationException> getValidationExceptions() {
       return validationExceptions;
-    }
-  }
-
-  /**
-   * Utility class for passing information
-   * about the load/store instructions of a variable.
-   */
-  private static class VarResult extends NodeResult {
-
-    private final LinkedHashMap<Identifier, LoadStorePair> vars;
-
-    private VarResult(List<ValidationException> exceptions, 
-                      LinkedHashMap<Identifier, LoadStorePair> vars,
-                      List<Instruction> instrs) {
-      super(exceptions, instrs);  
-      this.vars = vars;
-    }
-
-    public LinkedHashMap<Identifier, LoadStorePair> getVars() {
-      return vars;
-    }
-
-    public static VarResult single(Identifier var, 
-                                   LoadStorePair loadStore, 
-                                   Instruction ... instrs) {
-      LinkedHashMap<Identifier, LoadStorePair> map = new LinkedHashMap<>();
-      map.put(var, loadStore);
-      return new VarResult(Collections.emptyList(), map, Arrays.asList(instrs));
-    }
-
-    public static VarResult single(Identifier var, 
-                                   LoadStorePair loadStore, 
-                                   List<Instruction> instrs) {
-      LinkedHashMap<Identifier, LoadStorePair> map = new LinkedHashMap<>();
-      map.put(var, loadStore);
-      return new VarResult(Collections.emptyList(), map, instrs);
     }
   }
 
@@ -492,7 +459,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * 
      * Given this:
      * 
-     * data [export] <dataTypeName> {
+     * data [export] [sealed] <dataTypeName> {
      *  
      *   [ constr([parameter, ..... ]) {
      *       statements....
@@ -509,7 +476,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * we want to output this:
      * func [export] <dataTypeName> ([parameter, ....]) {
      *    const obj := object {
-     *       const __type__ := dataTypeRecord;  //This created at compilation
+     *       const $type := dataTypeRecord;  //This created at compilation
      *       [const] parameter1 := parameter1; 
      *       .....
      *    };
@@ -527,22 +494,57 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final FuncDef constructor = dataDefinition.getConstructor();
 
     //Convert attribute descriptors to numbers
-    final LinkedHashMap<String, Set<Integer>> attrDesc = new LinkedHashMap<>();
-    for (Parameter parameter: constructor.getParameters().values()) {
-      attrDesc.put(parameter.getName().getIdentifier(), DataRecord.keywordToInt(parameter.getDescriptors()));
-    }
+    final LinkedHashMap<String, CodeObject> methods = new LinkedHashMap<>();
+
     for (FuncDef method : dataDefinition.getMethods().values()) {
-      attrDesc.put(method.getBoundName().getIdentifier(), Collections.emptySet());
+      /*
+       * visitFuncDef will have instructions for function
+       * instatiation, while also creating a CodeObject.
+       * 
+       * As part of these instructions, it will bind our methods
+       * to the module object.
+       * 
+       * We don't want nor need this, so we'll ignore the instructions
+       * visitFuncDef generates and just getting the CodeObject it makes. 
+       */
+      final FuncResult result = (FuncResult) method.accept(this, parentContext);
+      result.pipeErr(exceptions);
+      methods.put(method.getBoundName().getIdentifier(), result.getCodeObject());
     }
 
     //Allocate DataRecord on constant pool
-    final DataRecord record = new DataRecord(dataDefinition.getName().getIdentifier(), constructor.getSignature(), attrDesc);
+    final DataRecord record = new DataRecord(dataDefinition.getName().getIdentifier(), 
+                                             constructor.getSignature(), 
+                                             methods, 
+                                             dataDefinition.isSealed());
     final int recordIndex = pool.addComponent(record);
 
-    //Make object statements
-    
-
-
+    /**
+     * One thing to note about DataDefinitions/records. 
+     * 
+     * While it's a DataDef is a distinct object at runtime,
+     * it acts as both a symbol and a function.
+     * 
+     * Given a data defintion:
+     * 
+     * data Sample {
+     *  constr() {
+     *   ....
+     *  }
+     * }
+     * 
+     * we instantiate like this:
+     * 
+     * const a := Sample(); //looks like a regular function call.
+     * 
+     * Sample <-> DataRecord corresponding to 'Sample'
+     * Sample() <-> a psuedo-function created at runtime to tie an object
+     *              to a DataRecord, and its associated methods bound to that object.
+     * 
+     * This internal "Sample()" is called first, then the code in constr() is called
+     * after. 
+     */
+    instrs.add(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADC, recordIndex));
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
@@ -959,7 +961,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
    * for load/store instructions
    */
   @Override
-  public NodeResult visitFuncDef(CompContext parentContext, FuncDef funcDef) {
+  public FuncResult visitFuncDef(CompContext parentContext, FuncDef funcDef) {
     final ConstantPool pool = parentContext.getConstantPool();
     final List<Instruction> instrs = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
@@ -1099,7 +1101,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     instrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
     instrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
-    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
+    return new FuncResult(exceptions, instrs, funcCodeObj);
   }
 
   @Override
@@ -1390,7 +1392,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                      descriptorIndex));
         constInstrs.add(new ArgInstr(attr.getValue().getName().start, 
                                      attr.getValue().getName().end, 
-                                     SETDESC, 
+                                     MAKECONST, 
                                      attrNameIndex));
       }
     }
@@ -1510,6 +1512,32 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   }
 
   @Override
+  public NodeResult visitConstAttrDeclr(CompContext parentContext, ConstAttrDeclr constAttrDeclr) {
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    final ConstantPool pool = parentContext.getConstantPool();
+
+    //Compile object target
+    constAttrDeclr.getAttr().getTarget()
+                            .accept(this, parentContext)
+                            .pipeErr(exceptions)
+                            .pipeInstr(instrs);
+
+    //Allocate attr name on constant pool
+    final int attrName = pool.addComponent(new StringConstant(constAttrDeclr.getAttr().getAttrName().getIdentifier()));
+
+    //Allocate int for modifier
+    final int constCode = pool.addComponent(new IntegerConstant(1));
+    instrs.add(new LoadCellInstr(constAttrDeclr.start, constAttrDeclr.end, LOADC, constCode));
+
+    //Use the SETDESC instr
+    instrs.add(new ArgInstr(constAttrDeclr.start, constAttrDeclr.end, MAKECONST, attrName));
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
+  }
+
+  @Override
   public NodeResult visitIndexAccess(CompContext parentContext, IndexAccess arrayAccess) {
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
@@ -1593,7 +1621,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                 EXPORTMV, 
                                 varLoadStore.store.getIndex()));
       }
-      if (Keyword.hasKeyword(TokenType.CONST, varDeclr.getDescriptors())) {
+      if (varDeclr.isConst()) {
         /*
         * If variable is constant, add EXPORTMV instruction (if it's module/top-level)
         * 

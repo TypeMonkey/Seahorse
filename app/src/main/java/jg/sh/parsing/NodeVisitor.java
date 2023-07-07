@@ -4,6 +4,7 @@ import jg.sh.parsing.nodes.IndexAccess;
 import jg.sh.parsing.nodes.ArrayLiteral;
 import jg.sh.parsing.nodes.AttrAccess;
 import jg.sh.parsing.nodes.BinaryOpExpr;
+import jg.sh.parsing.nodes.ConstAttrDeclr;
 import jg.sh.parsing.nodes.FuncCall;
 import jg.sh.parsing.nodes.FuncDef;
 import jg.sh.parsing.nodes.Identifier;
@@ -86,5 +87,7 @@ public interface NodeVisitor<T, C extends Context<?>> {
   public T visitTryCatchBlock(C parentContext, TryCatch tryCatch);
 
   public T visitWhileBlock(C parentContext, WhileBlock whileBlock);
+
+  public T visitConstAttrDeclr(C parentContext, ConstAttrDeclr constAttrDeclr);
   
 }

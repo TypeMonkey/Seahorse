@@ -1,4 +1,4 @@
-package jg.sh.compile;
+package jg.sh.compile.results;
 
 import java.util.Arrays;
 import java.util.Collections;

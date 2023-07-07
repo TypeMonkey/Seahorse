@@ -160,21 +160,20 @@ public enum OpCode {
   STOREATTR,
 
   /*
-   * Adds a modifier to an object's attribute.
+   * Makes an attribute on an object immutable.
    * 
    * This instruction requires an index which corresponds to the string attribute name on the constant pool
    * 
-   * TOP    -> modifierCode
+   * TOP    -> initialValue
    *         | target
    * BOTTOM ->
    * 
-   * This instruction re-pops the target object to the operand stack
+   * This instruction re-pops the value of the target object's attribute value.
    * 
-   * Modifier code corresponds to a positive, non-zero integer. At the moment,
-   * the Seahorse interpreter recoginizes the following modifier codes
-   *  -> 1 = const (make the attribute non re-assignable)
+   * Note: the attribute must be a new addition to the object. If this
+   *       instruction is used on an existing attribute, an error will be thrown.
    */
-  SETDESC,
+  MAKECONST,
   
   /*
    * Pushes the null address (0) to the operand stack
@@ -220,8 +219,8 @@ public enum OpCode {
   /*
    * Creates an instance of a function from a code object at the top of the operand stack
    * 
-   * TOP      -> self
-   *           | codeObject
+   * TOP      -> codeObject
+   *           | self
    * BOTTOM   ->
    * 
    * This instruction then pops the allocated callable function on the top of the operand stack
@@ -261,6 +260,18 @@ public enum OpCode {
    * BOTTOM
    */
   ALLOCO,
+
+  /**
+   * Instanitiates an object based on a data definition.
+   * 
+   * This instruction requires a numerica index on the constant pool, indicating
+   * the data record to use.
+   * 
+   * TOP -> argVector
+   *      |
+   * BOTTOM
+   */
+  ALLOCD,
   
   /*
    * Adds a value to the end of an array
@@ -327,6 +338,15 @@ public enum OpCode {
    * This instruction repops the argVector on the operand stack
    */
   ARG,
+
+  /**
+   * Seals an object from further attribute additions, removals and mutations.
+   * 
+   * TOP     -> object
+   *          |
+   * BOTTOM  ->
+   */
+  SEAL,
   
   /*
    * Dummy instruction. Does absolutely nothing

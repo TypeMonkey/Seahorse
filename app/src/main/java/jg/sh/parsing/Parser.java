@@ -17,6 +17,7 @@ import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.parsing.nodes.ArrayLiteral;
 import jg.sh.parsing.nodes.AttrAccess;
 import jg.sh.parsing.nodes.BinaryOpExpr;
+import jg.sh.parsing.nodes.ConstAttrDeclr;
 import jg.sh.parsing.nodes.FuncCall;
 import jg.sh.parsing.nodes.FuncDef;
 import jg.sh.parsing.nodes.Identifier;
@@ -317,13 +318,30 @@ public class Parser {
    *
    */
   private DataDefinition dataDefinition(Token dataKeyword) throws ParseException {
-    final boolean toExport = match(EXPORT);
+    boolean toExport = false, isSealed = false;
+
+    /**
+     * These if statements make sure that there's no duplicate
+     * export and/or sealed keywords
+     */
+    if (match(EXPORT)) {
+      toExport = true;
+      if (match(SEALED)) {
+        isSealed = true;
+      }
+    }
+    else if (match(SEALED)) {
+      isSealed = true;
+      if(match(EXPORT)) {
+        toExport = true;
+      }
+    }
+
     final Token dataTypeName = matchError(IDENTIFIER, null, toExport ? prev().getEnd() : dataKeyword.getEnd());
 
     matchError(LEFT_CURL, "'{' expected.", dataTypeName.getEnd());
 
     final LinkedHashMap<Identifier, FuncDef> methods = new LinkedHashMap<>();
-    final Set<Identifier> attributes = new HashSet<>();
 
     FuncDef constructor = null;
 
@@ -335,28 +353,13 @@ public class Parser {
       }
       else if(match(CONSTR)) {
         constructor = method = contructor(prev());
-
-        //Add parameters as attributes
-        for (Parameter parameter : constructor.getParameters().values()) {
-          if (attributes.contains(parameter.getName())) {
-            throw new ParseException("'"+parameter.getName().getIdentifier()+"' is already an attribute of '"+dataTypeName.getContent()+"'", 
-                                     method.getBoundName().start);
-          }
-          attributes.add(parameter.getName());
-        }
       }
       else {
         final Token unknown = peek();
         throw new ParseException("Unknown token '"+unknown.getContent()+"'", unknown.getStart(), unknown.getEnd());
       }
-
-      if (attributes.contains(method.getBoundName())) {
-        throw new ParseException("'"+method.getBoundName()+"' is already an attribute of '"+dataTypeName.getContent()+"'", 
-                                 method.getBoundName().start);
-      }
       
       methods.put(method.getBoundName(), method);
-      attributes.add(method.getBoundName());
     }
 
     if (constructor == null) {
@@ -373,7 +376,7 @@ public class Parser {
                                 Location.DUMMY, Location.DUMMY);
     }
 
-    return new DataDefinition(new Identifier(dataTypeName), constructor, methods, toExport, prev().getEnd());
+    return new DataDefinition(new Identifier(dataTypeName), constructor, methods, toExport, isSealed, prev().getEnd());
   }
 
   /**
@@ -775,6 +778,25 @@ public class Parser {
       result = new UnaryExpr(new Operator(unary), target);
       recent = result.end;
     }
+    else if(match(CONST)) {
+      final Node target = expr();
+      AttrAccess access = null;
+
+      while(match(DOT)) {
+        final Token dot = prev();
+        access = attrAccess(access == null ? target : access, dot);
+      }
+
+      if (access == null) {
+        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end);
+      }
+
+      matchError(ASSIGNMENT, "Missing assignment for immutable attribute declaration.", access.end);
+
+      final Node initValue = expr();
+      result = new ConstAttrDeclr(access, initValue);
+      recent = result.end;
+    }
     else {
       throw new ParseException("Unkown token '"+peek()+"'", peek().getEnd());
     }
@@ -800,7 +822,10 @@ public class Parser {
           result = attrAccess(result, op);
           recent = result.end;
           break;
-        }
+        } 
+        default: 
+          //This should never be thrown as we're matching for (, [ and .
+          throw new ParseException("Unknown token '"+op+"'.", op.getStart(), op.getEnd());
       }
     }
 

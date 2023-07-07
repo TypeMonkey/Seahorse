@@ -13,7 +13,7 @@ import jg.sh.parsing.nodes.Identifier;
  * 
  * Format:
  * 
- * data [export] <dataTypeName> {
+ * data [export] [sealed] <dataTypeName> {
  *  
  *   [ constr([parameter, ..... ]) {
  *       statements....
@@ -47,15 +47,18 @@ public class DataDefinition extends Statement {
   private final FuncDef constructor;
   private final LinkedHashMap<Identifier, FuncDef> methods;
   private final boolean toExport;
+  private final boolean isSealed;
 
   public DataDefinition(Identifier typeName, 
                         FuncDef constructor,
                         LinkedHashMap<Identifier, FuncDef> methods,
                         boolean toExport, 
+                        boolean isSealed,
                         Location end) {
     super(typeName.start, end);
     this.constructor = constructor;
     this.typeName = typeName;
+    this.isSealed = isSealed;
     this.methods = methods;
     this.toExport = toExport;
   }
@@ -79,5 +82,9 @@ public class DataDefinition extends Statement {
 
   public boolean toExport() {
     return toExport;
+  }
+
+  public boolean isSealed() {
+    return isSealed;
   }
 }
