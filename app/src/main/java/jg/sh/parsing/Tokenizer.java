@@ -170,11 +170,11 @@ public class Tokenizer implements Iterable<Token> {
               : new Token("%", TokenType.MOD, currentLine, startColumn));
         }
         case '<': {
-          return addToken(checkNext('<') ? new Token("<=", TokenType.LS_EQ, currentLine, startColumn, currentColumn)
+          return addToken(checkNext('=') ? new Token("<=", TokenType.LS_EQ, currentLine, startColumn, currentColumn)
               : new Token("<", TokenType.LESS, currentLine, startColumn));
         }
         case '>': {
-          return addToken(checkNext('>') ? new Token(">=", TokenType.GR_EQ, currentLine, startColumn, currentColumn)
+          return addToken(checkNext('=') ? new Token(">=", TokenType.GR_EQ, currentLine, startColumn, currentColumn)
               : new Token(">", TokenType.GREAT, currentLine, startColumn));
         }
         case '"': {
@@ -218,7 +218,6 @@ public class Tokenizer implements Iterable<Token> {
         case '\t':
           continue;
         case '\n': {
-          System.out.println("  ----- new line! " + currentLine);
           currentColumn = 1;
           currentLine++;
           continue;

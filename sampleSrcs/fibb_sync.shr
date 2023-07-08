@@ -1,3 +1,4 @@
+/*
 var yo := fibSlow(10);
 
 const a := 1589;
@@ -6,15 +7,18 @@ var start := system.now();
 1589+4245;
 var end := system.now();
 system.println("*** add Time: "+(end - start));
+*/
+
+use system;
 
 func fibSlow(n){
   if(n < 0){
      return -10000;
   }
-  elif(n == 0){
+  elif(n = 0){
      return 0;
   }
-  elif((n == 1) || (n == 2)){
+  elif((n = 1) || (n = 2)){
      return 1;
   }
   else{
@@ -39,8 +43,9 @@ func fib(n){
   }
 }
 
-start = system.now();
-var value := fibSlow(28);
-end = system.now();
+const start := system.now();
+const value := fibSlow(28);
+const end := system.now();
 system.println("*** fibbSlow(28) Time: "+(end - start));
+system.println("Result: "+value);
 

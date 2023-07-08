@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import jg.sh.irgen.instrs.OpCode;
+import jg.sh.compile.instrs.OpCode;
 
 public enum FuncOperatorCoupling {
 

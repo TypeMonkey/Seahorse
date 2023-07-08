@@ -2,7 +2,6 @@ package jg.sh.runtime.alloc;
 
 import java.util.Stack;
 
-import jg.sh.interpret.alloc.CallStack;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.frames.StackFrame;
 

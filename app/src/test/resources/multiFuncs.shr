@@ -4,8 +4,12 @@ func main(a, b) {
   println("hello world");
 }
 
-func help(a) {
+func help(const a) {
   if(a = 10) {
     main(a, self.main() + 1);
+  }
+
+  while(a != 10) {
+    
   }
 }

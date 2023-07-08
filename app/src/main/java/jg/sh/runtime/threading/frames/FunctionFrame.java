@@ -2,11 +2,11 @@ package jg.sh.runtime.threading.frames;
 
 import java.util.Map.Entry;
 
-import jg.sh.irgen.instrs.ArgInstr;
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.LoadCellInstr;
-import jg.sh.irgen.instrs.OpCode;
-import jg.sh.irgen.instrs.StoreCellInstr;
+import jg.sh.compile.instrs.ArgInstr;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.OpCode;
+import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
@@ -24,7 +24,6 @@ import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.RuntimeObject.AttrModifier;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 import jg.sh.runtime.objects.literals.RuntimeString;
@@ -516,7 +515,7 @@ public class FunctionFrame extends StackFrame {
           pushOperand(object.getAttr(attrName));
         }
         else {
-          System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet()+" | "+object.getClass()+" | "+instr.getLine());
+          System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet()+" | "+object.getClass()+" | "+instr.getStart());
           
           RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on object.");
           setErrorFlag(error);
@@ -881,8 +880,22 @@ public class FunctionFrame extends StackFrame {
         pushOperand(object);
         break;
       }
+      case ALLOCD:
+        break;
+      case BIND:
+        break;
+      case MAKECONST:
+        break;
+      case SEAL:
+        break;
+      case CALLA:
+      case CAPTURE:
+      case LADD:
+      case LOADSELF:
+        System.out.println("Deprecated opcode: "+instr+" >>>>>>>>>>>>>>>");
+        break;
       default:
-        System.err.println("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
+          System.err.println("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
       }
       
       incrmntInstrIndex();

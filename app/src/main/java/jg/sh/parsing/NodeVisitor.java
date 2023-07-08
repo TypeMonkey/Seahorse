@@ -14,12 +14,14 @@ import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.UnaryExpr;
-import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.statements.CaptureStatement;
 import jg.sh.parsing.nodes.statements.DataDefinition;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
+import jg.sh.parsing.nodes.statements.ThrowStatement;
 import jg.sh.parsing.nodes.statements.UseStatement;
+import jg.sh.parsing.nodes.statements.VarDeclr;
+import jg.sh.parsing.nodes.statements.VarDeclrList;
 import jg.sh.parsing.nodes.statements.blocks.Block;
 import jg.sh.parsing.nodes.statements.blocks.IfBlock;
 import jg.sh.parsing.nodes.statements.blocks.TryCatch;
@@ -89,5 +91,9 @@ public interface NodeVisitor<T, C extends Context<?>> {
   public T visitWhileBlock(C parentContext, WhileBlock whileBlock);
 
   public T visitConstAttrDeclr(C parentContext, ConstAttrDeclr constAttrDeclr);
+
+  public T visitThrowStatement(C parentContext, ThrowStatement throwStatement);
+
+  public T visitVarDeclrList(C parentContext, VarDeclrList varDeclrList);
   
 }

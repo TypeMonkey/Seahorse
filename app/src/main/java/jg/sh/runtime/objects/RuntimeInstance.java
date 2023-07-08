@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.OperationException;
 
 /**
  * Root type representing all runtime entities.
@@ -15,6 +16,8 @@ public abstract class RuntimeInstance implements Markable {
     
   protected final Map<String, RuntimeInstance> attributes;
   
+  private volatile boolean isSealed;
+
   private int gcFlag;
   
   public RuntimeInstance() {
@@ -23,11 +26,20 @@ public abstract class RuntimeInstance implements Markable {
   }
     
   public void setAttribute(String name, RuntimeInstance valueAddr) {
-    attributes.put(name, valueAddr);
+    if (isSealed) {
+      //throw new OperationException("can't mutate or append a sealed object.");
+    }
+    else {
+      attributes.put(name, valueAddr);
+    }
   }
   
   public RuntimeInstance getAttr(String name) {
     return attributes.get(name);
+  }
+
+  public void seal() {
+    this.isSealed = true;
   }
   
   public boolean hasAttr(String name) {
@@ -36,6 +48,10 @@ public abstract class RuntimeInstance implements Markable {
   
   public void setGcFlag(int gcFlag) {
     this.gcFlag = gcFlag;
+  }
+
+  public boolean isSealed() {
+    return isSealed;
   }
   
   public int getGcFlag() {

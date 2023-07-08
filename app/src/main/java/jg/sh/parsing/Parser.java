@@ -28,15 +28,16 @@ import jg.sh.parsing.nodes.ObjectLiteral;
 import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
-import jg.sh.parsing.nodes.ThrowStatement;
 import jg.sh.parsing.nodes.UnaryExpr;
-import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.FuncCall.Argument;
 import jg.sh.parsing.nodes.statements.CaptureStatement;
 import jg.sh.parsing.nodes.statements.DataDefinition;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
+import jg.sh.parsing.nodes.statements.ThrowStatement;
 import jg.sh.parsing.nodes.statements.UseStatement;
+import jg.sh.parsing.nodes.statements.VarDeclr;
+import jg.sh.parsing.nodes.statements.VarDeclrList;
 import jg.sh.parsing.nodes.statements.blocks.Block;
 import jg.sh.parsing.nodes.statements.blocks.IfBlock;
 import jg.sh.parsing.nodes.statements.blocks.TryCatch;
@@ -53,6 +54,7 @@ import jg.sh.parsing.token.TokenType;
 import static jg.sh.parsing.token.TokenType.*;
 
 public class Parser {
+
   private TokenizerIterator tokenStream;
 
   public Parser(Tokenizer tokenizer) {
@@ -127,36 +129,52 @@ public class Parser {
           statements.add(dataDef);
         }
       } 
-      else if (match(TokenType.CONST, TokenType.VAR)) {
-        final LinkedHashSet<VarDeclr> varDeclrs = varDeclrs(prev(), true);
+      else if (match(TokenType.CONST)) {
+        final Node varOrConstAttr = varDeclrOrConstAttr(prev());
 
+        if (varOrConstAttr instanceof VarDeclrList) {
+          final VarDeclrList varDeclrs = (VarDeclrList) varOrConstAttr;
 
-        matchError(SEMICOLON, "';' expected.", peek().getEnd());
+          for (VarDeclr modVar : varDeclrs.getVarDeclrs()) {
+            if (takenSymbols.contains(modVar.getName().getIdentifier())) {
+              throw new IllegalStateException("The top-level symbol '" + modVar.getName().getIdentifier() + "' is already taken");
+            } 
+            else {
+              takenSymbols.add(modVar.getName().getIdentifier());
+              statements.add(modVar);
+            } 
+          }
+        }
+        else {
+          //This is a const attr statement
+          statements.add(new Statement((ConstAttrDeclr) varOrConstAttr, varOrConstAttr.start, varOrConstAttr.end));
+        }
+      }
+      else if (match(TokenType.VAR)) {
+        final VarDeclrList varDeclrs = varDeclrs(prev());
 
-        for (VarDeclr modVar : varDeclrs) {
+        for (VarDeclr modVar : varDeclrs.getVarDeclrs()) {
           if (takenSymbols.contains(modVar.getName().getIdentifier())) {
             throw new IllegalStateException("The top-level symbol '" + modVar.getName().getIdentifier() + "' is already taken");
           } 
           else {
             takenSymbols.add(modVar.getName().getIdentifier());
-            statements.add(new Statement(modVar, 
-                                         modVar.getName().start, 
-                                         modVar.hasInitialValue() ? 
-                                            modVar.getInitialValue().end : 
-                                            modVar.getName().end));
+            statements.add(modVar);
           } 
         }
       } 
       else {
-        System.out.println("  ==> top level peek? "+peek());
+        //System.out.println("  ==> top level peek? "+peek());
 
         final Statement topLevelStatement = statement();
         statements.add(topLevelStatement);
+        /*
         System.out.println("---else: "+prev().getType());
         final Token unknown = peek();
         throw new ParseException("Unknown token '" + unknown.getContent() + "' at top level.", 
                                  unknown.getStart(), 
                                  unknown.getEnd());
+        */
       }
     }
 
@@ -200,7 +218,6 @@ public class Parser {
     else if(match(COLON)) {
       do {
         final Token compName = matchError(IDENTIFIER, "Component name expected.", prev().getEnd());
-        System.out.println(" ===> is compName null? "+(compName == null));
 
         if (match(AS)) {
           final Token compAlias = matchError(IDENTIFIER, "Component alias expected.", prev().getEnd());
@@ -280,8 +297,8 @@ public class Parser {
       matchError(RIGHT_PAREN, "')' expected.", prev().getEnd());
     }
 
-    System.out.println("params so far: "+paramMap.values());
-    System.out.println("=====> funcDef after rightParent: "+prev()+" | peeked: "+peek());
+    //System.out.println("params so far: "+paramMap.values());
+    //System.out.println("=====> funcDef after rightParent: "+prev()+" | peeked: "+peek());
 
     final Token leftCurly = matchError(LEFT_CURL, "'{' expected", prev().getEnd());
     final Block funcBlock = block(leftCurly);
@@ -497,15 +514,46 @@ public class Parser {
   }
 
   /**
+   * Parses either a VarDeclrList or a ConstAttrDeclr, or throws a ParseException
+   * if neither pattern is matched
+   */
+  private Node varDeclrOrConstAttr(Token constKeyword) throws ParseException {
+    final Token constToken = prev();
+    if(match(IDENTIFIER)) {
+      //This is a variable declaration
+      tokenStream.pushback();
+      return varDeclrs(constToken);
+    }
+    else {
+      final Node target = expr();
+      AttrAccess access = null;
+
+      while(match(DOT)) {
+        final Token dot = prev();
+        access = attrAccess(access == null ? target : access, dot);
+      }
+
+      if (access == null) {
+        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end);
+      }
+
+      matchError(ASSIGNMENT, "Missing assignment for immutable attribute declaration.", access.end);
+
+      final Node initValue = expr();
+      return new ConstAttrDeclr(access, initValue);
+    }
+  }
+
+  /**
    * Format:
    * 
-   * var [export] (varNam [:= expr],)+
+   * var [export] (varNam [:= expr],)+;
    * 
    * or 
    * 
-   * const (varName := expr,)+
+   * const [export] (varName := expr,)+;
    */
-  private LinkedHashSet<VarDeclr> varDeclrs(Token keyword, boolean isTopLevel) throws ParseException {
+  private VarDeclrList varDeclrs(Token keyword) throws ParseException {
     final HashSet<Keyword> descriptors = new HashSet<>();
 
     //check if var or const
@@ -514,7 +562,7 @@ public class Parser {
     }
 
     //check if exported or not (only top level!)
-    if (isTopLevel && match(EXPORT)) {
+    if (match(EXPORT)) {
       descriptors.add(new Keyword(prev()));
     }
 
@@ -557,11 +605,13 @@ public class Parser {
       vars.add(var);
     } while(match(COMMA));
 
-    return vars;
+    matchError(SEMICOLON, "';' expected.", recent);
+
+    return new VarDeclrList(vars, keyword.getStart(), recent);
   }
 
   private Statement statement() throws ParseException {
-    System.out.println(" ====> in statement: "+peek()+" "+prev());
+    //System.out.println(" ====> in statement: "+peek()+" "+prev());
 
     if (match(FUNC)) {
       final FuncDef funcDef = funcDef(prev(), false, false);
@@ -581,8 +631,6 @@ public class Parser {
 
       final Node returnValue = expr();
 
-      System.out.println(" ===> return statement: "+returnValue.repr());
-
       final Token semicolon = matchError(SEMICOLON, "';' expected.", returnValue.end);
       return new ReturnStatement(keyword, returnValue, semicolon.getEnd());
     }
@@ -601,6 +649,20 @@ public class Parser {
       //empty statement. Still valid
       final Token semicolon = prev();
       return new Statement(semicolon.getStart(), semicolon.getEnd());
+    }
+    else if(match(VAR)) {
+      return varDeclrs(prev());
+    }
+    else if(match(CONST)) {
+      final Node node = varDeclrOrConstAttr(prev());
+      if (node instanceof VarDeclrList) {
+        return (VarDeclrList) node;
+      }
+      else {
+        final ConstAttrDeclr constAttr = (ConstAttrDeclr) node;
+        matchError(SEMICOLON, "';' expected.", constAttr.end);
+        return new Statement(constAttr, constAttr.start, constAttr.end);
+      }
     }
     else {
       final Node expr = expr();
@@ -728,7 +790,7 @@ public class Parser {
     Node result = null;
     Location recent = null;
 
-    System.out.println("** new expr: "+peek());
+    //System.out.println("** new expr: "+peek());
 
     if (match(TRUE, FALSE)) {
       final Token boolToken = prev();
@@ -786,32 +848,13 @@ public class Parser {
       result = new UnaryExpr(new Operator(unary), target);
       recent = result.end;
     }
-    else if(match(CONST)) {
-      final Node target = expr();
-      AttrAccess access = null;
-
-      while(match(DOT)) {
-        final Token dot = prev();
-        access = attrAccess(access == null ? target : access, dot);
-      }
-
-      if (access == null) {
-        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end);
-      }
-
-      matchError(ASSIGNMENT, "Missing assignment for immutable attribute declaration.", access.end);
-
-      final Node initValue = expr();
-      result = new ConstAttrDeclr(access, initValue);
-      recent = result.end;
-    }
     /* 
     else {
       throw new ParseException("Unkown token '"+peek()+"'", peek().getEnd());
     }
     */
 
-    System.out.println("===> prior to binop: "+result);
+   // System.out.println("===> prior to binop: "+result);
 
     /**
      * Attribute access, function call and index access is more tightly bound
@@ -841,11 +884,13 @@ public class Parser {
       }
     }
 
+    //System.out.println("  ===>AFTER attr, arrayand call: "+result);
+
     //Exhaust binary operators
     result = binOpExpr(result);
     recent = result.end;
 
-    System.out.println(" **END: "+result.repr());
+    //System.out.println(" **END: "+result.repr());
     return result;
   }
 
@@ -869,11 +914,11 @@ public class Parser {
       final Operator operator = new Operator(op);
 
       final Node rightOperand = expr();
-      System.out.println("--left: "+leftOperand+" | --right: "+rightOperand+" | op: "+operator);
+      //System.out.println("--left: "+leftOperand+" | --right: "+rightOperand+" | op: "+operator);
       leftOperand = new BinaryOpExpr(leftOperand, rightOperand, operator);
     }
 
-    System.out.println(" ===> new binopexpr: "+leftOperand.repr());
+    //System.out.println(" ===> new binopexpr: "+leftOperand.repr());
 
     return leftOperand;
   }

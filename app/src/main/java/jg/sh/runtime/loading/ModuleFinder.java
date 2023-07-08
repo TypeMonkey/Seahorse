@@ -17,27 +17,11 @@ import java.util.Map.Entry;
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile_old.SeahorseCompiler;
-import jg.sh.compile_old.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile_old.validation.FileValidationReport;
-import jg.sh.compile_old.validation.Validator;
-import jg.sh.irgen.CompiledFile;
-import jg.sh.irgen.IRCompiler;
-import jg.sh.irgen.IRWriter;
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.JumpInstr;
-import jg.sh.irgen.instrs.LabelInstr;
-import jg.sh.irgen.pool.ConstantPool;
-import jg.sh.irgen.pool.component.BoolConstant;
-import jg.sh.irgen.pool.component.CodeObject;
-import jg.sh.irgen.pool.component.ErrorHandlingRecord;
-import jg.sh.irgen.pool.component.FloatConstant;
-import jg.sh.irgen.pool.component.IntegerConstant;
-import jg.sh.irgen.pool.component.PoolComponent;
-import jg.sh.irgen.pool.component.StringConstant;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
+import jg.sh.parsing.Module;
+import jg.sh.parsing.Parser;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
@@ -47,6 +31,21 @@ import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+
+import jg.sh.compile.IRCompiler;
+import jg.sh.compile.ObjectFile;
+import jg.sh.compile.SeahorseCompiler;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.JumpInstr;
+import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.pool.ConstantPool;
+import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.CodeObject;
+import jg.sh.compile.pool.component.ErrorHandlingRecord;
+import jg.sh.compile.pool.component.FloatConstant;
+import jg.sh.compile.pool.component.IntegerConstant;
+import jg.sh.compile.pool.component.PoolComponent;
+import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.util.StringUtils;
 
 public class ModuleFinder implements Markable {
@@ -241,7 +240,6 @@ public class ModuleFinder implements Markable {
   private NativeModule loadFromClassFile(File path){  
     try {
       //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
-      
                         
       URL [] classFileURLArray = {path.getParentFile().toURI().toURL()};
       
@@ -289,8 +287,9 @@ public class ModuleFinder implements Markable {
    */
   private RuntimeModule loadFromSHRFile(File path) {
     try {
-      Module module = compiler.formSourceFiles(path.toString())[0];
+      final Module module = compiler.compile(path.toString()).get(0);
       
+      /*
       if (options.containsKey(IOption.VALIDATE) && ((boolean) options.get(IOption.VALIDATE))) {
         Validator validator = new Validator();
         FileValidationReport report = validator.validate(module).get(module.getName());
@@ -299,11 +298,10 @@ public class ModuleFinder implements Markable {
           return null;
         }
       }
-      
-      IRCompiler irCompiler = new IRCompiler();
-      CompiledFile compiledFile = irCompiler.compileModules(module)[0];
-      
-      RuntimeModule runtimeModule = prepareModule(compiledFile);
+      */
+
+      final ObjectFile objectFile = compiler.generateByteCode(module).get(0);      
+      RuntimeModule runtimeModule = prepareModule(objectFile);
       return runtimeModule;
     } catch (Exception e) {
       System.out.println(e.getMessage());
@@ -325,8 +323,8 @@ public class ModuleFinder implements Markable {
    * Registers multiple CompiledFiles with this ModuleFinder
    * @param includedModules - the CompiledFiles to register
    */
-  public void registerModules(CompiledFile ... includedModules) {
-    for (CompiledFile compiledFile : includedModules) {
+  public void registerModules(List<ObjectFile> includedModules) {
+    for (ObjectFile compiledFile : includedModules) {
       registerModule(compiledFile);
     }
   }
@@ -339,7 +337,7 @@ public class ModuleFinder implements Markable {
    * 
    * @param compiledFile - the CompiledFile to register
    */
-  public void registerModule(CompiledFile compiledFile) {
+  public void registerModule(ObjectFile compiledFile) {
     //System.out.println(compiledFile);
     //System.out.println("------------- "+compiledFile.getName());
     
@@ -356,7 +354,7 @@ public class ModuleFinder implements Markable {
     modules.put(preparedModule.getName(), preparedModule);
   }
   
-  private RuntimeModule prepareModule(CompiledFile compiledFile) {
+  private RuntimeModule prepareModule(ObjectFile compiledFile) {
     HashMap<Integer, RuntimeInstance> constantMap = new HashMap<>();
     
     LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getPool());    
@@ -436,7 +434,6 @@ public class ModuleFinder implements Markable {
       }
       else if (component instanceof CodeObject) {
         CodeObject codeObject = (CodeObject) component;
-        
         codeObjects.put(i, codeObject);
       }
     }

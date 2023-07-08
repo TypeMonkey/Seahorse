@@ -69,6 +69,7 @@ public class InterpreterOptions {
      * 
      * Validation checks a module for important errors, such as unfound variable references.
      */
+    @Deprecated
     VALIDATE,
     
     /**
@@ -113,7 +114,6 @@ public class InterpreterOptions {
     DEFAULTS.put(IOption.LOAD_FROM_BYTE, true);
     DEFAULTS.put(IOption.MODULE_SEARCH, moduleSearch);
     DEFAULTS.put(IOption.ST_LIB_PATH, moduleSearch);
-    DEFAULTS.put(IOption.VALIDATE, true);
     DEFAULTS.put(IOption.MEASURE, false);
     DEFAULTS.put(IOption.POOL_SIZE, 1);
 

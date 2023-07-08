@@ -1,17 +1,19 @@
 package jg.sh;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import jg.sh.InterpreterOptions.IOption;
-import jg.sh.compile_old.CompilationException;
-import jg.sh.compile_old.SeahorseCompiler;
-import jg.sh.compile_old.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile_old.validation.FileValidationReport;
-import jg.sh.compile_old.validation.Validator;
-import jg.sh.irgen.CompiledFile;
-import jg.sh.irgen.IRCompiler;
+import jg.sh.compile.ObjectFile;
+import jg.sh.compile.SeahorseCompiler;
+import jg.sh.compile.exceptions.InvalidModulesException;
+import jg.sh.compile.exceptions.ValidationException;
+import jg.sh.parsing.Module;
 import jg.sh.runtime.alloc.CompactMarkSweepCleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.loading.ModuleFinder;
@@ -86,42 +88,37 @@ public class SeaHorseInterpreter {
    */
   public void executeModule(String module, String [] args){        
     try {
-      String [] otherModules = (String[]) options.get(IOption.ADDITIONAL);
-      
       //Put all modules in one array. First module is the module to execute.
-      String [] allModules = null;
+      final List<String> allModules = new ArrayList<>();
+      allModules.add(module);
+
+      final String [] otherModules = (String[]) options.get(IOption.ADDITIONAL);
+      
       if (otherModules != null && otherModules.length > 0) {
-        allModules = new String[1 + otherModules.length];
-        allModules[0] = module;
-        System.arraycopy(otherModules, 0, allModules, 1, otherModules.length);
-      }
-      else {
-        allModules = new String[1];
-        allModules[0] = module;
+        allModules.addAll(Arrays.asList(otherModules));
       }
       
+      //List of compiled modules given successful compilation
+      List<ObjectFile> compiledModules = null;
+
       //Now, parse all modules
-      Module [] rawModules = seahorseCompiler.formSourceFiles(allModules);
-      if (options.containsKey(IOption.VALIDATE) && ((boolean) options.get(IOption.VALIDATE)) ) {
-        Validator validator = new Validator();
-        Map<String, FileValidationReport> reports = validator.validate(rawModules);
-        
+      try {
+        final List<Module> rawModules = seahorseCompiler.compile(allModules);
+        compiledModules = seahorseCompiler.generateByteCode(rawModules);
+
+        System.out.println(compiledModules.stream().map(ObjectFile::toString).collect(Collectors.joining(System.lineSeparator())));
+      } catch (InvalidModulesException e) {
         /*
-         * Checks if any of the modules had a validation exception
+         * Print out (to stderr) all found errors. 
          */
-        boolean errorFound = reports.values().stream().anyMatch(x -> x.getExceptions().size() > 0);
-        
-        if (errorFound) {
-          for(Entry<String, FileValidationReport> report : reports.entrySet()) {
-            System.err.println("Validation errors for '"+report.getKey()+"': ");
-            for(CompilationException exception : report.getValue().getExceptions()) {
-              System.err.println("  -> "+exception.getMessage());
-              errorFound = true;
-            }
+        for (Entry<String, List<ValidationException>> res : e.getModuleExceptions().entrySet()) {
+          System.err.println("Validation errors for '"+res.getKey()+"': ");
+          for (ValidationException exception : res.getValue()) {
+            System.err.println("  -> "+exception.getMessage());
           }
-          System.out.println("Interpreter exiting.....");
-          return;
         }
+        System.out.println("Interpreter exiting......");
+        return;
       }
       
       /*
@@ -133,18 +130,15 @@ public class SeaHorseInterpreter {
       
       //Do code gen and then execution
       {
-        IRCompiler compiler = new IRCompiler();
-        CompiledFile [] compiledFiles = compiler.compileModules(rawModules);
-        
         //Call GC to hopefully clear out the pre-bytecode objects
         
         System.out.println("   *** PROFILE POINT: After Parsing --: "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
         System.gc();
         System.out.println("   *** PROFILE POINT: After Parsing GC: "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
               
-        finder.registerModules(compiledFiles);
+        finder.registerModules(compiledModules);
         try {
-          RuntimeModule mainModule = finder.getModule(compiledFiles[0].getName());
+          RuntimeModule mainModule = finder.getModule(compiledModules.get(0).getName());
           manager.spinFiber((RuntimeCallable) mainModule.getModuleCallable(), new ArgVector());
           
           if (options.containsKey(IOption.MEASURE) && ((boolean) options.get(IOption.MEASURE))) {

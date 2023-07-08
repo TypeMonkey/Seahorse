@@ -1,4 +1,4 @@
-package jg.sh.irgen;
+package jg.sh.runtime.loading;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -8,24 +8,16 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import jg.sh.InterpreterOptions;
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile_old.SeahorseCompiler;
-import jg.sh.compile_old.parsing.nodes.atoms.constructs.Module;
-import jg.sh.irgen.instrs.ArgInstr;
-import jg.sh.irgen.instrs.CommentInstr;
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.JumpInstr;
-import jg.sh.irgen.instrs.LabelInstr;
-import jg.sh.irgen.instrs.LoadCellInstr;
-import jg.sh.irgen.instrs.NoArgInstr;
-import jg.sh.irgen.instrs.StoreCellInstr;
-import jg.sh.runtime.alloc.HeapAllocator;
-import jg.sh.runtime.loading.ContextualInstr;
-import jg.sh.runtime.loading.IndexedJumpInstr;
-import jg.sh.runtime.loading.ModuleFinder;
-import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.compile.instrs.ArgInstr;
+import jg.sh.compile.instrs.CommentInstr;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.JumpInstr;
+import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.NoArgInstr;
+import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.literals.RuntimeBool;
@@ -266,7 +258,7 @@ public class IRWriter {
       result += ", "+ARG+": "+instr.getIndex();
     }
     
-    result += ", "+LINE+": "+instruction.getLine()+", "+COL+": "+instruction.getCol()+", "+ERR_JUMP+": "+contextualInstr.getExceptionJumpIndex()+"}";
+    result += ", "+LINE+": "+instruction.getStart().line+", "+COL+": "+instruction.getStart().column+", "+ERR_JUMP+": "+contextualInstr.getExceptionJumpIndex()+"}";
     return result;
   }
 }

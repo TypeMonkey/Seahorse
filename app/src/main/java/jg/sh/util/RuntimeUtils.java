@@ -1,11 +1,6 @@
 package jg.sh.util;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-
-import jg.sh.irgen.instrs.OpCode;
-import jg.sh.modules.NativeModule;
-import jg.sh.modules.NativeModuleDiscovery;
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.objects.ArgVector;

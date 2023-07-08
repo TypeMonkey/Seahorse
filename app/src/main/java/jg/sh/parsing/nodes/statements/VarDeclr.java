@@ -1,4 +1,4 @@
-package jg.sh.parsing.nodes;
+package jg.sh.parsing.nodes.statements;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -7,7 +7,9 @@ import java.util.Set;
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.NodeVisitor;
-import jg.sh.parsing.token.TokenType;
+import jg.sh.parsing.nodes.Identifier;
+import jg.sh.parsing.nodes.Keyword;
+import jg.sh.parsing.nodes.Node;
 
 /**
  * Declares a variable in the current scope.
@@ -20,7 +22,7 @@ import jg.sh.parsing.token.TokenType;
  * 
  * const (varName := expr,)+;
  */
-public class VarDeclr extends Node {
+public class VarDeclr extends Statement {
 
   private final Identifier name;
   private final boolean isConst;

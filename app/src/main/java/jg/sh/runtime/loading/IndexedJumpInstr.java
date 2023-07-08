@@ -1,14 +1,14 @@
 package jg.sh.runtime.loading;
 
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.JumpInstr;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.JumpInstr;
 
-public class IndexedJumpInstr extends Instruction{
+public class IndexedJumpInstr extends Instruction {
   
   private final int jumpIndex;
 
   public IndexedJumpInstr(JumpInstr instr, int jumpIndex) {
-    super(instr.getLine(), instr.getCol(), instr.getOpCode());
+    super(instr.getStart(), instr.getEnd(), instr.getOpCode());
     
     this.jumpIndex = jumpIndex;
   }

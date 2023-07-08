@@ -1,6 +1,6 @@
 package jg.sh.runtime.loading;
 
-import jg.sh.irgen.instrs.Instruction;
+import jg.sh.compile.instrs.Instruction;
 
 public class ContextualInstr {
   private final Instruction instr;

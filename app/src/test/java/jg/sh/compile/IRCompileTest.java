@@ -4,15 +4,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
-import jg.sh.compile.IRCompiler.CompilerResult;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;
-import jg.sh.parsing.ParserTest;
 import jg.sh.parsing.Tokenizer;
 import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.util.StringUtils;

@@ -14,16 +14,16 @@ import com.google.gson.JsonParser;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile_old.parsing.nodes.ReservedWords;
-import jg.sh.irgen.instrs.ArgInstr;
-import jg.sh.irgen.instrs.CommentInstr;
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.JumpInstr;
-import jg.sh.irgen.instrs.LabelInstr;
-import jg.sh.irgen.instrs.LoadCellInstr;
-import jg.sh.irgen.instrs.NoArgInstr;
-import jg.sh.irgen.instrs.OpCode;
-import jg.sh.irgen.instrs.StoreCellInstr;
+import jg.sh.common.Location;
+import jg.sh.compile.instrs.ArgInstr;
+import jg.sh.compile.instrs.CommentInstr;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.JumpInstr;
+import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.NoArgInstr;
+import jg.sh.compile.instrs.OpCode;
+import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
@@ -131,11 +131,13 @@ public class IRReader {
   }
   
   public static FunctionSignature parseSignature(JsonObject object) {
+    /*
     HashSet<ReservedWords> modifiers = new HashSet<>();  
     JsonArray rawModifiers = object.get(MODIFIERS).getAsJsonArray();
     for(int i = 0; i < rawModifiers.size(); i++) {
       modifiers.add(ReservedWords.values()[rawModifiers.get(i).getAsInt()]);
     }
+    */
     
     final int positionalCount = object.get(POSITIONAL_CNT).getAsInt();
     
@@ -146,7 +148,7 @@ public class IRReader {
     }
     
     final boolean hasVariableArgs = object.get(HAS_VAR_PARAMS).getAsBoolean();
-    return new FunctionSignature(positionalCount, keywordParams);
+    return new FunctionSignature(positionalCount, keywordParams, hasVariableArgs);
   }
   
   public static RuntimeInstance allocatePoolComponent(HeapAllocator allocator, JsonObject object) {
@@ -176,18 +178,20 @@ public class IRReader {
     int line = instr.get(LINE).getAsInt();
     int col = instr.get(COL).getAsInt();
     int errJump = instr.get(ERR_JUMP).getAsInt();
+
+    final Location location = new Location(line, col);
     
     Instruction actualInstr = null;
     
     switch (opCode) {
     case LABEL:
-      actualInstr = new LabelInstr(line, col, instr.get(ARG).getAsString());
+      actualInstr = new LabelInstr(location, location, instr.get(ARG).getAsString());
       break;
     case COMMENT:
-      actualInstr = new CommentInstr(line, col, instr.get(ARG).getAsString());
+      actualInstr = new CommentInstr(location, location, instr.get(ARG).getAsString());
       break;
     case PASS:
-      actualInstr = new NoArgInstr(line, col, opCode);
+      actualInstr = new NoArgInstr(location, location, opCode);
       break;
     case REQUAL:
     case EQUAL:
@@ -228,51 +232,51 @@ public class IRReader {
     case ALLOCF:
     case ALLOCA:
     case ALLOCO:
-      actualInstr = new NoArgInstr(line, col, opCode);
+      actualInstr = new NoArgInstr(location, location, opCode);
       break;
     
     case JUMP:
     case JUMPT:
     case JUMPF:
-      actualInstr = new IndexedJumpInstr(new JumpInstr(line, col, opCode, null), 
+      actualInstr = new IndexedJumpInstr(new JumpInstr(location, location, opCode, null), 
                                          instr.get(ARG).getAsInt());
       break;
     
     case EXPORTMV:
     case CONSTMV:
     case ARG:
-      actualInstr = new ArgInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new ArgInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
       
     case LOADC:
-      actualInstr = new ArgInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new ArgInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case LOAD:
-      actualInstr = new LoadCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new LoadCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case STORE:
-      actualInstr = new StoreCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new StoreCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case LOADATTR:
-      actualInstr = new LoadCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new LoadCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case STOREATTR:
-      actualInstr = new StoreCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new StoreCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case LOAD_CL:
-      actualInstr = new LoadCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new LoadCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case STORE_CL:
-      actualInstr = new StoreCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new StoreCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case LOADMV:
-      actualInstr = new LoadCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new LoadCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     case STOREMV:
-      actualInstr = new StoreCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new StoreCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;      
     case LOADMOD:
-      actualInstr = new LoadCellInstr(line, col, opCode, instr.get(ARG).getAsInt());
+      actualInstr = new LoadCellInstr(location, location, opCode, instr.get(ARG).getAsInt());
       break;
     default:
       break;

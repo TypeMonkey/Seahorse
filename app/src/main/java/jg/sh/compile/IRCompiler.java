@@ -1,18 +1,20 @@
 package jg.sh.compile;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.Map.Entry;
 
 import jg.sh.common.Location;
-import jg.sh.common.OperatorKind;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompContext.ContextType;
 import jg.sh.compile.CompContext.IdentifierInfo;
@@ -52,12 +54,14 @@ import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.UnaryExpr;
-import jg.sh.parsing.nodes.VarDeclr;
 import jg.sh.parsing.nodes.statements.CaptureStatement;
 import jg.sh.parsing.nodes.statements.DataDefinition;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
+import jg.sh.parsing.nodes.statements.ThrowStatement;
 import jg.sh.parsing.nodes.statements.UseStatement;
+import jg.sh.parsing.nodes.statements.VarDeclr;
+import jg.sh.parsing.nodes.statements.VarDeclrList;
 import jg.sh.parsing.nodes.statements.blocks.Block;
 import jg.sh.parsing.nodes.statements.blocks.IfBlock;
 import jg.sh.parsing.nodes.statements.blocks.TryCatch;
@@ -79,33 +83,6 @@ import static jg.sh.compile.results.NodeResult.*;
 import static jg.sh.compile.instrs.OpCode.*;
 
 public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
-
-  public static class CompilerResult {
-    private final ObjectFile objectFile;
-    private final List<ValidationException> validationExceptions;
-
-    public CompilerResult(ObjectFile objectFile) {
-      this.objectFile = objectFile;
-      this.validationExceptions = null;
-    }
-
-    public CompilerResult(List<ValidationException> validationExceptions) {
-      this.validationExceptions = validationExceptions;
-      this.objectFile = null;
-    }
-
-    public boolean isSuccessful() {
-      return objectFile != null;
-    }
-
-    public ObjectFile getObjectFile() {
-      return objectFile;
-    }
-
-    public List<ValidationException> getValidationExceptions() {
-      return validationExceptions;
-    }
-  }
 
   public IRCompiler() {}
 
@@ -188,13 +165,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      */
     final ArrayList<Pair<Statement, NodeResult>> toCompile = new ArrayList<>();
 
+    final ArrayDeque<Statement> topLevelStatements = new ArrayDeque<>(module.getStatements());
+
     /**
      * Iterate through statements and for functions and data definitions,
      * generate load and store instructions, but don't compile their bodies.
      * 
      * For Variable declarations, do both.
      */
-    for (Statement statement : module.getStatements()) {
+    while (!topLevelStatements.isEmpty()) {
+      final Statement statement = topLevelStatements.pop();
       if(statement instanceof DataDefinition){
         final DataDefinition dataDef = (DataDefinition) statement;
 
@@ -236,8 +216,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           moduleContext.addVariable(func.getBoundName().getIdentifier(), funcDefModVar);
         }
       }
-      else if(statement.getExpr() instanceof VarDeclr) {
-        final VarDeclr varDeclr = (VarDeclr) statement.getExpr();
+      else if(statement instanceof VarDeclr) {
+        final VarDeclr varDeclr = (VarDeclr) statement;
 
         System.out.println(" ===> compiling module variable "+varDeclr.getName()+" NOW!");
 
@@ -255,14 +235,27 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                                  varDeclr.getName().end));
         }
         else if(varResult.hasExceptions()) {
+          System.out.println("--- exceptions!!! "+varResult.getExceptions());
           exceptions.addAll(varResult.getExceptions());
         }
         else {
+          System.out.println(" ==> top level lookup for: "+varDeclr.getName()+" gave "+varResult.getVars().get(varDeclr.getName()));
+
           takenTopLevelSymbols.add(varDeclr.getName());
           moduleContext.addVariable(varDeclr.getName().getIdentifier(), 
                                     varResult.getVars().get(varDeclr.getName()), 
                                     varDeclr.getDescriptors());
           toCompile.add(new Pair<>(statement, varResult));
+        }
+      }
+      else if(statement instanceof VarDeclrList) {
+        final VarDeclrList varDeclrList = (VarDeclrList) statement;
+
+        System.out.println(" ===> compiling module variables "+varDeclrList.getVarDeclrs()+" NOW!");
+
+        final ArrayList<VarDeclr> vars = new ArrayList<>(varDeclrList.getVarDeclrs());
+        for (int i = vars.size() - 1; i >= 0; i--) {
+          topLevelStatements.addFirst(vars.get(i));
         }
       }
       else {
@@ -306,9 +299,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           instrs.add(new ArgInstr(func.start, func.end, EXPORTMV, funcIdenInfo.getStoreInstr().getIndex()));
         }
       }
-      else if(result.first.getExpr() instanceof VarDeclr) {
+      else if(result.first instanceof VarDeclr) {
         //This component has already been validated + compiled 
-        final VarDeclr varDeclr = (VarDeclr) result.first.getExpr();
+        final VarDeclr varDeclr = (VarDeclr) result.first;
         final VarResult vResult = (VarResult) result.second;
         final LoadStorePair loadStore = vResult.getVars().get(varDeclr.getName());
 
@@ -338,6 +331,18 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     return statement.getExpr() == null ? 
               valid(new NoArgInstr(statement.start, statement.end, PASS)) : 
               statement.getExpr().accept(this, parentContext);
+  }
+
+  @Override
+  public NodeResult visitThrowStatement(CompContext parentContext, ThrowStatement throwStatement) {
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    throwStatement.accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
+
+    instrs.add(new NoArgInstr(throwStatement.start, throwStatement.end, RETE));
+
+    return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
   @Override
@@ -552,10 +557,14 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitBlock(CompContext parentContext, Block block) {
+    System.out.println(" ===> in block: "+block.start+" | "+block.end);
     return compileStatements(block.getStatements(), parentContext, block.start, block.end);
   }
 
   private NodeResult compileStatements(List<Statement> stmts, CompContext parentContext, Location start, Location end) {
+    System.out.println("--- compiling statements: "+stmts);
+    final ArrayDeque<Statement> stmtDeque = new ArrayDeque<>(stmts);
+
     final List<Instruction> instrs = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
@@ -569,7 +578,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * 
      * For Variable declarations, do both.
      */
-    for (Statement stmt : stmts) {
+    while (!stmtDeque.isEmpty()) {
+      final Statement stmt = stmtDeque.poll();
+
+      System.out.println("  ==> stmt class? "+stmt.getClass());
+
       if (stmt.getExpr() instanceof FuncDef) {
         final FuncDef func = (FuncDef) stmt.getExpr();
         if (func.hasBoundName()) {
@@ -579,9 +592,12 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
         toCompile.add(new Pair<>(stmt, null));
       }
-      else if(stmt.getExpr() instanceof VarDeclr) {
-        final VarDeclr varDeclr = (VarDeclr) stmt.getExpr();
+      else if(stmt instanceof VarDeclr) {
+        final VarDeclr varDeclr = (VarDeclr) stmt;
         final IdentifierInfo existingVar = blockContext.getVariable(varDeclr.getName().getIdentifier());
+
+        System.out.println(" ===> compiling var: "+varDeclr);
+
         if (existingVar != null && existingVar.getContext().getCurrentContext() != ContextType.MODULE) {
           /*
            * Check if a variable in the current scope (or any enclosing one) of the same name exists.
@@ -602,6 +618,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                    varResult.getVars().get(varDeclr.getName()), 
                                    varDeclr.getDescriptors());
           toCompile.add(new Pair<>(stmt, varResult));
+        }
+      }
+      else if(stmt instanceof VarDeclrList) {
+        final VarDeclrList varDeclrList = (VarDeclrList) stmt;
+
+        //System.out.println(" ===> compiling variables "+varDeclrList.getVarDeclrs()+" NOW!");
+
+        final ArrayList<VarDeclr> vars = new ArrayList<>(varDeclrList.getVarDeclrs());
+        for (int i = vars.size() - 1; i >= 0; i--) {
+          stmtDeque.addFirst(vars.get(i));
         }
       }
       else {
@@ -626,9 +652,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           instrs.add(funcIdenInfo.getStoreInstr());
         }
       }
-      else if(target.first.getExpr() instanceof VarDeclr) {
+      else if(target.first instanceof VarDeclr) {
         //This component has already been validated + compiled 
-        final VarDeclr varDeclr = (VarDeclr) target.first.getExpr();
+        final VarDeclr varDeclr = (VarDeclr) target.first;
         final VarResult vResult = (VarResult) target.second;
         final LoadStorePair loadStore = vResult.getVars().get(varDeclr.getName());
 
@@ -1100,7 +1126,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
     final Op op = binaryOpExpr.getOperator().getOp();
 
-    System.out.println(" ===> binary expr: "+binaryOpExpr.repr());
+    //System.out.println(" ===> binary expr: "+binaryOpExpr.repr());
 
     if(op == Op.ASSIGNMENT) {
       /*
@@ -1292,7 +1318,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
     }
 
-    System.out.println("=== binary op expr: "+binaryOpExpr+" instrs: "+instrs);
+    //System.out.println("=== binary op expr: "+binaryOpExpr+" instrs: "+instrs);
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -1531,7 +1557,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     /*
      * If this is an assignment/storage operation, use STOREATTR 
      */
-    if ((boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
+    if (parentContext.hasContextValue(ContextKey.NEED_STORAGE) && (boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
       instructions.add(new NoArgInstr(arrayAccess.start, arrayAccess.end, STOREIN));
     }
     else {
@@ -1539,6 +1565,24 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     }
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
+  }
+
+  @Override
+  public VarResult visitVarDeclrList(CompContext parentContext, VarDeclrList varDeclrList) {
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+    final LinkedHashMap<Identifier, LoadStorePair> vars = new LinkedHashMap<>();
+
+    for (VarDeclr var : varDeclrList.getVarDeclrs()) {
+      final VarResult result = (VarResult) var.accept(this, parentContext);
+      result.pipeErr(exceptions).pipeInstr(instrs);
+
+      if (!result.hasExceptions()) {
+        vars.putAll(result.getVars());
+      }
+    }
+ 
+    return new VarResult(exceptions, vars, instrs);
   }
 
   /**
@@ -1550,6 +1594,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final VarAllocator varAllocator = (VarAllocator) parentContext.getValue(ContextKey.VAR_ALLOCATOR);
     final LoadStorePair varLoadStore = varAllocator.generate(varDeclr.getName().getIdentifier(), varDeclr.start, varDeclr.end);
 
+    final List<ValidationException> exceptions = new ArrayList<>();
     final List<Instruction> instrs = new ArrayList<>();
     
     if (varDeclr.hasInitialValue()) {
@@ -1568,15 +1613,20 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     //Store value in variable
     instrs.add(varLoadStore.store);
 
-    if (!parentContext.isWithinContext(ContextType.FUNCTION)) {
+    if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
+
       /**
        * We only add special instructions for export/const
        * if the variable is a module/top-level variable.
        * 
        * We can determine this if the variable isn't within a function.
        */
-
-      if (Keyword.hasKeyword(TokenType.EXPORT, varDeclr.getDescriptors())) {
+      if (parentContext.isWithinContext(ContextType.FUNCTION)) {
+        exceptions.add(new ValidationException("'"+varDeclr.getName().getIdentifier()+"' can't be exported as it's a local variable", 
+                                                varDeclr.getName().start, 
+                                                varDeclr.getName().end));
+      }
+      else {
         /*
         * If variable is exported, add EXPORTMV instruction
         * 
@@ -1587,20 +1637,23 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                 EXPORTMV, 
                                 varLoadStore.store.getIndex()));
       }
-      if (varDeclr.isConst()) {
-        /*
-        * If variable is constant, add EXPORTMV instruction (if it's module/top-level)
-        * 
-        * If it's local, then there's no need to do anything.
-        * 
-        * (only module/top-level variable can be exported)
-        */
-        instrs.add(new ArgInstr(varDeclr.getName().start, 
-                                varDeclr.getName().end, 
-                                CONSTMV, 
-                                varLoadStore.store.getIndex()));
-        }
     }
+    if (varDeclr.isConst()) {
+      /*
+      * If variable is constant, add CONSTMV instruction (if it's module/top-level)
+      * 
+      * If it's local, then there's no need to do anything.
+      * 
+      * (only module/top-level variable can be exported)
+      */
+      if (!parentContext.isWithinContext(ContextType.FUNCTION)) {
+        instrs.add(new ArgInstr(varDeclr.getName().start, 
+                              varDeclr.getName().end, 
+                              CONSTMV, 
+                              varLoadStore.store.getIndex()));
+      }
+    }
+  
 
     return VarResult.single(varDeclr.getName(), varLoadStore, instrs);
   }
