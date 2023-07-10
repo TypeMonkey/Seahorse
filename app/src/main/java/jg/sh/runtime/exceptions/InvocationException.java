@@ -2,7 +2,6 @@ package jg.sh.runtime.exceptions;
 
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.callable.Callable;
-import jg.sh.runtime.objects.literals.RuntimeString;
 
 public class InvocationException extends Exception {
   

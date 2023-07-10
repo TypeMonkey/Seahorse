@@ -75,10 +75,18 @@ public enum OpCode {
   
   /*
    * Will treat the object on top of the operand stack as a function.
+   * If the value on top of the operand stack is a data record, then it this 
+   * instruction will intiaite the object instatiation process.
+   * 
+   * Object instantiation process:
+   * 1.) Allocate empty RuntimeObject
+   * 2.) Set immutable $type field to be the data record
+   * 3.) Call constructor with the RuntimeObject
+   * 4.) Seal object if data record is sealed
    * 
    * The return value returned by the function will be popped to the top of the operand stack
    * 
-   * TOP    -> callable
+   * TOP    -> callable or dataRecord
    *         | argVector  <- should include "self"
    * BOTTOM ->
    * 
@@ -271,18 +279,6 @@ public enum OpCode {
    * BOTTOM
    */
   ALLOCO,
-
-  /**
-   * Instanitiates an object based on a data definition.
-   * 
-   * This instruction requires a numerica index on the constant pool, indicating
-   * the data record to use.
-   * 
-   * TOP -> argVector
-   *      |
-   * BOTTOM
-   */
-  ALLOCD,
   
   /*
    * Adds a value to the end of an array
@@ -329,6 +325,27 @@ public enum OpCode {
    * Makes an empty argVector and pushes it on the operand stack
    */
   MAKEARGV,
+
+  /**
+   * Checks if an ArgVector has a given optional/keyword argument
+   * 
+   * This opcode requires an index correlating to the keyword (as a string)
+   * to check for.
+   * 
+   * TOP    -> ArgVector
+   *         |
+   * BOTTOM ->
+   * 
+   * At the completion of this instruction, the ArgVector is popped back into the operand stack
+   * , and then the boolean value (true: ArgVector has been provided with the optional argument, false if else.)
+   * 
+   * So, the result state should be:
+   * 
+   * TOP     -> true or false
+   *          | ArgVector
+   * BOTTOM  -<
+   */
+  HAS_KARG,
   
   /*
    * Treats the value on top of the operand stack as a function argument.

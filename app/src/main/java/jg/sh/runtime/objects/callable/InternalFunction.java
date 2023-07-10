@@ -2,6 +2,7 @@ package jg.sh.runtime.objects.callable;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.SealedObjectException;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.threading.fiber.Fiber;
@@ -34,7 +35,7 @@ public abstract class InternalFunction {
     this.signature = signature;
   }
 
-  public abstract RuntimeInstance invoke(Fiber thread, ArgVector args) throws InvocationException;
+  public abstract RuntimeInstance invoke(Fiber thread, ArgVector args) throws InvocationException, SealedObjectException;
   
   public FunctionSignature getSignature() {
     return signature;
@@ -48,7 +49,7 @@ public abstract class InternalFunction {
    */
   public static InternalFunction create(FunctionSignature signature, InternalFuncInterface func) {
     return new InternalFunction(signature) {
-      public RuntimeInstance invoke(Fiber thread, ArgVector args) throws InvocationException {
+      public RuntimeInstance invoke(Fiber thread, ArgVector args) throws InvocationException, SealedObjectException {
         return func.call(thread, args);
       }
     };

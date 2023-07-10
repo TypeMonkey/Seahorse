@@ -32,7 +32,7 @@ import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
  * values, ranging from functions dealing with I/O to arithmetic. 
  * @author Jose
  */
-public class SystemModule extends NativeModule{
+public class SystemModule extends NativeModule {
   public static final String SYSTEM_NAME = "system";
   
   private static SystemModule runtimeModule_INSTANCE;
@@ -46,7 +46,7 @@ public class SystemModule extends NativeModule{
   }
   
   @Override
-  public void initModule(RuntimeObject systemObject)  {    
+  public void initModule(RuntimeObject systemObject) {    
     systemObject.setAttribute("print", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         System.out.print(args.getPositional(ARG_INDEX));

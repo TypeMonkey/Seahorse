@@ -83,15 +83,16 @@ public class RuntimeArray extends RuntimeInstance {
   private final List<RuntimeInstance> array;
   
   public RuntimeArray() {
+    super((self, m) -> {
+      RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
+    
+      m.put("size", new ImmediateInternalCallable(systemModule, self, SIZE));
+      m.put("add", new ImmediateInternalCallable(systemModule, self, ADD));
+      m.put("toString", new ImmediateInternalCallable(systemModule, self, TO_STRING));
+      m.put(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
+      m.put(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
+    });
     array = new ArrayList<>();
-    
-    RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
-    
-    setAttribute("size", new ImmediateInternalCallable(systemModule, this, SIZE));
-    setAttribute("add", new ImmediateInternalCallable(systemModule, this, ADD));
-    setAttribute("toString", new ImmediateInternalCallable(systemModule, this, TO_STRING));
-    setAttribute(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, RETR_INDEX));
-    setAttribute(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, STORE_INDEX));
   }
   
   public synchronized void addValue(RuntimeInstance valueLoc) {

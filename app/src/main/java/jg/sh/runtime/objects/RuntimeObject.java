@@ -10,6 +10,8 @@ import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.OperationException;
+import jg.sh.runtime.exceptions.SealedObjectException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
@@ -51,15 +53,16 @@ public class RuntimeObject extends RuntimeInstance {
     (fiber, args) -> {
       RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);     
       RuntimeInstance index = args.getPositional(ARG_INDEX);
+      RuntimeInstance newValue = args.getPositional(ARG_INDEX + 1);
       
       if (index instanceof RuntimeString) {
         RuntimeString string = (RuntimeString) index;
-        self.setAttribute(string.getValue(), args.getPositional(ARG_INDEX + 1));
+        self.setAttribute(string.getValue(), newValue);
         return RuntimeNull.NULL;
       }
       else if (index instanceof RuntimeInteger) {
         RuntimeInteger integer = (RuntimeInteger) index;
-        self.setAttribute(String.valueOf(integer.getValue()), args.getPositional(ARG_INDEX + 1));
+        self.setAttribute(String.valueOf(integer.getValue()), newValue);
         return RuntimeNull.NULL;
       }
       
@@ -74,12 +77,13 @@ public class RuntimeObject extends RuntimeInstance {
   private final Map<String, Set<AttrModifier>> attrDescriptions;
   
   public RuntimeObject() {
+    super((self, m) -> {
+      RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
+    
+      m.put(RuntimeArray.STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
+      m.put(RuntimeArray.RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
+    });
     attrDescriptions = new HashMap<>();
-    
-    RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
-    
-    setAttribute(RuntimeArray.STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, STORE_INDEX));
-    setAttribute(RuntimeArray.RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, this, RETR_INDEX));
   }
   
   public Set<AttrModifier> getAttrModifiers(String name) {

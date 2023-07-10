@@ -3,6 +3,8 @@ package jg.sh.runtime.threading.frames;
 import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.Map.Entry;
 
 import jg.sh.common.FunctionSignature;
@@ -61,12 +63,16 @@ public abstract class StackFrame implements Markable {
     
   //private StackFrame prevFrame;
   //private StackFrame nextFrame;
-  
-  public StackFrame(RuntimeModule hostModule, Callable callable) {
+
+  public StackFrame(RuntimeModule hostModule, Callable callable, BiConsumer<RuntimeInstance, Throwable> atCompletion) {
     this.callable = callable;
     this.returnValue = new CompletableFuture<>();
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
+
+    if(atCompletion != null){
+      this.returnValue.whenComplete(atCompletion);
+    }
     //this.leftOver = RuntimeNull.NULL;
   } 
     
@@ -109,6 +115,11 @@ public abstract class StackFrame implements Markable {
     final InvocationException invocationException = new InvocationException(error, callable);
     getFuture().completeExceptionally(invocationException);
     this.error = invocationException;
+  }
+
+  public void returnError(RuntimeError error) {
+    setErrorFlag(error);
+    getFuture().completeExceptionally(this.error);
   }
   
   public void pushOperand(RuntimeInstance value) {
@@ -216,8 +227,17 @@ public abstract class StackFrame implements Markable {
   public CompletableFuture<RuntimeInstance> getFuture() {
     return returnValue;
   }
+
+  public static StackFrame makeFrame(Callable callable, 
+                                     ArgVector args, 
+                                     HeapAllocator allocator) throws InvocationException {
+    return makeFrame(callable, args, allocator, null);
+  }
   
-  public static StackFrame makeFrame(Callable callable, ArgVector args, HeapAllocator allocator) throws InvocationException {
+  public static StackFrame makeFrame(Callable callable, 
+                                     ArgVector args, 
+                                     HeapAllocator allocator, 
+                                     BiConsumer<RuntimeInstance, Throwable> atCompletion) throws InvocationException {
     FunctionSignature signature = callable.getSignature();
     
     /*
@@ -245,14 +265,14 @@ public abstract class StackFrame implements Markable {
       //System.out.println("CALLING!!!!! internal ");
 
       RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
-      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args);
+      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, atCompletion);
     }
     else {
       //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0);
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, atCompletion);
       //Push the new frame!
       //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 
@@ -270,14 +290,13 @@ public abstract class StackFrame implements Markable {
           frame.storeLocalVar(keywordIndex, keywordArg.getValue());
         }
         else {
-          //throw new InvocationException("Unknown keyword argument '"+keywordArg.getKey()+"'", callable);
+          throw new InvocationException("Unknown keyword argument '"+keywordArg.getKey()+"'", callable);
         }
       }
       
       //System.out.println("------------> DONE WITH ARGS");
       
       //Put any leftover positional arguments in an array
-      /*
       if (signature.hasVariableParams()) {
         final int variableArgsIndex = positionalIndex;
 
@@ -294,7 +313,7 @@ public abstract class StackFrame implements Markable {
           frame.storeLocalVar(variableArgsIndex, null);
         }
       }
-      */
+      
       
       toReturn = frame;
     }

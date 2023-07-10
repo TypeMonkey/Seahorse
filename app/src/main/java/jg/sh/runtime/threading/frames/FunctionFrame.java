@@ -1,12 +1,15 @@
 package jg.sh.runtime.threading.frames;
 
 import java.util.Map.Entry;
+import java.util.function.BiConsumer;
 
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LoadCellInstr;
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.instrs.StoreCellInstr;
+import jg.sh.compile.pool.component.DataRecord;
+import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
@@ -17,6 +20,7 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
+import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
@@ -43,8 +47,11 @@ public class FunctionFrame extends StackFrame {
 
   private int instrIndex;
   
-  public FunctionFrame(RuntimeModule hostModule, RuntimeCallable callable, int instrIndex) {
-    super(hostModule, callable);
+  public FunctionFrame(RuntimeModule hostModule, 
+                       RuntimeCallable callable, 
+                       int instrIndex, 
+                       BiConsumer<RuntimeInstance, Throwable> atCompletion) {
+    super(hostModule, callable, atCompletion);
     this.instrIndex = instrIndex;
   }  
 
@@ -330,6 +337,43 @@ public class FunctionFrame extends StackFrame {
             }
           }          
         }
+        else if(callable instanceof RuntimeDataRecord) {
+          final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
+
+          /*
+           *TODO: Should this cast be more explicitly checked? Do we want to do a sanity check 
+           *      if a "constr" attr exists? and if it does, whether it's a CodeObject?
+           */
+          final RuntimeCodeObject constructor = (RuntimeCodeObject) dataRecord.getAttr(TokenType.CONSTR.name().toLowerCase());
+          final RuntimeObject selfObject = allocator.allocateEmptyObject();
+          final RuntimeCallable actualCallable = allocator.allocateCallable(getHostModule(), selfObject, constructor);
+          args.addAtFront(actualCallable.getSelf());
+          args.addAtFront(actualCallable);
+
+          try {
+            final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
+            if (result != null) {
+              pushOperand(result);
+            }
+            else {
+              StackFrame newFrame = makeFrame(actualCallable, args, allocator, (r, e) -> {
+                pushOperand(selfObject);
+              });
+              incrmntInstrIndex();
+              return newFrame;
+            }
+          } catch (InvocationException e) {
+            RuntimeError error = allocator.allocateError(e.getMessage());
+            setErrorFlag(error);
+            if (current.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(current.getExceptionJumpIndex());
+            }
+            else {
+              setErrorFlag(error);
+              return null;
+            }
+          }
+        }
         else {
           //unsupported operation
           RuntimeError error = allocator.allocateError("Target isn't callable "+callable);
@@ -445,12 +489,12 @@ public class FunctionFrame extends StackFrame {
           error.setAttribute("value", potentialException);
         }
         
-        setErrorFlag(error);
         if (current.getExceptionJumpIndex() >= 0) {
+          setErrorFlag(error);
           setInstrIndex(current.getExceptionJumpIndex());
         }
         else {
-          setErrorFlag(error); 
+          returnError(error);
           return null;
         }
         //break execLoop;
@@ -458,8 +502,7 @@ public class FunctionFrame extends StackFrame {
       case POPERR: {
         pushOperand(getError().getErrorObject());
         setErrorFlag(null);
-      }
-      
+      }     
       case MAKEARGV : {
         pushOperand(new ArgVector());
         break;
@@ -880,22 +923,29 @@ public class FunctionFrame extends StackFrame {
         pushOperand(object);
         break;
       }
-      case ALLOCD:
-        break;
       case BIND:
         break;
       case MAKECONST:
         break;
       case SEAL:
         break;
+      case HAS_KARG: {
+        final ArgInstr hasInstr = (ArgInstr) instr;
+
+        final ArgVector args = (ArgVector) popOperand();
+        final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
+        pushOperand(args);
+        pushOperand(allocator.allocateBool(args.hasAttr(attrName)));
+        break;
+      }
       case CALLA:
       case CAPTURE:
       case LADD:
       case LOADSELF:
         System.out.println("Deprecated opcode: "+instr+" >>>>>>>>>>>>>>>");
         break;
-      default:
-          System.err.println("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
+      //default:
+      //    System.err.println("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
       }
       
       incrmntInstrIndex();

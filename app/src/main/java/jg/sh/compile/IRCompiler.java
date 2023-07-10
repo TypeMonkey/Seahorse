@@ -14,6 +14,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompContext.ContextType;
@@ -536,12 +537,14 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * const a := Sample(); //looks like a regular function call.
      * 
      * Sample <-> DataRecord corresponding to 'Sample'
-     * Sample() <-> a psuedo-function created at runtime to tie an object
+     * Sample() <-> a psuedo-function created at compilation to tie an object
      *              to a DataRecord, and its associated methods bound to that object.
      * 
      * This internal "Sample()" is called first, then the code in constr() is called
      * after. 
+
      */
+
     instrs.add(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADC, recordIndex));
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -1081,9 +1084,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
       if (parameter.hasValue()) {
         //This is an optional parameter
-        parameter.getInitValue().accept(this, funcContext)
-                                .pipeErr(exceptions)
-                                .pipeInstr(instrs);
+        final Node initValue = parameter.getInitValue();
+        final int keywordNameIndex = pool.addComponent(new StringConstant(paramName.getIdentifier()));
+        final String keywordCheckDone = genLabelName(paramName.getIdentifier()+"_exists_checkDone");
+
+        instrs.add(new ArgInstr(initValue.start, initValue.end, HAS_KARG, keywordNameIndex));
+        instrs.add(new JumpInstr(initValue.start, initValue.end, JUMPF, keywordCheckDone));
+
+        initValue.accept(this, funcContext).pipeErr(exceptions).pipeInstr(instrs);
+
+        instrs.add(new LabelInstr(initValue.start, initValue.end, keywordCheckDone));
 
         keywordParamToIndexMap.put(paramName.getIdentifier(), paramLS.load.getIndex());
       }

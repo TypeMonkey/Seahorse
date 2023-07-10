@@ -6,7 +6,7 @@ import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.loading.ContextualInstr;
 
-public class RuntimeCodeObject extends RuntimeInstance{
+public class RuntimeCodeObject extends RuntimeInstance {
 
   private final String boundName;
   private final FunctionSignature signature;

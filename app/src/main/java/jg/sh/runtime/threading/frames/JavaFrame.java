@@ -1,8 +1,7 @@
 package jg.sh.runtime.threading.frames;
 
-import jg.sh.modules.NativeModule;
-import jg.sh.modules.NativeModuleDiscovery;
-import jg.sh.modules.builtin.SystemModule;
+import java.util.function.BiConsumer;
+
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
@@ -16,8 +15,11 @@ public class JavaFrame extends StackFrame{
 
   private final ArgVector initialArgs;
   
-  public JavaFrame(RuntimeModule hostModule, RuntimeInternalCallable callable, ArgVector initialArgs) {
-    super(hostModule, callable);
+  public JavaFrame(RuntimeModule hostModule, 
+                   RuntimeInternalCallable callable, 
+                   ArgVector initialArgs, 
+                   BiConsumer<RuntimeInstance, Throwable> atCompletion) {
+    super(hostModule, callable, atCompletion);
     this.initialArgs = initialArgs;
   }
   
