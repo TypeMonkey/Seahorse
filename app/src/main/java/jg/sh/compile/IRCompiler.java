@@ -542,7 +542,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * 
      * This internal "Sample()" is called first, then the code in constr() is called
      * after. 
-
      */
 
     instrs.add(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADC, recordIndex));

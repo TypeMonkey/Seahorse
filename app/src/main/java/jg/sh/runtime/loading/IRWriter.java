@@ -1,11 +1,14 @@
 package jg.sh.runtime.loading;
 
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import jg.sh.SeaHorseInterpreter;
@@ -25,7 +28,7 @@ import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 
-public class IRWriter {
+public final class IRWriter {
   
   public static final String VERSION = "\"version\"";
   public static final String POOL = "\"pool\"";
@@ -86,8 +89,7 @@ public class IRWriter {
      * | Constant Pool: 8-byte header on pool size                 |
      * |  Entry description below                                  |
      * -------------------------------------------------------------
-     * | Module instructions: 8-byte header on pool size           |
-     * |  Each entry is: 9-bytes                                   |
+     * | Module instructions: 8-byte header on instruction amount  |
      * -------------------------------------------------------------
      * 
      * Constant Pool component binary outline:
@@ -96,11 +98,25 @@ public class IRWriter {
      *   Float:    2 (as a byte), then the 8-bytes that represent that float
      *   String:   3 (as a byte), followed by 4-bytes representing byte count, followed by the bytes of this string
      *          - All strings are utf-8
-     *   Code Object: 
-     *              * 4 (as a byte)
-     *              * 4-bytes representing instruction count, 
-     *              * Function signature 
-     *              * instructions of this code object. (see instruction encoding below)
+     *   Code Object: 4 (as a byte)
+     *        - 4-bytes representing instruction count, 
+     *        - Function signature 
+     *          -> Format: <positionalParamCount>
+     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+     *                     <-1 to signify start of variatic arg>
+     *                     <true or false for variabdic arg support. as byte>
+     *        - Instruction count
+     *        - Instructions of this code object. (see instruction encoding below)
+     * 
+     * 
+     * Instruction encoding:
+     *       <byte (OpCode ordinal value)>
+     *       <4 bytes for integer argument>
+     *       <4 bytes for exception jump>
+     *       <4 bytes for start Line>
+     *       <4 bytes for start column>
+     *       <4 bytes for end line>
+     *       <4 bytes for end column>
      */
     
     //writeCompiledFile should be called AFTER ModuleFinder prepares it
@@ -173,8 +189,21 @@ public class IRWriter {
     return jsonOutput;   
   }
   
-  public static String writeConstantPool(Map<Integer, RuntimeInstance> pool) {
-    return "["+pool.entrySet().stream().map(x -> "{"+INDEX+": "+x.getKey()+" , "+VALUE+":"+writePoolComponent(x.getValue())+"}").collect(Collectors.joining(","))+"]";
+  public static byte [] writeConstantPool(Map<Integer, RuntimeInstance> pool) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    try {
+      ds.writeInt(pool.size());
+      for(Entry<Integer, RuntimeInstance> instance : pool.entrySet()) {
+
+      }
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
+    }
+
+    return outputStream.toByteArray();
   }
   
   public static String writePoolComponent(RuntimeInstance component) {

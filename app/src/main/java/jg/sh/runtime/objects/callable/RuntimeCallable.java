@@ -56,7 +56,7 @@ public class RuntimeCallable extends Callable {
   }
   
   @Override
-  public Callable rebind(RuntimeInstance newSelf, HeapAllocator allocator) {
+  public RuntimeCallable rebind(RuntimeInstance newSelf, HeapAllocator allocator) {
     if (newSelf != getSelf()) {
       return allocator.allocateCallable(getHostModule(), newSelf, codeObject, captures);
     }

@@ -42,7 +42,6 @@ public enum OpCode {
   LESSE,
   GREATE,
   EQUAL,  //Object equality
-  REQUAL, //Reference equality
   NOTEQUAL,
   
   /*
@@ -225,7 +224,8 @@ public enum OpCode {
   CONSTMV,
 
   /**
-   * Binds a function to an object, changing the value of "self" in that function.
+   * Reallocates a new function (based on the given function's code object)
+   * and binds it to the given object.
    * 
    * TOP      -> function
    *           | self

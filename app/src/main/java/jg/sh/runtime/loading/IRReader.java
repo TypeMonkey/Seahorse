@@ -193,7 +193,6 @@ public class IRReader {
     case PASS:
       actualInstr = new NoArgInstr(location, location, opCode);
       break;
-    case REQUAL:
     case EQUAL:
     //Arithmetic instruction opcodes
     case ADD: 
