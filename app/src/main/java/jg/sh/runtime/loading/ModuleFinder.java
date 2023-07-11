@@ -8,7 +8,6 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,6 @@ import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.parsing.Module;
-import jg.sh.parsing.Parser;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
@@ -32,7 +30,6 @@ import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 
-import jg.sh.compile.IRCompiler;
 import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.instrs.Instruction;
@@ -70,12 +67,12 @@ public class ModuleFinder implements Markable {
   }
   
   private RuntimeModule prepareSystemModule() {
-    NativeModule systemNativeModule = SystemModule.getNativeModule();
-    RuntimeModule systemModule = systemNativeModule.getModule();
+    final NativeModule systemNativeModule = SystemModule.getNativeModule();
+    final RuntimeModule systemModule = systemNativeModule.getModule();
     
-    RuntimeObject systemObject = allocator.allocateEmptyObject();
+    final RuntimeObject systemObject = allocator.allocateEmptyObject(systemNativeModule::initialAttrs);
     
-    RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
+    final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
     systemModule.setLoadingComponents(systemObject, initialization);
         
     return systemModule;
@@ -197,7 +194,7 @@ public class ModuleFinder implements Markable {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
-          RuntimeObject moduleObject = allocator.allocateEmptyObject();
+          RuntimeObject moduleObject = allocator.allocateEmptyObject(nativeModule::initialAttrs);
           
           RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
           module = nativeModule.getModule();

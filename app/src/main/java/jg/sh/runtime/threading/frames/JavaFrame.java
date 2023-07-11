@@ -12,15 +12,12 @@ import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 
 public class JavaFrame extends StackFrame{
-
-  private final ArgVector initialArgs;
   
   public JavaFrame(RuntimeModule hostModule, 
                    RuntimeInternalCallable callable, 
                    ArgVector initialArgs, 
                    BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, callable, atCompletion);
-    this.initialArgs = initialArgs;
+    super(hostModule, callable, initialArgs, atCompletion);
   }
   
   @Override

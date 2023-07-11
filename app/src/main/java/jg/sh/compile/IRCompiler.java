@@ -1062,6 +1062,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       final String selfLowerCase = TokenType.SELF.name().toLowerCase();
       final LoadStorePair selfLS = localVarAlloc.generate(selfLowerCase, Location.DUMMY, Location.DUMMY);
       funcContext.addVariable(selfLowerCase, selfLS);
+
+      funcContext.setContextValue(ContextKey.SELF_CODE, new Instruction[]{selfLS.load});
     }
 
     //Generate label for function
@@ -1113,7 +1115,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final int funcCodeObjIndex = pool.addComponent(funcCodeObj);
 
     //Add on nearest "self" code loading code
-    final Instruction [] selfLoadCode = (Instruction[]) funcContext.getValue(ContextKey.SELF_CODE);
+    final Instruction [] selfLoadCode = (Instruction[]) parentContext.getValue(ContextKey.SELF_CODE);
 
     final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
     funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));

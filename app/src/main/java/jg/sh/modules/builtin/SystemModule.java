@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.NativeModule;
@@ -39,22 +41,23 @@ public class SystemModule extends NativeModule {
   
   private final BufferedReader INPUT_READER;
   
-  private SystemModule() {    
-    super(SYSTEM_NAME);
-    
+  private SystemModule() {        
     this.INPUT_READER = new BufferedReader(new InputStreamReader(System.in));
   }
+
+  @Override
+  public void initialize(RuntimeObject moduleObject) {}
   
   @Override
-  public void initModule(RuntimeObject systemObject) {    
-    systemObject.setAttribute("print", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+  public void initialAttrs(RuntimeObject systemObject, Map<String, RuntimeInstance> attrs) {    
+    attrs.put("print", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         System.out.print(args.getPositional(ARG_INDEX));
         return RuntimeNull.NULL;
       }
     )));
 
-    systemObject.setAttribute("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
+    attrs.put("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
       (fiber, args) -> {
         for(int i = ARG_INDEX; i < args.getPositionals().size(); i++) {
           System.out.print(args.getPositional(i));
@@ -65,7 +68,7 @@ public class SystemModule extends NativeModule {
       }
     )));
     
-    systemObject.setAttribute("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(2, Collections.emptySet(), false),
+    attrs.put("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(2, Collections.emptySet(), false),
       (fiber, args) ->  {
         RuntimeInstance targetObject = args.getPositional(ARG_INDEX);
         RuntimeInstance targetFunction = args.getPositional(ARG_INDEX + 1);
@@ -79,7 +82,8 @@ public class SystemModule extends NativeModule {
         throw new InvocationException("Object provided isn't a callable", (Callable) args.getPositional(0));
       }
     )));
-    systemObject.setAttribute("input", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
+
+    attrs.put("input", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
       (fiber, args) -> {
         /*
          * Basically does what println does first before getting input
@@ -97,7 +101,7 @@ public class SystemModule extends NativeModule {
       }
     )));
 
-    systemObject.setAttribute("load", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("load", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         RuntimeInstance moduleName = args.getPositional(ARG_INDEX);
         if (moduleName instanceof RuntimeString) {
@@ -124,37 +128,37 @@ public class SystemModule extends NativeModule {
       }
     )));
 
-    systemObject.setAttribute("now", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
+    attrs.put("now", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
       (fiber, args) -> {
         return fiber.getHeapAllocator().allocateInt(System.nanoTime());
       }
     )));
 
-    systemObject.setAttribute("isArray", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("isArray", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimeArray);
       }
     )));
 
-    systemObject.setAttribute("isFunction", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("isFunction", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof Callable);
       }
     )));
 
-    systemObject.setAttribute("isPrimitive", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("isPrimitive", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimePrimitive);
       }
     )));
     
-    systemObject.setAttribute("isError", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("isError", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimeError);
       }
     )));
     
-    systemObject.setAttribute("spinOff", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("spinOff", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         if (argument instanceof Callable) {
@@ -166,7 +170,7 @@ public class SystemModule extends NativeModule {
       }
     )));
 
-    systemObject.setAttribute("makeThread", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("makeThread", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         if (argument instanceof Callable) {
@@ -177,25 +181,30 @@ public class SystemModule extends NativeModule {
       }
     )));
     
-    systemObject.setAttribute("toString", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
+    attrs.put("toString", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         return fiber.getHeapAllocator().allocateString(argument.toString()); 
       }
     )));
     
-    systemObject.setAttribute("stop", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
+    attrs.put("stop", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
       (fiber, args) -> {
         fiber.getManager().stop();
         return RuntimeNull.NULL; 
       }
     )));
 
-    systemObject.setAttribute("currentFiber", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
+    attrs.put("currentFiber", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
       (fiber, args) -> {
         return fiber;
       }
     )));
+  }
+
+  @Override
+  public String getName() {
+    return SYSTEM_NAME;
   }
   
   public RuntimeModule getRuntimeModule() {

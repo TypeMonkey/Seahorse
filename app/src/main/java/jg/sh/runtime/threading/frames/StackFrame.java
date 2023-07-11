@@ -55,25 +55,26 @@ public abstract class StackFrame implements Markable {
   protected final Stack<RuntimeInstance> operandStack;
   protected final Callable callable;
   protected final CompletableFuture<RuntimeInstance> returnValue;
+  protected final ArgVector initialArgs;
   
   protected RuntimeInstance [] localVars; 
   protected InvocationException error; // null <- no error, anything else <- error object
   
   private int gcFlag;
-    
-  //private StackFrame prevFrame;
-  //private StackFrame nextFrame;
-
-  public StackFrame(RuntimeModule hostModule, Callable callable, BiConsumer<RuntimeInstance, Throwable> atCompletion) {
+  
+  public StackFrame(RuntimeModule hostModule, 
+                    Callable callable, 
+                    ArgVector initialArgs, 
+                    BiConsumer<RuntimeInstance, Throwable> atCompletion) {
     this.callable = callable;
     this.returnValue = new CompletableFuture<>();
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
+    this.initialArgs = initialArgs;
 
     if(atCompletion != null){
       this.returnValue.whenComplete(atCompletion);
     }
-    //this.leftOver = RuntimeNull.NULL;
   } 
     
   public abstract StackFrame run(HeapAllocator allocator, Fiber thread);
@@ -272,7 +273,7 @@ public abstract class StackFrame implements Markable {
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, atCompletion);
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, atCompletion);
       //Push the new frame!
       //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 

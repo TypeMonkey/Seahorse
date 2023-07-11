@@ -3,7 +3,6 @@ package jg.sh.runtime.objects;
 import java.util.Map;
 
 import jg.sh.runtime.alloc.Cleaner;
-import jg.sh.runtime.objects.callable.RuntimeCallable;
 
 /**
  * A data record is a template for constructing an 
@@ -13,13 +12,12 @@ import jg.sh.runtime.objects.callable.RuntimeCallable;
  */
 public class RuntimeDataRecord extends RuntimeInstance {
 
+  private final Map<String, RuntimeCodeObject> methods;
   private final String name;
 
   public RuntimeDataRecord(String name, Map<String, RuntimeCodeObject> methods, boolean isSealed) {
-    super((self, m) -> {
-      m.putAll(methods);
-    });
     this.name = name;
+    this.methods = methods;
     seal();
   }
 
@@ -36,6 +34,10 @@ public class RuntimeDataRecord extends RuntimeInstance {
   public String getName() {
     return name;
   } 
+
+  public Map<String, RuntimeCodeObject> getMethods() {
+    return methods;
+  }
 
   @Override
   protected void markAdditional(Cleaner allocator) {

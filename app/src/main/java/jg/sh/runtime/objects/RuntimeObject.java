@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
@@ -77,11 +78,19 @@ public class RuntimeObject extends RuntimeInstance {
   private final Map<String, Set<AttrModifier>> attrDescriptions;
   
   public RuntimeObject() {
+    this(null);
+  }
+
+  public RuntimeObject(BiConsumer<RuntimeObject, Map<String, RuntimeInstance>> initializer) {
     super((self, m) -> {
       RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
     
       m.put(RuntimeArray.STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
       m.put(RuntimeArray.RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
+
+      if (initializer != null) {
+        initializer.accept((RuntimeObject) self, m);
+      }
     });
     attrDescriptions = new HashMap<>();
   }

@@ -49,8 +49,9 @@ public class FunctionFrame extends StackFrame {
   public FunctionFrame(RuntimeModule hostModule, 
                        RuntimeCallable callable, 
                        int instrIndex, 
+                       ArgVector initialArgs,
                        BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, callable, atCompletion);
+    super(hostModule, callable, initialArgs, atCompletion);
     this.instrIndex = instrIndex;
   }  
 
@@ -221,7 +222,8 @@ public class FunctionFrame extends StackFrame {
             RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
             
             System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
-            
+            System.out.println(instr.getStart());
+
             setErrorFlag(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
@@ -326,12 +328,6 @@ public class FunctionFrame extends StackFrame {
               }
               else {
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
-                /**
-                 * We push the argvector back on the operand stack
-                 * so the function we called can use it for any HASKARG
-                 * instructions for parameter checking
-                 */
-                pushOperand(args);
                 incrmntInstrIndex();
                 return newFrame;
               }
@@ -349,6 +345,7 @@ public class FunctionFrame extends StackFrame {
           }
           else if(callable instanceof RuntimeDataRecord) {
             final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
+            System.out.println(" ===> call to data record!!!");
 
             /*
             *TODO: Should this cast be more explicitly checked? Do we want to do a sanity check 
@@ -973,11 +970,8 @@ public class FunctionFrame extends StackFrame {
         }
         case HAS_KARG: {
           final ArgInstr hasInstr = (ArgInstr) instr;
-
-          final ArgVector args = (ArgVector) popOperand();
           final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
-          pushOperand(args);
-          pushOperand(allocator.allocateBool(args.hasAttr(attrName)));
+          pushOperand(allocator.allocateBool(initialArgs.hasAttr(attrName)));
           break;
         }
         case CALLA:

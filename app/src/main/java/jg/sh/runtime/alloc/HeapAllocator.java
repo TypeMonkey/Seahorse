@@ -4,6 +4,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.loading.ContextualInstr;
@@ -57,14 +58,18 @@ public class HeapAllocator {
     
     return object;
   }
-  
+
   public RuntimeObject allocateEmptyObject() {    
+    return allocateEmptyObject(null);
+  }
+  
+  public RuntimeObject allocateEmptyObject(BiConsumer<RuntimeObject, Map<String, RuntimeInstance>> initializer) {    
     //perform garbage collection prior to allocation
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
     
-    final RuntimeObject object = new RuntimeObject();
+    final RuntimeObject object = new RuntimeObject(initializer);
     ///storage.add(new WeakReference<>(object));
     heapPointer++;
     

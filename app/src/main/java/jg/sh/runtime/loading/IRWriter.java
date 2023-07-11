@@ -1,27 +1,25 @@
 package jg.sh.runtime.loading;
 
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.CommentInstr;
 import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
 import jg.sh.compile.instrs.LoadCellInstr;
 import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.StoreCellInstr;
 import jg.sh.runtime.objects.RuntimeCodeObject;
+import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 import jg.sh.runtime.objects.literals.RuntimeFloat;
@@ -30,39 +28,9 @@ import jg.sh.runtime.objects.literals.RuntimeString;
 
 public final class IRWriter {
   
-  public static final String VERSION = "\"version\"";
-  public static final String POOL = "\"pool\"";
-  public static final String TYPE = "\"type\"";
-  public static final String VALUE = "\"value\"";
-  public static final String INSTRS = "\"instrs\"";
-  public static final String SIGNATURE = "\"signature\"";
-  public static final String BOUND_NAME = "\"boundName\"";
-  public static final String KEYWORD_INDICES = "\"keywordIndexes\"";
-  public static final String CAPTURES = "\"captures\"";
-  public static final String MODIFIERS = "\"modifiers\"";
-  public static final String POSITIONAL_CNT = "\"positionalCount\"";
-  public static final String KEYWORD_PARAMS = "\"keywordParams\"";
-  public static final String HAS_VAR_PARAMS = "\"hasVarParams\"";
-  public static final String OPCODE = "\"opcode\"";
-  public static final String ARG = "\"arg\"";
-  public static final String MODULE_LABEL = "\"moduleLabel\"";
-  public static final String LINE = "\"line\"";
-  public static final String COL = "\"col\"";
-  public static final String ERR_JUMP = "\"errJmp\"";
-  public static final String INDEX = "\"index\"";
-  
-  public static final String INT = "\"int\"";
-  public static final String FLOAT = "\"float\"";
-  public static final String BOOL = "\"bool\"";
-  public static final String STRING = "\"string\"";
-  public static final String CODE = "\"code\"";
-
-
-
   private IRWriter() {}
   
   public static boolean printCompiledFile(String destinationFolder, RuntimeModule compiledFile) {
-    String module = writeCompiledFile(compiledFile);
     File newFile = new File(destinationFolder, compiledFile.getName()+".shrc");
     
     try {
@@ -70,26 +38,26 @@ public final class IRWriter {
         return false;
       } 
       
-      BufferedWriter writer = new BufferedWriter(new FileWriter(newFile));
-      writer.write(module);
-      writer.flush();
-      writer.close();
+      FileOutputStream fileOutputStream = new FileOutputStream(newFile, false);
+      fileOutputStream.write(encodeModule(compiledFile));
+      fileOutputStream.flush();
+      fileOutputStream.close();
       return true;
     } catch (IOException e) {
       return false;
     }
   }
-  
-  public static String writeCompiledFile(RuntimeModule compiledFile) {
+
+  public static byte [] encodeModule(RuntimeModule module) {
     /*
      * .shrc structure.
      * _____________________________________________________________
      * | HEADER:  | 8-byte header representing interpreter version |
      * -------------------------------------------------------------
-     * | Constant Pool: 8-byte header on pool size                 |
+     * | Constant Pool: 4-byte header on pool size                 |
      * |  Entry description below                                  |
      * -------------------------------------------------------------
-     * | Module instructions: 8-byte header on instruction amount  |
+     * | Module instructions: 4-byte header on instruction amount  |
      * -------------------------------------------------------------
      * 
      * Constant Pool component binary outline:
@@ -118,85 +86,15 @@ public final class IRWriter {
      *       <4 bytes for end line>
      *       <4 bytes for end column>
      */
-    
-    //writeCompiledFile should be called AFTER ModuleFinder prepares it
-    
-    /*
-     *  .shrc JSON structure
-     *  
-     *  {
-     *    version: <current interpreter version>,
-     *    pool: [
-     *      {index: index, value: {type: 0, value: true}},  //type 0 is boolean
-     *      {index: index, value: {type: 0, value: false}}, 
-     *      
-     *      {index: index, value: {type: 1, value: 126}},   //type 1 is an integer
-     *      
-     *      {index: index, value: {type: 2, value: 3.14}},  //type 2 is a float
-     *      
-     *      {index: index, value: {type: 3, value: "I'm a string"}},  //type 3 is a string
-     *      
-     *      {index: index, value: {type: 5, value:                   //type 5 is a code object
-     *        {
-     *           signature: {
-     *                        modifiers: [enum orginal values of reserved words], 
-     *                        positionalCount: <amount of positionals>,
-     *                        keywordParams: [string keywords],
-     *                        hasVarParams: true/false
-     *                      },
-     *           boundName: "boundName" or null,
-     *           keywordIndexes: [[keyword1, 1], [keyword2, 2], ...],
-     *           instrs: [ 
-     *                     {opcode: <ordinal of OpCode enum>, arg: 10},
-     *                     {opcode: <ordinal of OpCode enum>},
-     *                     {opcode: <ordinal of OpCode enum>, arg: "some string"}
-     *                     {opcode: <ordinal of OpCode enum>, arg: "some string", line: 2, col: 2},
-     *                     ....
-     *                   ],
-     *           captures: [2,5,6,7]
-     *        }
-     *      }}
-     *    ],
-     *    instrs: [
-     *              {opcode: <ordinal of OpCode enum>, arg: 10},
-     *              {opcode: <ordinal of OpCode enum>},
-     *              {opcode: <ordinal of OpCode enum>, arg: "some string"},
-     *              {opcode: <ordinal of OpCode enum>, arg: "some string"},
-     *              {opcode: <ordinal of OpCode enum>, arg: "some string", line: 2, col: 2, errJump: index},
-     *              ....
-     *            ],
-     *    moduleLabel: "label"
-     *  }
-     */
-    
-    String jsonOutput = "{";
-    
-    //Put all contents in this region
-    
-    //put version:
-    jsonOutput += VERSION+": "+SeaHorseInterpreter.VERSION+",";
-    
-    //put constant pool:
-    jsonOutput += POOL+": "+writeConstantPool(compiledFile.getConstantMap())+",";
-    
-    //put moduleLabel
-    //jsonOutput += MODULE_LABEL+": "+String.valueOf('"')+compiledFile.getModuleLabelStart()+String.valueOf('"')+",";
-    
-    //put instructions
-    jsonOutput += INSTRS+": ["+Arrays.stream(compiledFile.getModuleCodeObject().getInstrs()).map(x -> writeInstr(x)).collect(Collectors.joining(","))+"]";
-    
-    jsonOutput += "}";
-    return jsonOutput;   
-  }
-  
-  public static byte [] writeConstantPool(Map<Integer, RuntimeInstance> pool) {
+
     final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     final DataOutputStream ds = new DataOutputStream(outputStream);
-
     try {
-      ds.writeInt(pool.size());
-      for(Entry<Integer, RuntimeInstance> instance : pool.entrySet()) {
-
+      ds.writeLong(SeaHorseInterpreter.VERSION);
+      ds.write(encodeConstantPool(module.getConstantMap()));
+      ds.writeInt(module.getModuleCodeObject().getInstrs().length);
+      for (ContextualInstr instr : module.getModuleCodeObject().getInstrs()) {
+        ds.write(encodeInstr(instr));
       }
     } catch (IOException e) {
       //Should never happen.
@@ -206,88 +104,327 @@ public final class IRWriter {
     return outputStream.toByteArray();
   }
   
-  public static String writePoolComponent(RuntimeInstance component) {
-    String result = "{"+TYPE+": ";
-    if (component instanceof RuntimeBool) {
-      RuntimeBool comp = (RuntimeBool) component;
-      result += BOOL+", "+VALUE+": "+comp.getValue();
+  public static byte [] encodeConstantPool(Map<Integer, RuntimeInstance> pool) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    /**
+     * Constant Pool component binary outline:
+     *   Booleans: 0 (as a byte), then 0 (false, as a byte) or 1 (true, as a byte)
+     *   Integer:  1 (as a byte), then the 8-bytes that represent that integer
+     *   Float:    2 (as a byte), then the 8-bytes that represent that float
+     *   String:   3 (as a byte), followed by 4-bytes representing byte count, followed by the bytes of this string
+     *          - All strings are utf-8
+     *   Code Object: 4 (as a byte)
+     *        - Bound Name: <4 bytes representing bound name length><bound name as UTF-8 bytes>
+     *        - Function signature 
+     *          -> Format: <positionalParamCount>
+     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+     *                     <-1 byte to signify start of variatic arg>
+     *                     <true or false for variabdic arg support. as byte>
+     *        - Instruction count (4 bytes)
+     *        - Instructions of this code object. (see instruction encoding below)
+     *   Data Records: 5 (as a byte)
+     *        - Name: <4 bytes for length><name encoding as utf-8>
+     *        - isSeald? <byte for true or false>
+     *        - Method: 
+     *           -> Format: <method count as 4 bytes>
+     *                      <code object encoding length><code object encoding>
+     */
+    try {
+      ds.writeInt(pool.size());
+      for(Entry<Integer, RuntimeInstance> instance : pool.entrySet()) {
+        ds.write(encodePoolComponent(instance.getValue()));
+      }
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
     }
-    else if (component instanceof RuntimeInteger) {
-      RuntimeInteger comp = (RuntimeInteger) component;
-      result += INT+", "+VALUE+": "+comp.getValue();
-    }
-    else if (component instanceof RuntimeFloat) {
-      RuntimeFloat comp = (RuntimeFloat) component;
-      result += FLOAT+", "+VALUE+": "+comp.getValue();
-    }
-    else if (component instanceof RuntimeString) {
-      RuntimeString comp = (RuntimeString) component;
-      result += STRING+", "+VALUE+": "+String.valueOf('"')+comp.getValue()+String.valueOf('"');
-    }
-    else if (component instanceof RuntimeCodeObject) {
-      result += CODE+", "+VALUE+": "+writeCodeObject((RuntimeCodeObject) component);
-    }
-    
-    return result+"}";
+
+    return outputStream.toByteArray();
   }
   
-  public static String writeCodeObject(RuntimeCodeObject codeObject) {
-    return "{" 
-         + "  "+SIGNATURE+": "+writeSignature(codeObject.getSignature())+", "
-         + "  "+BOUND_NAME+": "+String.valueOf('"')+codeObject.getBoundName()+String.valueOf('"')+", "
-         + "  "+KEYWORD_INDICES+": ["+codeObject.getKeywordIndexes().entrySet().stream().map(x -> "["+x.getKey()+", "+x.getValue()+"]").collect(Collectors.joining(","))+"], "
-         + "  "+INSTRS+": ["+Arrays.stream(codeObject.getInstrs()).map(x -> writeInstr(x)).collect(Collectors.joining(","))+"], "
-         + "  "+CAPTURES+": "+Arrays.toString(codeObject.getCaptures())
-         + "}";
+  public static byte [] encodePoolComponent(RuntimeInstance instance) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    /**
+     * Constant Pool component binary outline:
+     *   Booleans: 0 (as a byte), then 0 (false, as a byte) or 1 (true, as a byte)
+     *   Integer:  1 (as a byte), then the 8-bytes that represent that integer
+     *   Float:    2 (as a byte), then the 8-bytes that represent that float
+     *   String:   3 (as a byte), followed by 4-bytes representing byte count, followed by the bytes of this string
+     *          - All strings are utf-8
+     *   Code Object: 4 (as a byte)
+     *        - Bound Name: <4 bytes representing bound name length><bound name as UTF-8 bytes>
+     *        - Function signature 
+     *          -> Format: <positionalParamCount>
+     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+     *                     <-1 byte to signify start of variatic arg>
+     *                     <true or false for variabdic arg support. as byte>
+     *        - Instruction count (4 bytes)
+     *        - Instructions of this code object. (see instruction encoding below)
+     *   Data Records: 5 (as a byte)
+     *        - Name: <4 bytes for length><name encoding as utf-8>
+     *        - isSealed? <byte for true or false>
+     *        - Method: 
+     *           -> Format: <method count as 4 bytes>
+     *                      <code object encoding length><code object encoding>
+     */
+    try {
+      if (instance instanceof RuntimeBool) {
+        RuntimeBool comp = (RuntimeBool) instance;
+        ds.writeByte(0);
+        ds.writeBoolean(comp.getValue());
+      }
+      else if (instance instanceof RuntimeInteger) {
+        RuntimeInteger comp = (RuntimeInteger) instance;
+        ds.writeByte(1);
+        ds.writeLong(comp.getValue());
+      }
+      else if (instance instanceof RuntimeFloat) {
+        RuntimeFloat comp = (RuntimeFloat) instance;
+        ds.writeByte(2);
+        ds.writeDouble(comp.getValue());
+      }
+      else if (instance instanceof RuntimeString) {
+        RuntimeString comp = (RuntimeString) instance;
+        final byte [] bytes = comp.getValue().getBytes(StandardCharsets.UTF_8);
+        ds.writeByte(3);
+        ds.writeInt(bytes.length);
+        ds.write(bytes);
+      }
+      else if (instance instanceof RuntimeCodeObject) {
+        ds.writeByte(4);
+        ds.write(encodeCodeObject((RuntimeCodeObject) instance));
+      }
+      else if (instance instanceof RuntimeDataRecord) {
+        ds.writeByte(5);
+        ds.write(encodeDateDef((RuntimeDataRecord) instance));
+      }
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
+    }
+
+    return outputStream.toByteArray();
   }
-  
-  public static String writeSignature(FunctionSignature signature) {
-    return "{"
-         //+   " "+MODIFIERS+": ["+signature.getModifiers().stream().map(x -> String.valueOf(x.ordinal())).collect(Collectors.joining(","))+"], "
-         +   " "+POSITIONAL_CNT+": "+signature.getPositionalParamCount()+", "
-         +   " "+KEYWORD_PARAMS+": ["+signature.getKeywordParams().stream().map(x -> String.valueOf('"')+x+String.valueOf('"')).collect(Collectors.joining(","))+"], "
-         //+   " "+HAS_VAR_PARAMS+": "+signature.hasVariableParams()
-         + "}";
+
+  public static byte[] encodeDateDef(RuntimeDataRecord dataRecord) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    try {
+      //Write out datarecord name
+      final byte [] bytes = dataRecord.getName().getBytes(StandardCharsets.UTF_8);
+      ds.writeInt(bytes.length);
+      ds.write(bytes);
+
+      //is sealed?
+      ds.writeBoolean(dataRecord.isSealed());
+
+      //write out method count
+      ds.writeInt(dataRecord.getMethods().size());
+
+      dataRecord.getMethods()
+                .values()
+                .stream()
+      .forEach(x -> {
+        final RuntimeCodeObject method = (RuntimeCodeObject) x;
+        final byte [] encoding = encodeCodeObject(method);
+        try {
+          ds.writeInt(encoding.length);
+          ds.write(encoding);
+        } catch (IOException e) {
+          //Should never happen.
+          throw new IllegalStateException(e);
+        }
+      });
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
+    }
+
+    return outputStream.toByteArray();
   }
-  
-  public static String writeInstr(ContextualInstr contextualInstr) {    
-    final Instruction instruction = contextualInstr.getInstr();
-    
-    String result = "{"+OPCODE+": "+instruction.getOpCode().ordinal();
-    
-    if (instruction instanceof ArgInstr) {
-      ArgInstr instr = (ArgInstr) instruction;
-      result += ", "+ARG+": "+instr.getArgument();
+
+  public static byte[] encodeCodeObject(RuntimeCodeObject codeObject) {
+    /*
+     *      *   Code Object: 4 (as a byte)
+     *        - Bound Name: <4 bytes representing bound name length><bound name as UTF-8 bytes>
+     *        - Function signature 
+     *          -> Format: <positionalParamCount>
+     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+     *                     <-1 byte to signify start of variatic arg>
+     *                     <true or false for variabdic arg support. as byte>
+     *        - Instruction count (4 bytes)
+     *        - Instructions of this code object. (see instruction encoding below)
+     */
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    try {
+      //4 marks that this is a code object
+      ds.writeByte(4);
+
+      //Bound name encoding
+      final byte [] nameEncoding = codeObject.getBoundName().getBytes(StandardCharsets.UTF_8);
+      ds.writeInt(nameEncoding.length);
+      ds.write(nameEncoding);
+
+      //place signature next
+      final byte [] sigEncoding = encodeFuncSignature(codeObject.getSignature());
+      ds.write(sigEncoding);
+
+      //Place instructions
+      final ContextualInstr [] instrs = codeObject.getInstrs();
+      ds.writeInt(instrs.length);
+      for (ContextualInstr contextualInstr : instrs) {
+        ds.write(encodeInstr(contextualInstr));
+      }
+
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
     }
-    else if (instruction instanceof CommentInstr) {
-      CommentInstr instr = (CommentInstr) instruction;
-      result += ", "+ARG+": "+String.valueOf('"')+instr.getContent()+String.valueOf('"');
+
+    return outputStream.toByteArray();
+  }
+
+  public static byte[] encodeFuncSignature(FunctionSignature signature) {
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    /*
+        -> Format: <positionalParamCount>
+                  <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+                  <-1 byte to signify start of variatic arg>
+                  <true or false for variabdic arg support. as byte>
+     */
+
+    try {
+      ds.writeInt(signature.getPositionalParamCount());
+      signature.getKeywordParams().stream().forEach(x -> {
+        final byte [] nameAsBytes = x.getBytes(StandardCharsets.UTF_8);
+        try {
+          ds.writeInt(nameAsBytes.length);
+          ds.write(nameAsBytes);
+        } catch (IOException e) {
+          //should never happen
+          throw new IllegalStateException(e);
+        }
+      });
+      ds.writeByte(-1);
+      ds.writeBoolean(signature.hasVariableParams());
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
     }
-    else if (instruction instanceof JumpInstr) {
-      JumpInstr instr = (JumpInstr) instruction;
-      result += ", "+ARG+": "+String.valueOf('"')+instr.getTargetLabel()+String.valueOf('"');
+
+    return outputStream.toByteArray();
+  }
+
+  public static byte [] encodeInstr(ContextualInstr contextualInstr) {
+    final Instruction ogInstr = contextualInstr.getInstr();
+
+    /*
+     * Instruction encoding (for non-comment, parameterized and jump instructions):
+       <byte (OpCode ordinal value)>
+       <4 bytes for integer argument>
+       <4 bytes for exception jump>
+       <4 bytes for start Line>
+       <4 bytes for start column>
+       <4 bytes for end line>
+       <4 bytes for end column>
+
+      for no-arg instruction:
+       <byte (OpCode ordinal value)>
+       <4 bytes for exception jump>
+       <4 bytes for start Line>
+       <4 bytes for start column>
+       <4 bytes for end line>
+       <4 bytes for end column>
+
+      Comment instruction encoding:
+       <byte (OpCode ordinal value)>
+       <4 bytes for comment length as UTF-8 byte count>
+       <UTF 8 encoding of comment>
+       <4 bytes for exception jump>
+       <4 bytes for start Line>
+       <4 bytes for start column>
+       <4 bytes for end line>
+       <4 bytes for end column>
+
+      For label instructions:
+       <byte (OpCode ordinal value)>
+       <4 bytes for label length as UTF-8 byte count>
+       <UTF 8 encoding of label>
+       <4 bytes for exception jump>
+       <4 bytes for start Line>
+       <4 bytes for start column>
+       <4 bytes for end line>
+       <4 bytes for end column>
+     */
+
+    final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    final DataOutputStream ds = new DataOutputStream(outputStream);
+
+    try {
+      //Write out ordinal
+      ds.writeByte(ogInstr.getOpCode().ordinal());
+
+      if (ogInstr instanceof ArgInstr) {
+        ArgInstr instr = (ArgInstr) ogInstr;
+        ds.writeInt(instr.getArgument());
+      }
+      else if (ogInstr instanceof CommentInstr) {
+        CommentInstr instr = (CommentInstr) ogInstr;
+        final byte [] commentBytes = instr.getContent().getBytes(StandardCharsets.UTF_8);
+        ds.writeInt(commentBytes.length);
+        ds.write(commentBytes);
+      }
+      else if (ogInstr instanceof IndexedJumpInstr) {
+        IndexedJumpInstr instr = (IndexedJumpInstr) ogInstr;
+        ds.writeInt(instr.getJumpIndex());
+      }
+      else if (ogInstr instanceof LabelInstr) {
+        LabelInstr instr = (LabelInstr) ogInstr;
+        final byte [] labelBytes = instr.getName().getBytes(StandardCharsets.UTF_8);
+        ds.writeInt(labelBytes.length);
+        ds.write(labelBytes);
+      }
+      else if (ogInstr instanceof LoadCellInstr) {
+        LoadCellInstr instr = (LoadCellInstr) ogInstr;
+        ds.writeInt(instr.getIndex());
+      }
+      else if (ogInstr instanceof NoArgInstr) {
+        //do nothing. There's no argument
+      }
+      else if (ogInstr instanceof StoreCellInstr) {
+        StoreCellInstr instr = (StoreCellInstr) ogInstr;
+        ds.writeInt(instr.getIndex());
+      }
+      else {
+        throw new IllegalArgumentException(ogInstr.getClass()+" is not an encodable instruction.");
+      }
+
+      /*
+       * write:
+       * - exception jump index
+       * - start line
+       * - start column
+       * - end line
+       * - enc column
+       */
+      ds.writeInt(contextualInstr.getExceptionJumpIndex());
+      ds.writeInt(ogInstr.getStart().line);
+      ds.writeInt(ogInstr.getStart().column);
+      ds.writeInt(ogInstr.getEnd().line);
+      ds.writeInt(ogInstr.getEnd().column);
+    } catch (IOException e) {
+      //Should never happen.
+      throw new IllegalStateException(e);
     }
-    else if (instruction instanceof IndexedJumpInstr) {
-      IndexedJumpInstr instr = (IndexedJumpInstr) instruction;
-      result += ", "+ARG+": "+instr.getJumpIndex();
-    }
-    else if (instruction instanceof LabelInstr) {
-      LabelInstr instr = (LabelInstr) instruction;
-      result += ", "+ARG+": "+String.valueOf('"')+instr.getName()+String.valueOf('"');
-    }
-    else if (instruction instanceof LoadCellInstr) {
-      LoadCellInstr instr = (LoadCellInstr) instruction;
-      result += ", "+ARG+": "+instr.getIndex();
-    }
-    else if (instruction instanceof NoArgInstr) {
-      //do nothing. There's no argument
-    }
-    else if (instruction instanceof StoreCellInstr) {
-      StoreCellInstr instr = (StoreCellInstr) instruction;
-      result += ", "+ARG+": "+instr.getIndex();
-    }
-    
-    result += ", "+LINE+": "+instruction.getStart().line+", "+COL+": "+instruction.getStart().column+", "+ERR_JUMP+": "+contextualInstr.getExceptionJumpIndex()+"}";
-    return result;
+
+    return outputStream.toByteArray();
   }
 }

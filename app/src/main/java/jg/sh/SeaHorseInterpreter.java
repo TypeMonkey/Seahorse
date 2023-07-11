@@ -26,7 +26,7 @@ import net.percederberg.grammatica.parser.ParserCreationException;
 
 public class SeaHorseInterpreter {
   
-  public static final int VERSION = 1;
+  public static final long VERSION = 1;
   
   /**
    * Folder - to be located in the current working directory - that 
