@@ -1,7 +1,9 @@
 package jg.sh.runtime.threading.fiber;
 
+import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
@@ -18,10 +20,9 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.frames.StackFrame;
+import jg.sh.runtime.threading.pool.ThreadPool;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
-import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
-import static jg.sh.runtime.objects.callable.InternalFunction.FUNC_INDEX;
 
 /**
  * Fibers frame-steppable threads of execution.
@@ -45,51 +46,40 @@ public class Fiber extends RuntimeObject {
    */
   private static volatile int FIBER_ID_COUNTER = 1;
 
-  private static final InternalFunction START_TIME_GETTER = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
-      if (self instanceof Fiber) {
-        Fiber selfFiber = (Fiber) self;
-        return fiber.getHeapAllocator().allocateInt(selfFiber.getStartTime());
-      }
-
-      throw new InvocationException("Unsupported type '"+self+"'",  (Callable) args.getPositional(FUNC_INDEX));
+  private static final InternalFunction START_TIME_GETTER = 
+  create(
+    Fiber.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      Fiber selfFiber = (Fiber) self;
+      return fiber.getHeapAllocator().allocateInt(selfFiber.getStartTime());
     }
   );
 
-  private static final InternalFunction END_TIME_GETTER = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
-      if (self instanceof Fiber) {
-        Fiber selfFiber = (Fiber) self;
-        return fiber.getHeapAllocator().allocateInt(selfFiber.getEndTime());
-      }
-
-      throw new InvocationException("Unsupported type '"+self+"'",  (Callable) args.getPositional(FUNC_INDEX));
+  private static final InternalFunction END_TIME_GETTER = 
+  create(
+    Fiber.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      return fiber.getHeapAllocator().allocateInt(fiber.getEndTime());
     }
   );
 
-  private static final InternalFunction FIBER_ID_GETTER = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
-      if (self instanceof Fiber) {
-        Fiber selfFiber = (Fiber) self;
-        return fiber.getHeapAllocator().allocateInt(selfFiber.getFiberID());
-      }
-
-      throw new InvocationException("Unsupported type '"+self+"'",  (Callable) args.getPositional(FUNC_INDEX));
+  private static final InternalFunction FIBER_ID_GETTER = 
+  create(
+    Fiber.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      return fiber.getHeapAllocator().allocateInt(fiber.getFiberID());
     }
   );
 
-  private static final InternalFunction FIBER_STATUS_GETTER = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
-      if (self instanceof Fiber) {
-        Fiber selfFiber = (Fiber) self;
-        return fiber.getHeapAllocator().allocateString(selfFiber.getStatus().name());
-      }
-
-      throw new InvocationException("Unsupported type '"+self+"'",  (Callable) args.getPositional(FUNC_INDEX));
+  private static final InternalFunction FIBER_STATUS_GETTER = 
+  create(
+    Fiber.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      return fiber.getHeapAllocator().allocateString(fiber.getStatus().name());
     }
   );
   
@@ -129,7 +119,24 @@ public class Fiber extends RuntimeObject {
    * @param cleaner - the Cleaner to use for garbage collection
    * @param manager - the ThreadManager this RuntimeThread is managed by
    */
-  public Fiber(HeapAllocator allocator, ModuleFinder finder, ThreadManager manager, Cleaner cleaner) {
+  public Fiber(HeapAllocator allocator, 
+               ModuleFinder finder, 
+               ThreadManager manager, 
+               Cleaner cleaner,
+               BiConsumer<RuntimeObject, Map<String, RuntimeInstance>> initializer) {
+    super((self, m) -> {
+      final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
+
+      m.put("startTime", new ImmediateInternalCallable(systemModule, self, START_TIME_GETTER));
+      m.put("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER));
+      m.put("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER));
+      m.put("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER));
+
+      if (initializer != null) {
+        initializer.accept(self, m);
+      }
+    });
+    
     this.allocator = allocator;
     this.finder = finder;
     this.manager = manager;
@@ -139,12 +146,6 @@ public class Fiber extends RuntimeObject {
     this.startTime = -1;
     this.endTime = -1;
     this.status = FiberStatus.CREATED;
-
-    final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-    setAttribute("startTime", new ImmediateInternalCallable(systemModule, this, START_TIME_GETTER));
-    setAttribute("endTime", new ImmediateInternalCallable(systemModule, this, END_TIME_GETTER));
-    setAttribute("getID", new ImmediateInternalCallable(systemModule, this, FIBER_ID_GETTER));
-    setAttribute("getStatus", new ImmediateInternalCallable(systemModule, this, FIBER_STATUS_GETTER));
   }
 
   @Override

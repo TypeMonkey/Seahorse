@@ -41,9 +41,14 @@ public class RuntimeError extends RuntimeInstance {
     frameMarks.add(new FrameMark(line, column, hostModule));
   }
 
-  @Override
-  protected void markAdditional(Cleaner allocator) {
-    
+  public String getMessage() {
+    return getAttr("msg").toString();
   }
 
+  @Override
+  protected void markAdditional(Cleaner allocator) {}
+
+  public List<FrameMark> getFrameMarks() {
+    return frameMarks;
+  }
 }

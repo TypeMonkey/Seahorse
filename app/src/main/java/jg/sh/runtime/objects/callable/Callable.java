@@ -3,6 +3,7 @@ package jg.sh.runtime.objects.callable;
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.RuntimeInstance;
 

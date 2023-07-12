@@ -11,84 +11,90 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 
+import static jg.sh.runtime.objects.callable.InternalFunction.create;
+import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
+
 public class RuntimeBool extends RuntimePrimitive {
   
-  private static final InternalFunction EQUAL = new InternalFunction(FunctionSignature.ONE_ARG) {
-    @Override
-    public RuntimeInstance invoke(Fiber executor, ArgVector args) {
+  private static final InternalFunction EQUAL = 
+  create(
+    RuntimeBool.class, 
+    FunctionSignature.ONE_ARG, 
+    (fiber, self, callable, args) -> {
       RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-      RuntimeBool self = (RuntimeBool) args.getPositional(SELF_INDEX);
       if (otherOperand instanceof RuntimeBool) {
         RuntimeBool otherBool = (RuntimeBool) otherOperand;
-        return executor.getHeapAllocator().allocateBool(self.value == otherBool.getValue());
+        return fiber.getHeapAllocator().allocateBool(self.value == otherBool.getValue());
       }
-      return executor.getHeapAllocator().allocateBool(false);
-    }   
-  };
-  
-  private static final InternalFunction NOT_EQUAL = new InternalFunction(FunctionSignature.ONE_ARG) {
-    @Override
-    public RuntimeInstance invoke(Fiber executor, ArgVector args) {
+      return fiber.getHeapAllocator().allocateBool(false);
+    }
+  );
+
+  private static final InternalFunction NOT_EQUAL = 
+  create(
+    RuntimeBool.class, 
+    FunctionSignature.ONE_ARG, 
+    (fiber, self, callable, args) -> {
       RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-      RuntimeBool self = (RuntimeBool) args.getPositional(SELF_INDEX);
       if (otherOperand instanceof RuntimeBool) {
         RuntimeBool otherBool = (RuntimeBool) otherOperand;
-        return executor.getHeapAllocator().allocateBool(self.value != otherBool.getValue());
+        return fiber.getHeapAllocator().allocateBool(self.value != otherBool.getValue());
       }
-      return executor.getHeapAllocator().allocateBool(false);
-    }   
-  };
-  
-  private static final InternalFunction NOT = new InternalFunction(FunctionSignature.NO_ARG) {
-    @Override
-    public RuntimeInstance invoke( Fiber executor, ArgVector args) {
-      RuntimeBool self = (RuntimeBool) args.getPositional(SELF_INDEX);
-      return executor.getHeapAllocator().allocateBool(!self.value);
-    }   
-  };
-  
-  private static final InternalFunction BAND = new InternalFunction(FunctionSignature.ONE_ARG) {
-    @Override
-    public RuntimeInstance invoke( Fiber executor, ArgVector args) throws InvocationException {
+      return fiber.getHeapAllocator().allocateBool(true);
+    }
+  );
+
+  private static final InternalFunction NOT = 
+  create(
+    RuntimeBool.class, 
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      return fiber.getHeapAllocator().allocateBool(!self.value);
+    }
+  );
+
+  private static final InternalFunction BAND = 
+  create(
+    RuntimeBool.class, 
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
       RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-      RuntimeBool self = (RuntimeBool) args.getPositional(SELF_INDEX);
       if (otherOperand instanceof RuntimeBool) {
         RuntimeBool otherBool = (RuntimeBool) otherOperand;
-        return executor.getHeapAllocator().allocateBool(self.value & otherBool.getValue());
-      }
-      
-      throw new InvocationException("Unsupported operand on addition!", (Callable) args.getPositional(0));
-    }   
-  };
-  
-  private static final InternalFunction BOR = new InternalFunction(FunctionSignature.ONE_ARG) {
-    @Override
-    public RuntimeInstance invoke(Fiber executor, ArgVector args) throws InvocationException {
-      RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-      RuntimeBool self = (RuntimeBool) args.getPositional(SELF_INDEX);
-      if (otherOperand instanceof RuntimeBool) {
-        RuntimeBool otherBool = (RuntimeBool) otherOperand;
-        return executor.getHeapAllocator().allocateBool(self.value | otherBool.getValue());
+        return fiber.getHeapAllocator().allocateBool(self.value & otherBool.getValue());
       }
       
       throw new InvocationException("Unsupported operand on addition!", (Callable) args.getPositional(0));
-    }   
-  };  
-  
-  
+    }
+  );
+
+  private static final InternalFunction BOR = 
+  create(
+    RuntimeBool.class, 
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
+      if (otherOperand instanceof RuntimeBool) {
+        RuntimeBool otherBool = (RuntimeBool) otherOperand;
+        return fiber.getHeapAllocator().allocateBool(self.value | otherBool.getValue());
+      }
+      
+      throw new InvocationException("Unsupported operand on addition!", (Callable) args.getPositional(0));
+    }
+  );
   
   private final boolean value;
   
   public RuntimeBool(boolean value) {
+    super((self, m) -> {
+      final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
+      m.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
+      m.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
+      m.put(FuncOperatorCoupling.NOT.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT));
+      m.put(FuncOperatorCoupling.BAND.getFuncName(), new ImmediateInternalCallable(systemModule, self, BAND));
+      m.put(FuncOperatorCoupling.BOR.getFuncName(), new ImmediateInternalCallable(systemModule, self, BOR));
+    });
     this.value = value;
-    
-    final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-    
-    attributes.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, EQUAL));
-    attributes.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, this, NOT_EQUAL));
-    attributes.put(FuncOperatorCoupling.NOT.getFuncName(), new ImmediateInternalCallable(systemModule, this, NOT));
-    attributes.put(FuncOperatorCoupling.BAND.getFuncName(), new ImmediateInternalCallable(systemModule, this, BAND));
-    attributes.put(FuncOperatorCoupling.BOR.getFuncName(), new ImmediateInternalCallable(systemModule, this, BOR));
   }
   
   public boolean getValue() {

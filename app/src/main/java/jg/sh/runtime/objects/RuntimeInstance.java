@@ -9,7 +9,6 @@ import java.util.function.Consumer;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
-import jg.sh.runtime.exceptions.SealedObjectException;
 
 /**
  * Root type representing all runtime entities.
@@ -18,7 +17,7 @@ import jg.sh.runtime.exceptions.SealedObjectException;
  */
 public abstract class RuntimeInstance implements Markable {
     
-  protected final Map<String, RuntimeInstance> attributes;
+  private final Map<String, RuntimeInstance> attributes;
   
   private volatile boolean isSealed;
 
@@ -34,9 +33,9 @@ public abstract class RuntimeInstance implements Markable {
     this.gcFlag = Cleaner.GC_UNMARK_VALUE;
   }
     
-  public void setAttribute(String name, RuntimeInstance valueAddr) throws SealedObjectException {
+  public void setAttribute(String name, RuntimeInstance valueAddr) throws OperationException {
     if (isSealed) {
-      throw new SealedObjectException(name);
+      throw new OperationException("The object is sealed and immutable");
     }
     else {
       attributes.put(name, valueAddr);

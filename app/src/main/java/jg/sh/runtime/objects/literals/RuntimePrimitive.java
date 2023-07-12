@@ -1,6 +1,10 @@
 package jg.sh.runtime.objects.literals;
 
+import java.util.Map;
+import java.util.function.BiConsumer;
+
 import jg.sh.runtime.alloc.Cleaner;
+import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeObject;
 
 /**
@@ -14,6 +18,10 @@ import jg.sh.runtime.objects.RuntimeObject;
  *
  */
 public abstract class RuntimePrimitive extends RuntimeObject {
+
+  public RuntimePrimitive(BiConsumer<RuntimeObject, Map<String, RuntimeInstance>> initializer) {
+    super(initializer);
+  }
   
   @Override
   public void gcMark(Cleaner cleaner) {

@@ -11,13 +11,10 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 
-import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
-import static jg.sh.runtime.objects.callable.InternalFunction.FUNC_INDEX;
-import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
+import static jg.sh.runtime.objects.callable.InternalFunction.create;
 
 /**
  * An extensible array of elements.
@@ -30,38 +27,46 @@ public class RuntimeArray extends RuntimeInstance {
   public static final String RETR_INDEX_ATTR = "$getAt";
   public static final String STORE_INDEX_ATTR = "$setAt";
 
-  private static final InternalFunction SIZE = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeArray self = (RuntimeArray) args.getPositional(SELF_INDEX);
+  private static final InternalFunction SIZE = 
+  create(
+    RuntimeArray.class, 
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
       return fiber.getHeapAllocator().allocateInt(self.size());
     }
   );
   
-  private static final InternalFunction ADD = create(FunctionSignature.ONE_ARG, 
-    (fiber, args) -> {
-      RuntimeArray self = (RuntimeArray) args.getPositional(SELF_INDEX);
+  private static final InternalFunction ADD = 
+  create(
+    RuntimeArray.class,
+    FunctionSignature.ONE_ARG, 
+    (fiber, self, callable, args) -> {
       self.addValue(args.getPositional(ARG_INDEX));
       
       return RuntimeNull.NULL;
     }
   );
 
-  private static final InternalFunction RETR_INDEX = create(FunctionSignature.ONE_ARG, 
-    (fiber, args) -> {
-      RuntimeArray self = (RuntimeArray) args.getPositional(SELF_INDEX);
+  private static final InternalFunction RETR_INDEX = 
+  create(
+    RuntimeArray.class,
+    FunctionSignature.ONE_ARG, 
+    (fiber, self, callable, args) -> {
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       if (index instanceof RuntimeInteger) {
         RuntimeInteger integer = (RuntimeInteger) index;
         return self.getValue((int) integer.getValue());
       }
       
-      throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
+      throw new InvocationException("Unsupported index type '"+index+"'", callable);
     }
   );
 
-  private static final InternalFunction STORE_INDEX = create(FunctionSignature.ONE_ARG, 
-    (fiber, args) -> {
-      RuntimeArray self = (RuntimeArray) args.getPositional(SELF_INDEX);
+  private static final InternalFunction STORE_INDEX = 
+  create(
+    RuntimeArray.class,
+    FunctionSignature.ONE_ARG, 
+    (fiber, self, callable, args) -> {
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       if (index instanceof RuntimeInteger) {
         RuntimeInteger integer = (RuntimeInteger) index;
@@ -69,13 +74,15 @@ public class RuntimeArray extends RuntimeInstance {
         return RuntimeNull.NULL;
       }
       
-      throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
+      throw new InvocationException("Unsupported index type '"+index+"'", callable);
     }
   );
 
-  private static final InternalFunction TO_STRING = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      RuntimeArray self = (RuntimeArray) args.getPositional(SELF_INDEX);
+  private static final InternalFunction TO_STRING = 
+  create(
+    RuntimeArray.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
       return fiber.getHeapAllocator().allocateString(self.toString());
     }
   );

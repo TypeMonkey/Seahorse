@@ -50,15 +50,19 @@ public class SystemModule extends NativeModule {
   
   @Override
   public void initialAttrs(RuntimeObject systemObject, Map<String, RuntimeInstance> attrs) {    
-    attrs.put("print", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+    attrs.put("print", new ImmediateInternalCallable(runtimeModule, systemObject, 
+    create(
+      RuntimeObject.class,
+      FunctionSignature.ONE_ARG, 
+      (fiber, self, callable, args) -> {
         System.out.print(args.getPositional(ARG_INDEX));
         return RuntimeNull.NULL;
       }
     )));
 
-    attrs.put("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
-      (fiber, args) -> {
+    attrs.put("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(
+      new FunctionSignature(0, Collections.emptySet(), true), 
+      (fiber, self, callable, args) -> {
         for(int i = ARG_INDEX; i < args.getPositionals().size(); i++) {
           System.out.print(args.getPositional(i));
         }
@@ -68,15 +72,16 @@ public class SystemModule extends NativeModule {
       }
     )));
     
-    attrs.put("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(2, Collections.emptySet(), false),
-      (fiber, args) ->  {
+    attrs.put("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(
+      new FunctionSignature(2, Collections.emptySet(), false),
+      (fiber, self, callable, args) ->  {
         RuntimeInstance targetObject = args.getPositional(ARG_INDEX);
         RuntimeInstance targetFunction = args.getPositional(ARG_INDEX + 1);
         //System.out.println("  **** "+targetObject.getClass()+" , "+targetFunction.getClass());
         
         if (targetFunction instanceof Callable) {
-          RuntimeCallable callable = (RuntimeCallable) targetFunction;
-          return callable.rebind(targetObject, fiber.getHeapAllocator());
+          RuntimeCallable targetCallable = (RuntimeCallable) targetFunction;
+          return targetCallable.rebind(targetObject, fiber.getHeapAllocator());
         }
         
         throw new InvocationException("Object provided isn't a callable", (Callable) args.getPositional(0));
@@ -84,7 +89,7 @@ public class SystemModule extends NativeModule {
     )));
 
     attrs.put("input", new ImmediateInternalCallable(runtimeModule, systemObject, create(new FunctionSignature(0, Collections.emptySet(), true), 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         /*
          * Basically does what println does first before getting input
          */
@@ -102,7 +107,7 @@ public class SystemModule extends NativeModule {
     )));
 
     attrs.put("load", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         RuntimeInstance moduleName = args.getPositional(ARG_INDEX);
         if (moduleName instanceof RuntimeString) {
           String actualName = ((RuntimeString) moduleName).getValue();
@@ -129,37 +134,37 @@ public class SystemModule extends NativeModule {
     )));
 
     attrs.put("now", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber.getHeapAllocator().allocateInt(System.nanoTime());
       }
     )));
 
     attrs.put("isArray", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimeArray);
       }
     )));
 
     attrs.put("isFunction", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof Callable);
       }
     )));
 
     attrs.put("isPrimitive", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimePrimitive);
       }
     )));
     
     attrs.put("isError", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber.getHeapAllocator().allocateBool(args.getPositional(ARG_INDEX) instanceof RuntimeError);
       }
     )));
     
     attrs.put("spinOff", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         if (argument instanceof Callable) {
           return fiber.getManager().spinFiber( (Callable) argument, new ArgVector());
@@ -171,7 +176,7 @@ public class SystemModule extends NativeModule {
     )));
 
     attrs.put("makeThread", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         if (argument instanceof Callable) {
           return fiber.getManager().makeThread((Callable) argument);
@@ -182,21 +187,21 @@ public class SystemModule extends NativeModule {
     )));
     
     attrs.put("toString", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         RuntimeInstance argument = args.getPositional(ARG_INDEX); 
         return fiber.getHeapAllocator().allocateString(argument.toString()); 
       }
     )));
     
     attrs.put("stop", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         fiber.getManager().stop();
         return RuntimeNull.NULL; 
       }
     )));
 
     attrs.put("currentFiber", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
-      (fiber, args) -> {
+      (fiber, self, callable, args) -> {
         return fiber;
       }
     )));

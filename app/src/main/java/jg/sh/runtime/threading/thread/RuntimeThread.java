@@ -9,16 +9,15 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
 
-import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
 
 
@@ -31,16 +30,15 @@ import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
  */
 public class RuntimeThread extends Fiber {
 
-  private static final InternalFunction START = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      final Fiber selfFiber = (Fiber) args.getPositional(SELF_INDEX);
-      if (selfFiber instanceof RuntimeThread) {
-        final RuntimeThread thread = (RuntimeThread) selfFiber;
+  private static final InternalFunction START = InternalFunction.<RuntimeThread>create(FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      if (self instanceof RuntimeThread) {
+        final RuntimeThread thread = (RuntimeThread) self;
         thread.start();
         return RuntimeNull.NULL;
       }
       else {
-        throw new InvocationException("Unsupported operand on start()", (Callable) args.getPositional(0));
+        throw new InvocationException("Unsupported operand on start()", callable);
       }
     }
   );
@@ -84,13 +82,13 @@ public class RuntimeThread extends Fiber {
                        Callable callable, 
                        ArgVector args,
                        Consumer<Fiber> fiberReporter) {
-    super(allocator, finder, manager, cleaner);
+    super(allocator, finder, manager, cleaner, (self, m) -> {
+      m.put("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), self, START));
+    });
     this.callable = callable;
     this.args = args;
     this.thread = new Thread(this::startInternal);
     this.fiberReporter = fiberReporter;    
-
-    setAttribute("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), this, START));
   }
   
   /**

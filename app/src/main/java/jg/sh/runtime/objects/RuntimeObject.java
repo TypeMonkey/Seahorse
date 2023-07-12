@@ -1,6 +1,8 @@
 package jg.sh.runtime.objects;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -12,7 +14,6 @@ import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.exceptions.OperationException;
-import jg.sh.runtime.exceptions.SealedObjectException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
@@ -33,8 +34,7 @@ public class RuntimeObject extends RuntimeInstance {
   }
 
   private static final InternalFunction RETR_INDEX = create(FunctionSignature.ONE_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);
+    (fiber, self, callable, args) -> {
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       
       if (index instanceof RuntimeString) {
@@ -51,23 +51,27 @@ public class RuntimeObject extends RuntimeInstance {
   );
 
   private static final InternalFunction STORE_INDEX = create(FunctionSignature.ONE_ARG, 
-    (fiber, args) -> {
-      RuntimeObject self = (RuntimeObject) args.getPositional(SELF_INDEX);     
+    (fiber, self, callable, args) -> {
       RuntimeInstance index = args.getPositional(ARG_INDEX);
       RuntimeInstance newValue = args.getPositional(ARG_INDEX + 1);
       
-      if (index instanceof RuntimeString) {
-        RuntimeString string = (RuntimeString) index;
-        self.setAttribute(string.getValue(), newValue);
-        return RuntimeNull.NULL;
+      try {
+        if (index instanceof RuntimeString) {
+          RuntimeString string = (RuntimeString) index;
+          self.setAttribute(string.getValue(), newValue);
+          return RuntimeNull.NULL;
+        }
+        else if (index instanceof RuntimeInteger) {
+          RuntimeInteger integer = (RuntimeInteger) index;
+          self.setAttribute(String.valueOf(integer.getValue()), newValue);
+          return RuntimeNull.NULL;
+        }
+        else {
+          throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
+        }
+      } catch (OperationException e) {
+        throw new InvocationException(e, callable);
       }
-      else if (index instanceof RuntimeInteger) {
-        RuntimeInteger integer = (RuntimeInteger) index;
-        self.setAttribute(String.valueOf(integer.getValue()), newValue);
-        return RuntimeNull.NULL;
-      }
-      
-      throw new InvocationException("Unsupported index type '"+index+"'", (Callable) args.getPositional(FUNC_INDEX));
     }
   );
   
@@ -93,6 +97,15 @@ public class RuntimeObject extends RuntimeInstance {
       }
     });
     attrDescriptions = new HashMap<>();
+  }
+
+  public void setAttribute(String name, RuntimeInstance valueAddr) throws OperationException {
+    if (attrDescriptions.getOrDefault(name, Collections.emptySet()).contains(AttrModifier.CONSTANT)) {
+      throw new OperationException("The attribute '"+name+"' is constant and cannot be mutated.");
+    }
+    else {
+      super.setAttribute(name, valueAddr);
+    }
   }
   
   public Set<AttrModifier> getAttrModifiers(String name) {

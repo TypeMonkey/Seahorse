@@ -94,7 +94,7 @@ public class ThreadManager {
    * @return the created Fiber
    */
   public Fiber spinFiber(Callable callable, ArgVector vector) {
-    Fiber executor = new Fiber(allocator, finder, this, cleaner);
+    Fiber executor = new Fiber(allocator, finder, this, cleaner,null);
     try {
       executor.queue(callable, vector);
       threadPool.queueFiber(executor);
