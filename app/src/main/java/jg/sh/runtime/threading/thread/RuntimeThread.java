@@ -30,16 +30,13 @@ import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
  */
 public class RuntimeThread extends Fiber {
 
-  private static final InternalFunction START = InternalFunction.<RuntimeThread>create(FunctionSignature.NO_ARG, 
+  private static final InternalFunction START = InternalFunction.create(
+    RuntimeThread.class,
+    FunctionSignature.NO_ARG, 
     (fiber, self, callable, args) -> {
-      if (self instanceof RuntimeThread) {
-        final RuntimeThread thread = (RuntimeThread) self;
-        thread.start();
-        return RuntimeNull.NULL;
-      }
-      else {
-        throw new InvocationException("Unsupported operand on start()", callable);
-      }
+      final RuntimeThread thread = (RuntimeThread) self;
+      thread.start();
+      return RuntimeNull.NULL;
     }
   );
   
