@@ -18,5 +18,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface NativeFunction {
-  
+  int positionalParams();
+  String[] optionalParams();
+  boolean hasVariableParams();
 }

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
+import jg.sh.modules.NativeFunction;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.runtime.exceptions.InvocationException;
@@ -20,10 +21,12 @@ import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
+import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimePrimitive;
 import jg.sh.runtime.objects.literals.RuntimeString;
+import jg.sh.runtime.threading.fiber.Fiber;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
@@ -61,6 +64,7 @@ public class SystemModule extends NativeModule {
       }
     )));
 
+    /*
     attrs.put("println", new ImmediateInternalCallable(runtimeModule, systemObject, create(
       new FunctionSignature(0, Collections.emptySet(), true), 
       (fiber, self, callable, args) -> {
@@ -72,6 +76,7 @@ public class SystemModule extends NativeModule {
         return RuntimeNull.NULL;
       }
     )));
+    */
     
     attrs.put("bind", new ImmediateInternalCallable(runtimeModule, systemObject, create(
       new FunctionSignature(2, Collections.emptySet(), false),
@@ -210,7 +215,15 @@ public class SystemModule extends NativeModule {
     )));
   }
 
-  
+  @NativeFunction(hasVariableParams = true, optionalParams = {}, positionalParams = 0)
+  public static RuntimeInstance println(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) {
+    for(int i = ARG_INDEX; i < args.getPositionals().size(); i++) {
+      System.out.print(args.getPositional(i));
+    }
+    
+    System.out.println();
+    return RuntimeNull.NULL;
+  }
 
   @Override
   public String getName() {

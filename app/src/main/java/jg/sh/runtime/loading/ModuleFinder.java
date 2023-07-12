@@ -2,7 +2,9 @@ package jg.sh.runtime.loading;
 
 import java.io.File;
 import java.lang.invoke.CallSite;
+import java.lang.invoke.LambdaConversionException;
 import java.lang.invoke.LambdaMetafactory;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
@@ -11,8 +13,10 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +35,16 @@ import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeObject;
+import jg.sh.runtime.objects.callable.InternalFunction;
+import jg.sh.runtime.objects.callable.PervasiveFuncInterface;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.objects.callable.StrictFuncInterface;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
@@ -78,7 +86,10 @@ public class ModuleFinder implements Markable {
     final NativeModule systemNativeModule = SystemModule.getNativeModule();
     final RuntimeModule systemModule = systemNativeModule.getModule();
     
-    final RuntimeObject systemObject = allocator.allocateEmptyObject(systemNativeModule::initialAttrs);
+    final RuntimeObject systemObject = allocator.allocateEmptyObject((o, m) -> {
+      prepareFromAnnotations(systemNativeModule, o, m);
+      systemNativeModule.initialAttrs(o,m);
+    });
     
     final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
     systemModule.setLoadingComponents(systemObject, initialization);
@@ -202,7 +213,10 @@ public class ModuleFinder implements Markable {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
-          RuntimeObject moduleObject = allocator.allocateEmptyObject((o, m) -> prepareFromAnnotations(nativeModule, o, m));
+          RuntimeObject moduleObject = allocator.allocateEmptyObject((o, m) -> {
+            prepareFromAnnotations(nativeModule, o, m);
+            nativeModule.initialAttrs(o,m);
+          });
           
           RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
           module = nativeModule.getModule();
@@ -218,26 +232,47 @@ public class ModuleFinder implements Markable {
   public void prepareFromAnnotations(NativeModule module, RuntimeObject moduleObject, Map<String, RuntimeInstance> attrs) {
     final Class<?> actualClass = module.getClass();
     for(Method method : actualClass.getDeclaredMethods()) {
-      if (method.isAnnotationPresent(NativeFunction.class)  && 
-          Modifier.isStatic(method.getModifiers()) &&
+      if (method.isAnnotationPresent(NativeFunction.class) &&
+          Modifier.isStatic(method.getModifiers()) && 
           method.getParameterCount() == 4 &&
 
           method.getParameterTypes()[0] == Fiber.class && 
           RuntimeInstance.class.isAssignableFrom(method.getParameterTypes()[1]) &&
           method.getParameterTypes()[2] == RuntimeInternalCallable.class && 
           method.getParameterTypes()[3] == ArgVector.class) {
-
-          //Internal function paramters are: Fiber, self (RuntimeInstance), callable, argVector
+        //Internal function paramters are: Fiber, self (RuntimeInstance), callable, argVector
+        System.out.println("==== found method: "+method.getName());
           
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
-        CallSite site = LambdaMetafactory.metafactory(
-                lookup,
-                "apply",
-                MethodType.methodType(Function.class),
-                MethodType.methodType(Object.class, Object.class),
-                lookup.findVirtual(actualClass, "getName", MethodType.methodType(String.class)),
-                MethodType.methodType(String.class, Person.class));
-        
+        final NativeFunction annotation = method.getAnnotation(NativeFunction.class);
+        final FunctionSignature signature = new FunctionSignature(annotation.positionalParams(), 
+                                                                  new HashSet<>(Arrays.asList(annotation.optionalParams())), 
+                                                                  annotation.hasVariableParams());
+
+        try {
+          MethodHandles.Lookup lookup = MethodHandles.lookup();
+          MethodHandle handle = lookup.unreflect(method);
+          CallSite callSite = LambdaMetafactory.metafactory(lookup, 
+                                                            "call", 
+                                                            MethodType.methodType(PervasiveFuncInterface.class), 
+                                                            MethodType.methodType(RuntimeInstance.class, 
+                                                                                  Fiber.class,
+                                                                                  RuntimeInstance.class,
+                                                                                  RuntimeInternalCallable.class, 
+                                                                                  ArgVector.class), 
+                                                            handle, 
+                                                            handle.type());
+          try {
+            PervasiveFuncInterface internal = (PervasiveFuncInterface) callSite.getTarget().invoke();
+            InternalFunction function = InternalFunction.create(signature, internal);
+            attrs.put(method.getName(), new RuntimeInternalCallable(module.getModule(), 
+                                                                    moduleObject, 
+                                                                    function));
+          } catch (Throwable e) {
+            throw new Error(e);
+          };
+        } catch (LambdaConversionException | IllegalAccessException e) {
+          throw new Error(e);
+        }
       }
     }
 

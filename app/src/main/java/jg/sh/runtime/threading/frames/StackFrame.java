@@ -249,7 +249,7 @@ public abstract class StackFrame implements Markable {
     if (args.getPositionals().size() - 2 < signature.getPositionalParamCount()) {
       throw new InvocationException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
     }
-    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount()) {
+    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount() && !signature.hasVariableParams()) {
       throw new InvocationException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
     }
     
