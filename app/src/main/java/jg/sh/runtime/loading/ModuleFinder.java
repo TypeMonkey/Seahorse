@@ -1,6 +1,11 @@
 package jg.sh.runtime.loading;
 
 import java.io.File;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.LambdaMetafactory;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
@@ -12,10 +17,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.common.FunctionSignature;
+import jg.sh.modules.NativeFunction;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
@@ -24,12 +31,13 @@ import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
-
+import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.instrs.Instruction;
@@ -194,7 +202,7 @@ public class ModuleFinder implements Markable {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
-          RuntimeObject moduleObject = allocator.allocateEmptyObject(nativeModule::initialAttrs);
+          RuntimeObject moduleObject = allocator.allocateEmptyObject((o, m) -> prepareFromAnnotations(nativeModule, o, m));
           
           RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
           module = nativeModule.getModule();
@@ -205,6 +213,34 @@ public class ModuleFinder implements Markable {
     }
     
     return module;
+  }
+
+  public void prepareFromAnnotations(NativeModule module, RuntimeObject moduleObject, Map<String, RuntimeInstance> attrs) {
+    final Class<?> actualClass = module.getClass();
+    for(Method method : actualClass.getDeclaredMethods()) {
+      if (method.isAnnotationPresent(NativeFunction.class)  && 
+          Modifier.isStatic(method.getModifiers()) &&
+          method.getParameterCount() == 4 &&
+
+          method.getParameterTypes()[0] == Fiber.class && 
+          RuntimeInstance.class.isAssignableFrom(method.getParameterTypes()[1]) &&
+          method.getParameterTypes()[2] == RuntimeInternalCallable.class && 
+          method.getParameterTypes()[3] == ArgVector.class) {
+
+          //Internal function paramters are: Fiber, self (RuntimeInstance), callable, argVector
+          
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        CallSite site = LambdaMetafactory.metafactory(
+                lookup,
+                "apply",
+                MethodType.methodType(Function.class),
+                MethodType.methodType(Object.class, Object.class),
+                lookup.findVirtual(actualClass, "getName", MethodType.methodType(String.class)),
+                MethodType.methodType(String.class, Person.class));
+        
+      }
+    }
+
   }
   
   /**
@@ -245,32 +281,37 @@ public class ModuleFinder implements Markable {
       
       Class<?> targetClass = Class.forName(StringUtils.getBareFileName(path.getName()), true, classLoader);      
       
-      NativeModule nativeModule = null;
-      
-      if (NativeModule.class.isAssignableFrom(targetClass)) {
-        Method invocationTarget = null;
-        for(Method method : targetClass.getDeclaredMethods()) {
-          if (method.isAnnotationPresent(NativeModuleDiscovery.class) && 
-              NativeModule.class.isAssignableFrom(method.getReturnType()) && 
-              method.getParameterCount() == 0 && 
-              Modifier.isStatic(method.getModifiers())) {
-            invocationTarget = method;
-            break;
-          }
-        }
-                
-        if (invocationTarget != null) {
-          nativeModule = (NativeModule) invocationTarget.invoke(null);
-        }
-        
-      }     
-      
-      return nativeModule;
+      return loadFromClass(targetClass);
     } catch (Exception e) {
       System.out.println("class loading exception");
       e.printStackTrace();
       return null;
     }
+  }
+
+  public NativeModule loadFromClass(Class<?> targetClass) {
+    if (NativeModule.class.isAssignableFrom(targetClass)) {
+      Method invocationTarget = null;
+      for(Method method : targetClass.getDeclaredMethods()) {
+        if (method.isAnnotationPresent(NativeModuleDiscovery.class) && 
+            NativeModule.class.isAssignableFrom(method.getReturnType()) && 
+            method.getParameterCount() == 0 && 
+            Modifier.isStatic(method.getModifiers())) {
+          invocationTarget = method;
+          break;
+        }
+      }
+              
+      if (invocationTarget != null) {
+        try {
+          return (NativeModule) invocationTarget.invoke(null);
+        } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+          return null;
+        }
+      }
+      
+    }     
+    return null;
   }
   
   /**

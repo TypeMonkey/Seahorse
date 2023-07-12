@@ -21,6 +21,7 @@ import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
+import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimePrimitive;
 import jg.sh.runtime.objects.literals.RuntimeString;
 
@@ -37,7 +38,7 @@ import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
 public class SystemModule extends NativeModule {
   public static final String SYSTEM_NAME = "system";
   
-  private static SystemModule runtimeModule_INSTANCE;
+  private static SystemModule runtimeModule_INSTANCE = new SystemModule();
   
   private final BufferedReader INPUT_READER;
   
@@ -193,9 +194,11 @@ public class SystemModule extends NativeModule {
       }
     )));
     
-    attrs.put("stop", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.NO_ARG, 
+    attrs.put("exit", new ImmediateInternalCallable(runtimeModule, systemObject, create(FunctionSignature.ONE_ARG, 
       (fiber, self, callable, args) -> {
-        fiber.getManager().stop();
+        long exitCode = args.getPositional(ARG_INDEX) instanceof RuntimeInteger ?
+                         ((RuntimeInteger) args.getPositional(ARG_INDEX)).getValue() : 0;
+        System.exit((int) exitCode);
         return RuntimeNull.NULL; 
       }
     )));
@@ -206,6 +209,8 @@ public class SystemModule extends NativeModule {
       }
     )));
   }
+
+  
 
   @Override
   public String getName() {
@@ -218,9 +223,6 @@ public class SystemModule extends NativeModule {
   
   @NativeModuleDiscovery
   public static NativeModule getNativeModule() {
-    if (runtimeModule_INSTANCE == null) {
-      runtimeModule_INSTANCE = new SystemModule();
-    }
     return runtimeModule_INSTANCE;
   }
 }

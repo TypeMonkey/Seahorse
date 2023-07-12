@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
  * 
  * A NativeModule class should have one - and only one - such method. 
  * 
- * Classes that are annotated with the NativeModule annotation will be checked
+ * Classes that are exend NativeModule will be checked
  * for such condition. If such condition fails to hold, an exception will be thrown
  * at loading.
  * 

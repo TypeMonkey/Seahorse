@@ -1,6 +1,7 @@
 package jg.sh.runtime.objects.literals;
 
 import jg.sh.common.FunctionSignature;
+import jg.sh.modules.NativeFunction;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
