@@ -232,17 +232,16 @@ public class ModuleFinder implements Markable {
   public void prepareFromAnnotations(NativeModule module, RuntimeObject moduleObject, Map<String, RuntimeInstance> attrs) {
     final Class<?> actualClass = module.getClass();
     for(Method method : actualClass.getDeclaredMethods()) {
-      if (method.isAnnotationPresent(NativeFunction.class) &&
-          Modifier.isStatic(method.getModifiers()) && 
+      if (Modifier.isStatic(method.getModifiers()) &&
+          method.isAnnotationPresent(NativeFunction.class) && 
           method.getParameterCount() == 4 &&
 
           method.getParameterTypes()[0] == Fiber.class && 
           RuntimeInstance.class.isAssignableFrom(method.getParameterTypes()[1]) &&
           method.getParameterTypes()[2] == RuntimeInternalCallable.class && 
-          method.getParameterTypes()[3] == ArgVector.class) {
+          method.getParameterTypes()[3] == ArgVector.class &&
+          RuntimeInstance.class.isAssignableFrom(method.getReturnType())) {
         //Internal function paramters are: Fiber, self (RuntimeInstance), callable, argVector
-        System.out.println("==== found method: "+method.getName());
-          
         final NativeFunction annotation = method.getAnnotation(NativeFunction.class);
         final FunctionSignature signature = new FunctionSignature(annotation.positionalParams(), 
                                                                   new HashSet<>(Arrays.asList(annotation.optionalParams())), 
@@ -263,7 +262,15 @@ public class ModuleFinder implements Markable {
                                                             handle.type());
           try {
             PervasiveFuncInterface internal = (PervasiveFuncInterface) callSite.getTarget().invoke();
-            InternalFunction function = InternalFunction.create(signature, internal);
+            PervasiveFuncInterface filter = (f, self, callable, args) -> {
+              try {
+                return internal.call(f, (RuntimeInstance) method.getParameterTypes()[1].cast(self), callable, args);
+              } catch (ClassCastException e) {
+                throw new InvocationException("Expected "+method.getParameterTypes()[1].getName()+
+                                              ", but was a "+self.getClass().getName(), callable);
+              }
+            };
+            InternalFunction function = InternalFunction.create(signature, filter);
             attrs.put(method.getName(), new RuntimeInternalCallable(module.getModule(), 
                                                                     moduleObject, 
                                                                     function));
