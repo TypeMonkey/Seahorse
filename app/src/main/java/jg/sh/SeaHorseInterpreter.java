@@ -135,6 +135,9 @@ public class SeaHorseInterpreter {
         System.gc();
         System.out.println("   *** PROFILE POINT: After Parsing GC: "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
               
+        //TODO: Needed so I can latch visualvm on this
+        Thread.sleep(15000);
+
         finder.registerModules(compiledModules);
         try {
           RuntimeModule mainModule = finder.getModule(compiledModules.get(0).getName());

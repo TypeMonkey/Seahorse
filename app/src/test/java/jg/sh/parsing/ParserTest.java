@@ -116,7 +116,8 @@ public class ParserTest {
       fail(e);
     }
 
-    assertEquals(2, prog.getStatements().size());    
+    assertEquals(2, prog.getStatements().size());   
+    System.out.println("var: "+prog.getStatements().get(1)); 
 
     final FuncDef func = assertHasFunc("hello", 
                                        2, 

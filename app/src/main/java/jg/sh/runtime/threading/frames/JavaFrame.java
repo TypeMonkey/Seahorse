@@ -12,12 +12,15 @@ import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 
 public class JavaFrame extends StackFrame{
+
+  private final RuntimeInternalCallable callable;
   
   public JavaFrame(RuntimeModule hostModule, 
                    RuntimeInternalCallable callable, 
                    ArgVector initialArgs, 
                    BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, callable, initialArgs, atCompletion);
+    super(hostModule, initialArgs, atCompletion);
+    this.callable = callable;
   }
   
   @Override
@@ -56,4 +59,7 @@ public class JavaFrame extends StackFrame{
     return initialArgs;
   }
   
+  public RuntimeInternalCallable getCallable() {
+    return callable;
+  }
 }

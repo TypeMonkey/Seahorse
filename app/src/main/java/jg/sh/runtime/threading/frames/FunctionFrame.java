@@ -47,7 +47,9 @@ public class FunctionFrame extends StackFrame {
 
   static volatile int frameMarker = 0;
 
-  private int marker;
+  private final RuntimeCallable callable;
+  private final ContextualInstr [] instrs;
+
   private int instrIndex;
   
   public FunctionFrame(RuntimeModule hostModule, 
@@ -55,14 +57,11 @@ public class FunctionFrame extends StackFrame {
                        int instrIndex, 
                        ArgVector initialArgs,
                        BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, callable, initialArgs, atCompletion);
+    super(hostModule, initialArgs, atCompletion);
+    this.callable = callable;
+    this.instrs = callable.getCodeObject().getInstrs();
     this.instrIndex = instrIndex;
-    this.marker = frameMarker++;
   }  
-
-  public int hashCode() {
-    return marker;
-  }
 
   @Override
   public StackFrame run(HeapAllocator allocator, Fiber thread) {
@@ -1030,33 +1029,30 @@ public class FunctionFrame extends StackFrame {
   }
   
   public boolean hasInstrLeft() {
-    return instrIndex < getRuntimeCallable().getCodeObject().getInstrs().length;
+    return instrIndex < instrs.length;
   }
   
   public ContextualInstr getCurrInstr() {
-    return getRuntimeCallable().getCodeObject().getInstrs()[instrIndex];
+    return instrs[instrIndex];
   }
   
   public RuntimeInstance getCapture(int varIndex) {
-    return getRuntimeCallable().getCapture(varIndex);
+    return callable.getCapture(varIndex);
     //return closureCaptures[varIndex].getValue();
   }
 
   public void setCapture(int varIndex, RuntimeInstance value) {
-    getRuntimeCallable().setCapture(varIndex, value);
+    callable.setCapture(varIndex, value);
     //closureCaptures[varIndex].setValue(value);
   }
   
   public CellReference getCaptureReference(int varIndex) {
-    return getRuntimeCallable().getCaptures()[varIndex];
+    return callable.getCaptures()[varIndex];
   }
   
-  /**
-   * Convenience method for returning the RuntimeCallable that this FunctionFrame is based on.
-   * @return the RuntimeCallable that this FunctionFrame is based on.
-   */
-  public RuntimeCallable getRuntimeCallable() {
-    return (RuntimeCallable) callable;
+  @Override
+  public RuntimeCallable getCallable() {
+    return callable;
   }
 
 }

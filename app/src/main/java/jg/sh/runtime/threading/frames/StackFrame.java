@@ -53,7 +53,6 @@ public abstract class StackFrame implements Markable {
   //private static final int LOCAL_VAR_INIT_AMOUNT = 1;
 
   protected final Stack<RuntimeInstance> operandStack;
-  protected final Callable callable;
   protected final CompletableFuture<RuntimeInstance> returnValue;
   protected final ArgVector initialArgs;
   
@@ -63,10 +62,8 @@ public abstract class StackFrame implements Markable {
   private int gcFlag;
   
   public StackFrame(RuntimeModule hostModule, 
-                    Callable callable, 
                     ArgVector initialArgs, 
                     BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    this.callable = callable;
     this.returnValue = new CompletableFuture<>();
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
@@ -113,7 +110,7 @@ public abstract class StackFrame implements Markable {
   }
     
   public void setErrorFlag(RuntimeError error) {
-    final InvocationException invocationException = new InvocationException(error, callable);
+    final InvocationException invocationException = new InvocationException(error, getCallable());
     getFuture().completeExceptionally(invocationException);
     this.error = invocationException;
   }
@@ -148,7 +145,7 @@ public abstract class StackFrame implements Markable {
   }
   
   public RuntimeModule getHostModule() {
-    return callable.getHostModule();
+    return getCallable().getHostModule();
   }
   
   @Override
@@ -163,7 +160,7 @@ public abstract class StackFrame implements Markable {
   
   @Override
   public void gcMark(Cleaner cleaner) {
-    cleaner.gcMarkObject(callable);
+    cleaner.gcMarkObject(getCallable());
     
     //System.out.println(" marking frame: "+current.getClass()+"  "+current);
 
@@ -185,30 +182,6 @@ public abstract class StackFrame implements Markable {
   
   protected abstract void markAdditional(Cleaner allocator);
   
-  /*
-  public void registerNext(StackFrame nextFrame) {
-    setNextFrame(nextFrame);
-    nextFrame.setPrevFrame(this);
-  }
-  
-  
-  public void setNextFrame(StackFrame nextFrame) {
-    this.nextFrame = nextFrame;
-  }
-  
-  public void setPrevFrame(StackFrame prevFrame) {
-    this.prevFrame = prevFrame;
-  }
-  
-  public StackFrame getPrevFrame() {
-    return prevFrame;
-  }
-  
-  public StackFrame getNextFrame() {
-    return nextFrame;
-  }
-  */
-  
   public InvocationException getError() {
     return error;
   }
@@ -221,9 +194,7 @@ public abstract class StackFrame implements Markable {
     operandStack.clear();
   }
   
-  public Callable getCallable() {
-    return callable;
-  }
+  public abstract Callable getCallable();
   
   public CompletableFuture<RuntimeInstance> getFuture() {
     return returnValue;

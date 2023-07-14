@@ -67,12 +67,12 @@ public final class ParseTestUtils {
                                   boolean hasInitValue, 
                                   Collection<Statement> statements) {
     for (Statement statement : statements) {
-      if (statement.getExpr() instanceof VarDeclr) {
-        final VarDeclr varDeclr = (VarDeclr) statement.getExpr();
+      if (statement instanceof VarDeclr) {
+        final VarDeclr varDeclr = (VarDeclr) statement;
+        System.out.println(" ===> var: "+varDeclr.getName()+" | "+varDeclr.isConst());
         if (varDeclr.getName().getIdentifier().equals(name) &&
             varDeclr.isConst() == isConst &&
-            varDeclr.hasInitialValue() == hasInitValue &&
-            Keyword.hasKeyword(TokenType.CONST, varDeclr.getDescriptors())) {
+            varDeclr.hasInitialValue() == hasInitValue) {
           return varDeclr;
         }
       }
