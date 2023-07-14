@@ -25,7 +25,30 @@ public @interface NativeFunction {
    * string if the name of the method is to be used as the attribute name.
    */
   String name() default "";
-  int positionalParams();
-  String[] optionalParams();
-  boolean hasVariableParams();
+
+  /**
+   * The amount of positional arguments this function expects.
+   * @return the amount of positional arguments this function expects.
+   * 
+   * The default is 0
+   */
+  int positionalParams() default 0;
+
+  /**
+   * The keyword/optional arguments this function can take in.
+   * @return the keyword/optional arguments this function can take in.
+   * 
+   * The default is an empty String []
+   */
+  String[] optionalParams() default {};
+
+  /**
+   * If this function can take in a variable amount of arguments
+   * after all positional arguments.
+   * @return whether this function can take in a variable amount of arguments
+   * after all positional arguments.
+   * 
+   * The default is false.
+   */
+  boolean hasVariableParams() default false;
 }

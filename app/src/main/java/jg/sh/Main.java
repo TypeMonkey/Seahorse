@@ -11,23 +11,18 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import jg.sh.InterpreterOptions.IOption;
-import net.percederberg.grammatica.parser.ParserCreationException;
 
 public class Main {
 
   public static void main(String[] args) {
     ParsedCLIOptions options = parseArguments(args);
     if (options != null) {
-      try {
         SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options.options);
         if(!interpreter.init()) {
           System.err.println("Couldn't properly initialize interpreter. Exiting...");
           return;
         }
         interpreter.executeModule(options.mainModule, options.programArgs);
-      } catch (ParserCreationException e) {
-        System.err.println("Error encountered while initializing parser. Exiting...");
-      }
     }
   }
    

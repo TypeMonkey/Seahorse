@@ -32,9 +32,4 @@ public class RuntimeNull extends RuntimeInstance {
   public String toString() {
     return "null";
   }
-  
-  @Override
-  public void finalize(){
-     
-  }
 }

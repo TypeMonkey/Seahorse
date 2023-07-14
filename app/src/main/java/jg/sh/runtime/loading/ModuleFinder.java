@@ -251,7 +251,7 @@ public class ModuleFinder implements Markable {
 
         try {
           final MethodHandles.Lookup lookup = MethodHandles.lookup();
-          final MethodHandle handle = lookup.in(actualClass).unreflect(method);
+          final MethodHandle handle = lookup.unreflect(method);
           final MethodType type = handle.type();
 
           final MethodType factoryType = isStatic ? 

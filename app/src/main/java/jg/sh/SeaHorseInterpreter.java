@@ -22,7 +22,6 @@ import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.util.StringUtils;
-import net.percederberg.grammatica.parser.ParserCreationException;
 
 public class SeaHorseInterpreter {
   
@@ -44,7 +43,7 @@ public class SeaHorseInterpreter {
   private final HeapAllocator allocator;
   private final ModuleFinder finder;
   
-  public SeaHorseInterpreter(Map<IOption, Object> options) throws ParserCreationException {
+  public SeaHorseInterpreter(Map<IOption, Object> options) {
     this.options = options;
     
     this.seahorseCompiler = new SeahorseCompiler();
@@ -170,7 +169,7 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     System.out.println(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/fibb_create_measure.shr";
+    String mainModule = "../sampleSrcs/fibb_sync.shr";
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, true);
