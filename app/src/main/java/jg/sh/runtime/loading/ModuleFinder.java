@@ -232,8 +232,7 @@ public class ModuleFinder implements Markable {
   public void prepareFromAnnotations(NativeModule module, RuntimeObject moduleObject, Map<String, RuntimeInstance> attrs) {
     final Class<?> actualClass = module.getClass();
     for(Method method : actualClass.getDeclaredMethods()) {
-      if (Modifier.isStatic(method.getModifiers()) &&
-          method.isAnnotationPresent(NativeFunction.class) && 
+      if (method.isAnnotationPresent(NativeFunction.class) && 
           method.getParameterCount() == 4 &&
 
           method.getParameterTypes()[0] == Fiber.class && 
@@ -247,37 +246,49 @@ public class ModuleFinder implements Markable {
                                                                   new HashSet<>(Arrays.asList(annotation.optionalParams())), 
                                                                   annotation.hasVariableParams());
 
+        final boolean isStatic = Modifier.isStatic(method.getModifiers());
+        final String attrName = annotation.name().isEmpty() ? method.getName() : annotation.name();
+
         try {
-          MethodHandles.Lookup lookup = MethodHandles.lookup();
-          MethodHandle handle = lookup.unreflect(method);
+          final MethodHandles.Lookup lookup = MethodHandles.lookup();
+          final MethodHandle handle = lookup.in(actualClass).unreflect(method);
+          final MethodType type = handle.type();
+
+          final MethodType factoryType = isStatic ? 
+                                          MethodType.methodType(PervasiveFuncInterface.class) :
+                                          MethodType.methodType(PervasiveFuncInterface.class, type.parameterType(0));
+
+          final MethodType interMethType = isStatic ? 
+                                            type.changeParameterType(1, RuntimeInstance.class) :
+                                            type.dropParameterTypes(0, 1).changeParameterType(1, RuntimeInstance.class);
+
+          final MethodType targetType = isStatic ? type : type.dropParameterTypes(0, 1);
+
           CallSite callSite = LambdaMetafactory.metafactory(lookup, 
                                                             "call", 
-                                                            MethodType.methodType(PervasiveFuncInterface.class), 
-                                                            MethodType.methodType(RuntimeInstance.class, 
-                                                                                  Fiber.class,
-                                                                                  RuntimeInstance.class,
-                                                                                  RuntimeInternalCallable.class, 
-                                                                                  ArgVector.class), 
+                                                            factoryType, 
+                                                            interMethType, 
                                                             handle, 
-                                                            handle.type());
-          try {
-            PervasiveFuncInterface internal = (PervasiveFuncInterface) callSite.getTarget().invoke();
-            PervasiveFuncInterface filter = (f, self, callable, args) -> {
-              try {
-                return internal.call(f, (RuntimeInstance) method.getParameterTypes()[1].cast(self), callable, args);
-              } catch (ClassCastException e) {
-                throw new InvocationException("Expected "+method.getParameterTypes()[1].getName()+
-                                              ", but was a "+self.getClass().getName(), callable);
-              }
-            };
-            InternalFunction function = InternalFunction.create(signature, filter);
-            attrs.put(method.getName(), new RuntimeInternalCallable(module.getModule(), 
-                                                                    moduleObject, 
-                                                                    function));
-          } catch (Throwable e) {
-            throw new Error(e);
+                                                            targetType);
+          
+          PervasiveFuncInterface internal = (PervasiveFuncInterface) 
+                                            (isStatic ? 
+                                              callSite.getTarget().invoke() :
+                                              callSite.getTarget().invoke(module));
+          PervasiveFuncInterface filter = (f, self, callable, args) -> {
+            try {
+              return internal.call(f, (RuntimeInstance) method.getParameterTypes()[1].cast(self), callable, args);
+            } catch (ClassCastException e) {
+              throw new InvocationException("Expected "+method.getParameterTypes()[1].getName()+
+                                            ", but was a "+self.getClass().getName(), callable);
+            }
           };
-        } catch (LambdaConversionException | IllegalAccessException e) {
+          InternalFunction function = InternalFunction.create(signature, filter);
+          attrs.put(attrName, new RuntimeInternalCallable(module.getModule(), 
+                                                                  moduleObject, 
+                                                                  function));
+
+        } catch (Throwable e) {
           throw new Error(e);
         }
       }

@@ -45,6 +45,9 @@ import jg.sh.util.RuntimeUtils;
  */
 public class FunctionFrame extends StackFrame {
 
+  static volatile int frameMarker = 0;
+
+  private int marker;
   private int instrIndex;
   
   public FunctionFrame(RuntimeModule hostModule, 
@@ -54,7 +57,12 @@ public class FunctionFrame extends StackFrame {
                        BiConsumer<RuntimeInstance, Throwable> atCompletion) {
     super(hostModule, callable, initialArgs, atCompletion);
     this.instrIndex = instrIndex;
+    this.marker = frameMarker++;
   }  
+
+  public int hashCode() {
+    return marker;
+  }
 
   @Override
   public StackFrame run(HeapAllocator allocator, Fiber thread) {
@@ -73,7 +81,7 @@ public class FunctionFrame extends StackFrame {
       final Instruction instr = current.getInstr();
       final OpCode op = instr.getOpCode();
       
-      //System.out.println(instr+" | "+instr.getLine());
+      //System.out.println(instr+" | "+instr.getStart());
       
       switch (op) {
         //Ineffectual instructions. They just fall through
@@ -222,8 +230,8 @@ public class FunctionFrame extends StackFrame {
             //unsupported operation
             RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
             
-            System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
-            System.out.println(instr.getStart());
+            //System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
+            //System.out.println(instr.getStart());
 
             setErrorFlag(error);
             if (current.getExceptionJumpIndex() >= 0) {
@@ -324,6 +332,7 @@ public class FunctionFrame extends StackFrame {
             
             try {
               final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
+              //System.out.println(" =================== CALL =================== ");
               if (result != null) {
                 pushOperand(result);
               }
@@ -464,6 +473,7 @@ public class FunctionFrame extends StackFrame {
             this.leftOverReturn = returnValue;
           }
           */
+          //System.out.println(" ========================== RETURN ========================");
           returnValue(popOperand());
           return null;
         }
@@ -551,8 +561,7 @@ public class FunctionFrame extends StackFrame {
         case LOAD: {          
           LoadCellInstr loadInstr = (LoadCellInstr) instr;
           
-          //System.out.println(" ------- LOAD: LOCAL VARS: "+peekFrame().getLocalVars().length+", "+loadInstr.getIndex());
-          
+          //System.out.println(" ------- LOAD: LOCAL VARS: "+getLocalVars().length+", "+loadInstr.getIndex()+" | AT: "+hashCode());
           pushOperand(getLocalVar(loadInstr.getIndex()));
           break;
         }
@@ -560,6 +569,7 @@ public class FunctionFrame extends StackFrame {
           StoreCellInstr storeInstr = (StoreCellInstr) instr;
           RuntimeInstance value = popOperand();
           storeLocalVar(storeInstr.getIndex(), value);
+          //System.out.println(" ==== STORE: "+instr+" | "+instr.getStart()+" | AT: "+hashCode());
           break;
         }
         case LOADATTR: {
@@ -571,7 +581,7 @@ public class FunctionFrame extends StackFrame {
             pushOperand(object.getAttr(attrName));
           }
           else {
-            System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet()+" | "+object.getClass()+" | "+instr.getStart());
+            //System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet()+" | "+object.getClass()+" | "+instr.getStart());
             
             RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on object.");
             setErrorFlag(error);

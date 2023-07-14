@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
@@ -302,15 +303,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else if(result.first instanceof VarDeclr) {
         //This component has already been validated + compiled 
-        final VarDeclr varDeclr = (VarDeclr) result.first;
         final VarResult vResult = (VarResult) result.second;
-        final LoadStorePair loadStore = vResult.getVars().get(varDeclr.getName());
 
         //Add the instrs of the variable's value
         instrs.addAll(vResult.getInstructions());
-
-        //Load that value into our variable
-        instrs.add(loadStore.load);
       }
       else {        
         final NodeResult stmtResult = result.first.accept(this, moduleContext);
@@ -639,7 +635,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     //Now, compile everything
     for (Pair<Statement, NodeResult> target : toCompile) {
-      instrs.add(new CommentInstr(" => For statement at: "+target.first.start));
+      instrs.add(new CommentInstr(" => For statement at: "+target.first.start+" | "+target.first.repr()));
 
       if (target.first.getExpr() instanceof FuncDef) {
         final FuncDef func = (FuncDef) target.first.getExpr();
@@ -656,15 +652,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else if(target.first instanceof VarDeclr) {
         //This component has already been validated + compiled 
-        final VarDeclr varDeclr = (VarDeclr) target.first;
         final VarResult vResult = (VarResult) target.second;
-        final LoadStorePair loadStore = vResult.getVars().get(varDeclr.getName());
 
         //Add the instrs of the variable's value
         instrs.addAll(vResult.getInstructions());
-
-        //Load that value into our variable
-        instrs.add(loadStore.load);
       }
       else {        
         target.first.accept(this, blockContext).pipeErr(exceptions).pipeInstr(instrs);
@@ -815,6 +806,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitWhileBlock(CompContext parentContext, WhileBlock whileBlock) {
+    System.out.println("=== WHILE BLOCK: "+whileBlock.repr());
     final List<Instruction> instrs = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
@@ -844,6 +836,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     
     instrs.add(new JumpInstr(whileBlock.start, whileBlock.end, OpCode.JUMP, loopLabel));
     instrs.add(new LabelInstr(whileBlock.start, whileBlock.end, endLabel));
+
+    System.out.println(" === WHILE BLOCK RESULT: "+instrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -988,6 +982,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, varIndex + 1);
       return LS;
     };
+    funcContext.setContextValue(ContextKey.VAR_ALLOCATOR, localVarAlloc);
 
     //set closure index to 0
     funcContext.setContextValue(ContextKey.CL_VAR_INDEX, 0);
@@ -997,6 +992,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     //index for captured variables
     int captureIndex = 0;
+
+    System.out.println("==> "+funcDef.getBoundName()+" | "+funcDef.start+" | captures: "+funcDef.getCaptures());
 
     //Compile capture first
     for (Identifier capture : funcDef.getCaptures()) {
@@ -1143,13 +1140,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       /*
        * Compile value expression first
        */
-      final NodeResult valResult = binaryOpExpr.getRight().accept(this, parentContext);
-      if(valResult.hasExceptions()) {
-        exceptions.addAll(valResult.getExceptions());
-      }
-      else {
-        instrs.addAll(valResult.getInstructions());
-      }
+      binaryOpExpr.getRight().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
 
       final CompContext leftContext = new CompContext(parentContext, parentContext.getCurrentContext());
       leftContext.setContextValue(ContextKey.NEED_STORAGE, true);
@@ -1157,19 +1148,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       /*
        * Compile assignee next.
        */
-      final NodeResult assigneeRes = binaryOpExpr.getRight().accept(this, leftContext);
-      if(assigneeRes.hasExceptions()) {
-        exceptions.addAll(assigneeRes.getExceptions());
-      }
-      else {
-        instrs.addAll(assigneeRes.getInstructions());
-      }
+      binaryOpExpr.getLeft().accept(this, leftContext).pipeErr(exceptions).pipeInstr(instrs);
     }
     else if(Op.mutatesLeft(op)) {
       /*
        * Expand expression, from a += b to a = a * b
        * where * is any operator
        */
+
+      System.out.println(" === LEFT: "+binaryOpExpr.getLeft());
+      System.out.println(" === RIGHT: "+binaryOpExpr.getRight());
 
       final BinaryOpExpr valueExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
                                                       binaryOpExpr.getRight(), 
@@ -1181,7 +1169,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                                        new Operator(Op.ASSIGNMENT, 
                                                                     binaryOpExpr.getOperator().start, 
                                                                     binaryOpExpr.getOperator().end));
-      return assignExpr.accept(this, parentContext);
+      System.out.println(" === TRANSLATED: "+assignExpr);
+      assignExpr.accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
     }
     else if(op == Op.BOOL_AND) {
       final String operandFalse = genLabelName("sc_op_false");
@@ -1441,14 +1430,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                     argNameIndex));
     }
 
-    final NodeResult targetResult = funcCall.getTarget().accept(this, parentContext);
-    if (targetResult.hasExceptions()) {
-      exceptions.addAll(targetResult.getExceptions());
-    }
-    else {
-      instructions.addAll(targetResult.getInstructions());
-      instructions.add(new NoArgInstr(funcCall.start, funcCall.end, CALL));
-    }
+    funcCall.getTarget().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instructions);
+    instructions.add(new NoArgInstr(funcCall.start, funcCall.end, CALL));
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
   }
@@ -1665,7 +1648,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
     }
   
-
+    System.out.println(" ==== '"+varDeclr.getName()+"' instr: "+instrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));
     return VarResult.single(varDeclr.getName(), varLoadStore, instrs);
   }
 

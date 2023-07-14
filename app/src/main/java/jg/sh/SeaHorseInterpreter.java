@@ -170,7 +170,7 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     System.out.println(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/fibb_sync.shr";
+    String mainModule = "../sampleSrcs/fibb_create_measure.shr";
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, true);

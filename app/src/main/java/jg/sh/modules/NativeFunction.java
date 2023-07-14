@@ -18,6 +18,13 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface NativeFunction {
+  /**
+   * The preferred name for this attribute, or the empty
+   * string if the name of the method is to be used as the attribute name.
+   * @return preferred name for this attribute, or the empty
+   * string if the name of the method is to be used as the attribute name.
+   */
+  String name() default "";
   int positionalParams();
   String[] optionalParams();
   boolean hasVariableParams();

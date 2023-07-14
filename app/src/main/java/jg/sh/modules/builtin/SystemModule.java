@@ -216,7 +216,7 @@ public class SystemModule extends NativeModule {
   }
 
   @NativeFunction(hasVariableParams = true, optionalParams = {}, positionalParams = 0)
-  public static RuntimeInstance println(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) {
+  public RuntimeInstance println(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) {
     for(int i = ARG_INDEX; i < args.getPositionals().size(); i++) {
       System.out.print(args.getPositional(i));
     }

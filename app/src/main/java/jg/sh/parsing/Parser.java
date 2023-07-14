@@ -307,6 +307,9 @@ public class Parser {
                                                 (CaptureStatement) funcBlock.getStatements().get(0) : 
                                                 null;
 
+    System.out.println("=== FUNC STATEMENTS: "+captureStatement);
+    System.out.println(funcBlock);
+
     if (captureStatement != null) {
       //Remove capture statement from body
       funcBlock.getStatements().remove(0);
@@ -421,6 +424,7 @@ public class Parser {
       if (captured.contains(identifier)) {
         throw new ParseException("'"+varName.getContent()+"' has already been captured.", identifier.start, identifier.end);
       }
+      captured.add(identifier);
     } while(match(COMMA));
 
     recent = prev();
@@ -790,7 +794,7 @@ public class Parser {
     Node result = null;
     Location recent = null;
 
-    //System.out.println("** new expr: "+peek());
+    System.out.println("** new expr: "+peek());
 
     if (match(TRUE, FALSE)) {
       final Token boolToken = prev();
@@ -842,6 +846,10 @@ public class Parser {
       result = objectLiteral(prev());
       recent = result.end;
     }
+    else if(match(FUNC)) {
+      result = funcDef(prev(), false, false);
+      recent = result.end;
+    }
     else if(match(BANG, MINUS)) {
       final Token unary = prev();
       final Node target = expr();
@@ -884,7 +892,7 @@ public class Parser {
       }
     }
 
-    //System.out.println("  ===>AFTER attr, arrayand call: "+result);
+    System.out.println("  ===>AFTER attr, arrayand call: "+result+" "+recent);
 
     //Exhaust binary operators
     result = binOpExpr(result);

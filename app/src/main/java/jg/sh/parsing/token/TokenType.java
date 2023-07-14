@@ -28,7 +28,6 @@ public enum TokenType {
   OBJECT,
   SEALED,
   USE,//
-  FROM,//
   CONST,//
   SELF,//
   MODULE,
