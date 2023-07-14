@@ -3,6 +3,9 @@ package jg.sh.runtime.threading.frames;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LoadCellInstr;
@@ -44,6 +47,8 @@ import jg.sh.util.RuntimeUtils;
  *
  */
 public class FunctionFrame extends StackFrame {
+
+  private static Logger LOG = LogManager.getLogger(FunctionFrame.class);
 
   static volatile int frameMarker = 0;
 
@@ -354,7 +359,7 @@ public class FunctionFrame extends StackFrame {
           }
           else if(callable instanceof RuntimeDataRecord) {
             final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
-            System.out.println(" ===> call to data record!!!");
+            LOG.info(" ===> call to data record!!!");
 
             /*
             *TODO: Should this cast be more explicitly checked? Do we want to do a sanity check 
@@ -997,10 +1002,10 @@ public class FunctionFrame extends StackFrame {
         case CAPTURE:
         case LADD:
         case LOADSELF:
-          System.out.println("Deprecated opcode: "+instr+" >>>>>>>>>>>>>>>");
+          LOG.warn("Deprecated opcode: "+instr+" >>>>>>>>>>>>>>>");
           break;
         default:
-          System.err.println("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
+          LOG.warn("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
       }
       
       incrmntInstrIndex();

@@ -2,6 +2,9 @@ package jg.sh.runtime.threading.thread;
 
 import java.util.function.Consumer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
@@ -9,7 +12,6 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.objects.ArgVector;
-import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
@@ -17,8 +19,6 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
-
-import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
 
 
 /**
@@ -29,6 +29,8 @@ import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
  * the Seahorse threadpool. 
  */
 public class RuntimeThread extends Fiber {
+
+  private static Logger LOG = LogManager.getLogger(RuntimeThread.class);
 
   private static final InternalFunction START = InternalFunction.create(
     RuntimeThread.class,
@@ -106,7 +108,7 @@ public class RuntimeThread extends Fiber {
       fiberReporter.accept(this);
 
       if (hasLeftOverException()) {
-        System.out.println("--- CAUGHT ERROR ");
+        LOG.info("--- CAUGHT ERROR ");
         getLeftOverException().printStackTrace();
       }
     } catch (InvocationException e) {

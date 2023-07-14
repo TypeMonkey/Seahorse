@@ -193,7 +193,6 @@ public class CompContext extends Context<CompContext> {
    */
   public boolean addVariable(String varName, LoadStorePair pair, Set<Keyword> descriptors) {
     if (varMap.containsKey(varName)) {
-      System.out.println(" --- context contains "+varName);
       return false;
     }
 

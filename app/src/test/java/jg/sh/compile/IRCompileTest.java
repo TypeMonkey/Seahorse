@@ -40,9 +40,9 @@ public class IRCompileTest {
     Reader src = new InputStreamReader(IRCompileTest.class.getResourceAsStream("/"+fileName));
 
     Tokenizer tokenizer = new Tokenizer(src, false);
-    Parser parser = new Parser(tokenizer);
+    Parser parser = new Parser(tokenizer, StringUtils.getBareFileName(fileName));
 
-    return parser.parseProgram(StringUtils.getBareFileName(fileName));
+    return parser.parseProgram();
   }
 
 }

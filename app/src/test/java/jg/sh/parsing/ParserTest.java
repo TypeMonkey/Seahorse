@@ -48,10 +48,10 @@ public class ParserTest {
     assertEquals(program.length(), 0);
 
     Tokenizer tokenizer = new Tokenizer(new StringReader(program), false);
-    Parser parser = new Parser(tokenizer);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
 
     try {
-      Module prog = parser.parseProgram("SampleProgram");
+      Module prog = parser.parseProgram();
       assertEquals(prog.getName(), "SampleProgram");
       assertEquals(prog.getStatements().size(), 0);
     } catch (ParseException e) {
@@ -64,11 +64,11 @@ public class ParserTest {
     Reader src = new InputStreamReader(ParserTest.class.getResourceAsStream("/simpleProgram.shr"));
 
     Tokenizer tokenizer = new Tokenizer(src, false);
-    Parser parser = new Parser(tokenizer);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
 
     Module prog = null;
     try {
-      prog = parser.parseProgram("SampleProgram");
+      prog = parser.parseProgram();
     } catch (ParseException e) {
       fail(e);
     }
@@ -106,11 +106,11 @@ public class ParserTest {
     Reader src = new InputStreamReader(ParserTest.class.getResourceAsStream("/complexFuncs.shr"));
 
     Tokenizer tokenizer = new Tokenizer(src, false);
-    Parser parser = new Parser(tokenizer);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
 
     Module prog = null;
     try {
-      prog = parser.parseProgram("SampleProgram");
+      prog = parser.parseProgram();
       System.out.println(prog);
     } catch (ParseException e) {
       fail(e);

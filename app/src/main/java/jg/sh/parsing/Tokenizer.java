@@ -6,11 +6,16 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.parsing.exceptions.TokenizerException;
 import jg.sh.parsing.token.Token;
 import jg.sh.parsing.token.TokenType;
 
 public class Tokenizer implements Iterable<Token> {
+  private static Logger LOG = LogManager.getLogger(Tokenizer.class);
+
   private PushbackReader source;
   private int currentLine;
   private int currentColumn;
@@ -73,7 +78,6 @@ public class Tokenizer implements Iterable<Token> {
     if (eofToken != null) {
       //This tokenizer reached the end of the file already and
       //subsequent calls to nextToken() are still being made
-      System.out.println(" ---tokenzier.next() still being called");
       return eofToken;
     }
 
@@ -83,7 +87,7 @@ public class Tokenizer implements Iterable<Token> {
 
       if (endOfFileReached) {
         eofToken = new Token("", TokenType.EOF, currentLine, currentColumn);
-        System.out.println("*******tokenizer reached end!!!");
+        LOG.info("*******tokenizer reached end!!!");
         return addToken(eofToken);
       }
 

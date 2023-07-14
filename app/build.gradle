@@ -23,18 +23,29 @@ java {
   }
 }
 
+
 jar {
+    archiveName = 'sh.jar'
+
+   duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+
     manifest {
-        attributes 'Main-Class': 'jg.sh.SeaHorseInterpreter'
+        attributes 'Main-Class': 'jg.sh.Main'
+    }
+
+    from {
+      configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
 
 dependencies {
-    // Use JUnit Jupiter for testing.
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+  // Use JUnit Jupiter for testing.
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
 
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'commons-cli:commons-cli:1.5.0'
+  implementation 'com.google.code.gson:gson:2.10.1'
+  implementation 'commons-cli:commons-cli:1.5.0'
+  implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+  implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
 }
 
 application {

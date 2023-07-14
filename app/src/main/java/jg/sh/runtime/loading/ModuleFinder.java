@@ -23,6 +23,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.common.FunctionSignature;
@@ -44,7 +47,6 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.PervasiveFuncInterface;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
-import jg.sh.runtime.objects.callable.StrictFuncInterface;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
@@ -62,6 +64,8 @@ import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.util.StringUtils;
 
 public class ModuleFinder implements Markable {
+
+  private static Logger LOG = LogManager.getLogger(ModuleFinder.class);
     
   private final HeapAllocator allocator;
   //private final Executor executor;
@@ -336,8 +340,7 @@ public class ModuleFinder implements Markable {
       
       return loadFromClass(targetClass);
     } catch (Exception e) {
-      System.out.println("class loading exception");
-      e.printStackTrace();
+      LOG.debug("Class loading exception", e);
       return null;
     }
   }
@@ -395,7 +398,7 @@ public class ModuleFinder implements Markable {
       RuntimeModule runtimeModule = prepareModule(objectFile);
       return runtimeModule;
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      LOG.debug("Error encountered while loading .shr file", e);
       return null;
     }
   }

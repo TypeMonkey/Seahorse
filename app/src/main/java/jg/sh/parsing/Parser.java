@@ -11,6 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
 import jg.sh.parsing.exceptions.ParseException;
@@ -47,7 +50,6 @@ import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
 import jg.sh.parsing.nodes.values.Null;
 import jg.sh.parsing.nodes.values.Str;
-import jg.sh.parsing.nodes.values.Value;
 import jg.sh.parsing.token.Token;
 import jg.sh.parsing.token.TokenType;
 
@@ -55,33 +57,40 @@ import static jg.sh.parsing.token.TokenType.*;
 
 public class Parser {
 
+  private static Logger LOG = LogManager.getLogger(Parser.class);
+
   private TokenizerIterator tokenStream;
+  private String moduleName;
 
-  public Parser(Tokenizer tokenizer) {
-    reset(tokenizer);
+  public Parser(Tokenizer tokenizer, String moduleName) {
+    reset(tokenizer, moduleName);
   }
 
-  public Parser(List<Token> tokens) {
-    reset(tokens);
+  public Parser(List<Token> tokens, String moduleName) {
+    reset(tokens, moduleName);
   }
 
-  public void reset(Tokenizer tokenizer) {
+  public Parser reset(Tokenizer tokenizer, String moduleName) {
     this.tokenStream = tokenizer.iterator();
+    this.moduleName = moduleName;
+    return this;
   }
 
-  public void reset(List<Token> tokens) {
+  public Parser reset(List<Token> tokens, String moduleName) {
     this.tokenStream = new TokenizerIterator(tokens);
+    this.moduleName = moduleName;
+    return this;
   }
 
   // parsing methods - START
 
-  public Module parseProgram(String moduleName) throws ParseException {
+  public Module parseProgram() throws ParseException {
     final List<UseStatement> useStatements = new ArrayList<>();
     final Set<String> takenSymbols = new HashSet<>();
 
     final List<Statement> statements = new ArrayList<>();
 
-    System.out.println("---parsing program ");
+    LOG.info("---parsing program ");
 
     while (hasNext()) {
       if (match(TokenType.EOF)) {
@@ -112,7 +121,7 @@ public class Parser {
         final FuncDef funcDef = funcDef(prev(), true, true);
         if (takenSymbols.contains(funcDef.getBoundName().getIdentifier())) {
           throw new ParseException("'"+funcDef.getBoundName().getIdentifier()+"' is already a top-level symbol.", 
-                                   funcDef.getBoundName().end);
+                                   funcDef.getBoundName().end, moduleName);
         } 
         else {
           takenSymbols.add(funcDef.getBoundName().getIdentifier());
@@ -164,12 +173,12 @@ public class Parser {
         }
       } 
       else {
-        //System.out.println("  ==> top level peek? "+peek());
+        //LOG.info("  ==> top level peek? "+peek());
 
         final Statement topLevelStatement = statement();
         statements.add(topLevelStatement);
         /*
-        System.out.println("---else: "+prev().getType());
+        LOG.info("---else: "+prev().getType());
         final Token unknown = peek();
         throw new ParseException("Unknown token '" + unknown.getContent() + "' at top level.", 
                                  unknown.getStart(), 
@@ -178,7 +187,7 @@ public class Parser {
       }
     }
 
-    System.out.println(peek() + "<--- last");
+    LOG.info(peek() + "<--- last");
 
     final Module program = new Module(moduleName, useStatements, statements);
     return program;
@@ -275,7 +284,9 @@ public class Parser {
         final Parameter parameter = parameter();
         if (paramMap.containsKey(parameter.getName().getIdentifier())) {
           throw new ParseException("'"+parameter.getName().getIdentifier()+"' is already a parameter.", 
-                                   parameter.getName().start, parameter.getName().end);
+                                   parameter.getName().start, 
+                                   parameter.getName().end,
+                                   moduleName);
         }
         paramMap.put(parameter.getName().getIdentifier(), parameter);
 
@@ -297,8 +308,8 @@ public class Parser {
       matchError(RIGHT_PAREN, "')' expected.", prev().getEnd());
     }
 
-    //System.out.println("params so far: "+paramMap.values());
-    //System.out.println("=====> funcDef after rightParent: "+prev()+" | peeked: "+peek());
+    //LOG.info("params so far: "+paramMap.values());
+    //LOG.info("=====> funcDef after rightParent: "+prev()+" | peeked: "+peek());
 
     final Token leftCurly = matchError(LEFT_CURL, "'{' expected", prev().getEnd());
     final Block funcBlock = block(leftCurly);
@@ -307,8 +318,8 @@ public class Parser {
                                                 (CaptureStatement) funcBlock.getStatements().get(0) : 
                                                 null;
 
-    System.out.println("=== FUNC STATEMENTS: "+captureStatement);
-    System.out.println(funcBlock);
+    LOG.info("=== FUNC STATEMENTS: "+captureStatement);
+    LOG.info(funcBlock);
 
     if (captureStatement != null) {
       //Remove capture statement from body
@@ -382,7 +393,10 @@ public class Parser {
       }
       else {
         final Token unknown = peek();
-        throw new ParseException("Unknown token '"+unknown.getContent()+"'", unknown.getStart(), unknown.getEnd());
+        throw new ParseException("Unknown token '"+unknown.getContent()+"'", 
+                                 unknown.getStart(), 
+                                 unknown.getEnd(), 
+                                 moduleName);
       }
       
       methods.put(method.getBoundName(), method);
@@ -422,7 +436,10 @@ public class Parser {
       final Identifier identifier = new Identifier(varName);
       
       if (captured.contains(identifier)) {
-        throw new ParseException("'"+varName.getContent()+"' has already been captured.", identifier.start, identifier.end);
+        throw new ParseException("'"+varName.getContent()+"' has already been captured.", 
+                                 identifier.start, 
+                                 identifier.end,
+                                 moduleName);
       }
       captured.add(identifier);
     } while(match(COMMA));
@@ -475,7 +492,9 @@ public class Parser {
 
       if (paramMap.containsKey(parameter.getName().getIdentifier())) {
         throw new ParseException("'"+parameter.getName().getIdentifier()+"' is already a parameter.", 
-                                 parameter.getName().start, parameter.getName().end);
+                                 parameter.getName().start, 
+                                 parameter.getName().end,
+                                 moduleName);
       }
       paramMap.put(parameter.getName().getIdentifier(), parameter);
 
@@ -538,7 +557,7 @@ public class Parser {
       }
 
       if (access == null) {
-        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end);
+        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end, moduleName);
       }
 
       matchError(ASSIGNMENT, "Missing assignment for immutable attribute declaration.", access.end);
@@ -603,7 +622,7 @@ public class Parser {
                                         descriptors);
 
       if (vars.contains(var)) {
-        throw new ParseException("'"+varName.getContent()+"' has already been used..", identifier.start, identifier.end);
+        throw new ParseException("'"+varName.getContent()+"' has already been used..", identifier.start, identifier.end, moduleName);
       }
 
       vars.add(var);
@@ -615,7 +634,7 @@ public class Parser {
   }
 
   private Statement statement() throws ParseException {
-    //System.out.println(" ====> in statement: "+peek()+" "+prev());
+    //LOG.info(" ====> in statement: "+peek()+" "+prev());
 
     if (match(FUNC)) {
       final FuncDef funcDef = funcDef(prev(), false, false);
@@ -690,7 +709,7 @@ public class Parser {
 
         return new Block(statements, keyword.getStart(), prev().getEnd());
       }
-      default: throw new ParseException("Unknown token '"+keyword.getContent()+"' for block signifier.", keyword.getStart());
+      default: throw new ParseException("Unknown token '"+keyword.getContent()+"' for block signifier.", keyword.getStart(), moduleName);
     }
   }
 
@@ -794,7 +813,7 @@ public class Parser {
     Node result = null;
     Location recent = null;
 
-    System.out.println("** new expr: "+peek());
+    LOG.info("** new expr: "+peek());
 
     if (match(TRUE, FALSE)) {
       final Token boolToken = prev();
@@ -862,7 +881,7 @@ public class Parser {
     }
     */
 
-   // System.out.println("===> prior to binop: "+result);
+   // LOG.info("===> prior to binop: "+result);
 
     /**
      * Attribute access, function call and index access is more tightly bound
@@ -888,17 +907,17 @@ public class Parser {
         } 
         default: 
           //This should never be thrown as we're matching for (, [ and .
-          throw new ParseException("Unknown token '"+op+"'.", op.getStart(), op.getEnd());
+          throw new ParseException("Unknown token '"+op+"'.", op.getStart(), op.getEnd(), moduleName);
       }
     }
 
-    System.out.println("  ===>AFTER attr, arrayand call: "+result+" "+recent);
+    LOG.info("  ===>AFTER attr, arrayand call: "+result+" "+recent);
 
     //Exhaust binary operators
     result = binOpExpr(result);
     recent = result.end;
 
-    //System.out.println(" **END: "+result.repr());
+    //LOG.info(" **END: "+result.repr());
     return result;
   }
 
@@ -922,11 +941,11 @@ public class Parser {
       final Operator operator = new Operator(op);
 
       final Node rightOperand = expr();
-      //System.out.println("--left: "+leftOperand+" | --right: "+rightOperand+" | op: "+operator);
+      //LOG.info("--left: "+leftOperand+" | --right: "+rightOperand+" | op: "+operator);
       leftOperand = new BinaryOpExpr(leftOperand, rightOperand, operator);
     }
 
-    //System.out.println(" ===> new binopexpr: "+leftOperand.repr());
+    //LOG.info(" ===> new binopexpr: "+leftOperand.repr());
 
     return leftOperand;
   }
@@ -940,7 +959,7 @@ public class Parser {
 
       if (match(ASSIGNMENT)) {
         if (!(arg instanceof Identifier)) {
-          throw new ParseException("Left hand of assignment must be an identifier.", arg.end);
+          throw new ParseException("Left hand of assignment must be an identifier.", arg.end, moduleName);
         }
 
         final Node value = expr();
@@ -999,7 +1018,7 @@ public class Parser {
       if (attrs.containsKey(attributeName.getContent())) {
         throw new ParseException("'"+attributeName.getContent()+"' is already an attribute.", 
                                  attributeName.getStart(), 
-                                 attributeName.getEnd());
+                                 attributeName.getEnd(), moduleName);
       }
 
       recent = matchError(COLON, "':' expected.", attributeName.getEnd()).getEnd();
@@ -1038,13 +1057,13 @@ public class Parser {
       return consumeToken();
     }
 
-    throw new ParseException(errorMsg, location);
+    throw new ParseException(errorMsg, location, moduleName);
   }
 
   private boolean match(TokenType... types) {
     for (TokenType t : types) {
-      //System.out.println(" >>> matching? "+t+" | peek: "+peek()+" | hasNext"+hasNext());
-      //System.out.println(" >>> matching? "+t+" | hasNext "+hasNext());
+      //LOG.info(" >>> matching? "+t+" | peek: "+peek()+" | hasNext"+hasNext());
+      //LOG.info(" >>> matching? "+t+" | hasNext "+hasNext());
       if (check(t)) {
         consumeToken();
         return true;
@@ -1061,7 +1080,7 @@ public class Parser {
   private boolean check(TokenType type) {
     if (hasNext()) {
       final Token peeked = peek();
-      //System.out.println(" --- CHECK: "+peeked.getType()+" == "+type);
+      //LOG.info(" --- CHECK: "+peeked.getType()+" == "+type);
       return peeked.getType() == type;
     }
     return false;

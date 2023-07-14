@@ -11,6 +11,7 @@ import jg.sh.parsing.Parser;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -29,22 +30,22 @@ public class SeahorseCompiler {
   private final IRCompiler irCompiler;
 
   public SeahorseCompiler() {
-    this.parser = new Parser(Collections.emptyList());
+    this.parser = new Parser(Collections.emptyList(), null);
     this.irCompiler = new IRCompiler();
   }
 
-  public List<Module> compile(List<String> sourceFiles) throws Exception, ParseException {
+  public List<Module> compile(List<String> sourceFiles) throws IllegalArgumentException, ParseException, IOException {
     return compile(sourceFiles.toArray(new String[sourceFiles.size()]));
   }
 
-  public List<Module> compile(String ... sourceFiles) throws Exception, ParseException {
+  public List<Module> compile(String ... sourceFiles) throws IllegalArgumentException, ParseException, IOException {
     final ArrayList<Module> modules = new ArrayList<>();
 
     for (String source : sourceFiles) {
       final Path sourcePath = Paths.get(source);
 
       if (!sourcePath.toString().endsWith(".shr")) {
-        throw new Exception("Not a SeaHorse (.shr) file: "+sourcePath);
+        throw new IllegalArgumentException("Not a SeaHorse (.shr) file: "+sourcePath);
       }
       
       final String moduleName = StringUtils.getBareFileName(sourcePath.getFileName().toString());
@@ -53,14 +54,13 @@ public class SeahorseCompiler {
       
       //throw out files that have illegal names
       if (TokenType.isKeyword(moduleName)) {
-        throw new Exception("The module name '"+moduleName+"' is a keyword and cannot be used!");
+        throw new IllegalArgumentException("The module name '"+moduleName+"' is a keyword and cannot be used!");
       }
 
       final BufferedReader sourceReader = new BufferedReader(new FileReader(sourcePath.toFile()));
       final Tokenizer tokenizer = new Tokenizer(sourceReader, false);
 
-      parser.reset(tokenizer);
-      final Module module = parser.parseProgram(moduleName); 
+      final Module module = parser.reset(tokenizer, moduleName).parseProgram(); 
 
       //close reader
       sourceReader.close();

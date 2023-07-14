@@ -3,6 +3,9 @@ package jg.sh.runtime.threading.pool;
 import java.util.Queue;
 import java.util.function.Consumer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
 
@@ -11,6 +14,8 @@ import jg.sh.runtime.threading.fiber.FiberStatus;
  * one frame at a time.
  */
 public class RunnerThread extends Thread {
+
+    private static Logger LOG = LogManager.getLogger(RunnerThread.class);
 
   private final Queue<Fiber> taskQueue;
   private final Consumer<Fiber> fiberCompleter;
@@ -61,7 +66,7 @@ public class RunnerThread extends Thread {
           fiberCompleter.accept(exec);
 
           if (exec.hasLeftOverException()) {
-            System.out.println("--- CAUGHT ERROR ");
+            LOG.info("--- CAUGHT ERROR ");
             exec.getLeftOverException().printStackTrace();
           }
         }
