@@ -13,15 +13,12 @@ public class RuntimeError extends RuntimeInstance {
   public static class FrameMark extends RuntimeInstance {
 
     public FrameMark(RuntimeInteger line, RuntimeInstance column, RuntimeString hostModule) {
-      super((self, m) -> {
-        m.put("line", line);
-        m.put("column", column);
-        m.put("hostModule", hostModule);
+      super((ini, self) -> {
+        ini.init("name", column, AttrModifier.CONSTANT);
+        ini.init("column", column, AttrModifier.CONSTANT);
+        ini.init("hostModule", hostModule, AttrModifier.CONSTANT);
       });
     }
-
-    @Override
-    protected void markAdditional(Cleaner allocator) {}
   }
 
   private final List<FrameMark> frameMarks;
@@ -31,8 +28,8 @@ public class RuntimeError extends RuntimeInstance {
   }
 
   public RuntimeError(RuntimeString message) {
-    super((self, m) -> {
-      m.put("msg", message);
+    super((ini, self) -> {
+      ini.init("msg", message);
     });
     this.frameMarks = new ArrayList<>();
   }
@@ -44,9 +41,6 @@ public class RuntimeError extends RuntimeInstance {
   public String getMessage() {
     return getAttr("msg").toString();
   }
-
-  @Override
-  protected void markAdditional(Cleaner allocator) {}
 
   public List<FrameMark> getFrameMarks() {
     return frameMarks;

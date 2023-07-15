@@ -55,14 +55,4 @@ public class ArgVector extends RuntimeInstance {
   public List<RuntimeInstance> getPositionals() {
     return positionals;
   }
-
-  @Override
-  public void markAdditional(Cleaner cleaner) {    
-    for (RuntimeInstance positional : positionals) {
-      cleaner.gcMarkObject(positional);
-    }
-  }
-  
-  
-  
 }

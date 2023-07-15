@@ -63,13 +63,4 @@ public class RuntimeCallable extends Callable {
     }
     return this;
   }
-  
-  @Override
-  public void markAdditional(Cleaner cleaner) {
-    cleaner.gcMarkObject(codeObject);
-    
-    for (CellReference cellReference : captures) {
-      cleaner.gcMarkObject(cellReference.getValue());
-    }
-  }
 }

@@ -40,9 +40,9 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.PervasiveFuncInterface;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
@@ -90,9 +90,9 @@ public class ModuleFinder implements Markable {
     final NativeModule systemNativeModule = SystemModule.getNativeModule();
     final RuntimeModule systemModule = systemNativeModule.getModule();
     
-    final RuntimeObject systemObject = allocator.allocateEmptyObject((o, m) -> {
+    final RuntimeInstance systemObject = allocator.allocateEmptyObject((o, m) -> {
       prepareFromAnnotations(systemNativeModule, o, m);
-      systemNativeModule.initialAttrs(o,m);
+      systemNativeModule.initialAttrs(m, o);
     });
     
     final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
@@ -161,7 +161,7 @@ public class ModuleFinder implements Markable {
               
               //.shr file is newer. use shr!
               if((module = loadFromSHRFile(shrFile)) != null) {
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 //update shrc file!
@@ -178,7 +178,7 @@ public class ModuleFinder implements Markable {
               //System.out.println("---- shr file is older, loading from shrc "+(module != null));
               
               if(module != null) {
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 //System.out.println("---successfully loaded from shrc");
@@ -186,7 +186,7 @@ public class ModuleFinder implements Markable {
               }
               else if((module = loadFromSHRFile(shrFile)) != null){
                 //fall back to using shrFile if, for some reason, shrcFile couldn't be used
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 
@@ -200,7 +200,7 @@ public class ModuleFinder implements Markable {
             }
         } 
         else if((module = loadFromSHRFile(shrFile)) != null){
-          RuntimeObject moduleObject = allocator.allocateEmptyObject();
+          RuntimeInstance moduleObject = allocator.allocateEmptyObject();
           RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
           module.setLoadingComponents(moduleObject, initCallable);
           
@@ -217,9 +217,9 @@ public class ModuleFinder implements Markable {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
-          RuntimeObject moduleObject = allocator.allocateEmptyObject((o, m) -> {
-            prepareFromAnnotations(nativeModule, o, m);
-            nativeModule.initialAttrs(o,m);
+          RuntimeInstance moduleObject = allocator.allocateEmptyObject((ini, self) -> {
+            prepareFromAnnotations(nativeModule, ini, self);
+            nativeModule.initialAttrs(self, ini);
           });
           
           RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
@@ -233,7 +233,7 @@ public class ModuleFinder implements Markable {
     return module;
   }
 
-  public void prepareFromAnnotations(NativeModule module, RuntimeObject moduleObject, Map<String, RuntimeInstance> attrs) {
+  public void prepareFromAnnotations(NativeModule module, Initializer ini, RuntimeInstance moduleObject) {
     final Class<?> actualClass = module.getClass();
     for(Method method : actualClass.getDeclaredMethods()) {
       if (method.isAnnotationPresent(NativeFunction.class) && 
@@ -248,7 +248,8 @@ public class ModuleFinder implements Markable {
         final NativeFunction annotation = method.getAnnotation(NativeFunction.class);
         final FunctionSignature signature = new FunctionSignature(annotation.positionalParams(), 
                                                                   new HashSet<>(Arrays.asList(annotation.optionalParams())), 
-                                                                  annotation.hasVariableParams());
+                                                                  annotation.hasVariableParams(),
+                                                                  annotation.hasVarKeywordParams());
 
         final boolean isStatic = Modifier.isStatic(method.getModifiers());
         final String attrName = annotation.name().isEmpty() ? method.getName() : annotation.name();
@@ -288,7 +289,7 @@ public class ModuleFinder implements Markable {
             }
           };
           InternalFunction function = InternalFunction.create(signature, filter);
-          attrs.put(attrName, new RuntimeInternalCallable(module.getModule(), 
+          ini.init(attrName, new RuntimeInternalCallable(module.getModule(), 
                                                                   moduleObject, 
                                                                   function));
 
@@ -441,8 +442,11 @@ public class ModuleFinder implements Markable {
     
     RuntimeModule preparedModule = prepareModule(compiledFile);
     
-    RuntimeObject moduleObject = allocator.allocateEmptyObject();
-    RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, moduleObject, preparedModule.getModuleCodeObject(), new CellReference[0]);
+    RuntimeInstance moduleObject = allocator.allocateEmptyObject();
+    RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, 
+                                                              moduleObject, 
+                                                              preparedModule.getModuleCodeObject(), 
+                                                              new CellReference[0]);
     preparedModule.setLoadingComponents(moduleObject, initCallable);
         
     modules.put(preparedModule.getName(), preparedModule);

@@ -15,7 +15,7 @@ import jg.sh.parsing.NodeVisitor;
  * 
  * Format:
  * 
- * [const] [var] paramName [:= node]
+   * [const] [var] [!] paramName [:= node]
  * 
  * where node is the initial value of the parameter.
  * 
@@ -28,16 +28,18 @@ public class Parameter extends Node {
   private final Identifier name;
   private final Node initValue;
   private final Set<Keyword> descriptors;
+  private final boolean isVarArgsKeyword;
 
-  public Parameter(Identifier name, Node initValue, Keyword ... descriptors) {
-    this(name, initValue, new HashSet<>(Arrays.asList(descriptors)));
+  public Parameter(Identifier name, Node initValue, boolean isVarArgsKeyword, Keyword ... descriptors) {
+    this(name, initValue, isVarArgsKeyword, new HashSet<>(Arrays.asList(descriptors)));
   }
 
-  public Parameter(Identifier name, Node initValue, Set<Keyword> descriptors) {
+  public Parameter(Identifier name, Node initValue, boolean isVarArgsKeyword, Set<Keyword> descriptors) {
     super(name.start, name.end);
     this.name = name;
     this.initValue = initValue;
     this.descriptors = descriptors;
+    this.isVarArgsKeyword = isVarArgsKeyword;
   }
 
   @Override
@@ -69,6 +71,10 @@ public class Parameter extends Node {
   public boolean isVarying() {
     //This parameter takes an indefinite list of arguments.
     return Keyword.hasKeyword(TokenType.VAR, descriptors);
+  }
+
+  public boolean isVarArgsKeyword() {
+    return isVarArgsKeyword;
   }
 
   public Set<Keyword> getDescriptors() {

@@ -1,14 +1,13 @@
 package jg.sh.modules;
 
 import java.util.Collections;
-import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.threading.fiber.Fiber;
 
@@ -49,7 +48,7 @@ public abstract class NativeModule {
       @Override
       public RuntimeInstance invoke(Fiber executor, ArgVector args)
           throws InvocationException {
-        initialize((RuntimeObject) args.getPositional(SELF_INDEX));
+        initialize(args.getPositional(SELF_INDEX));
         return args.getPositional(SELF_INDEX);
       }
     };
@@ -67,7 +66,7 @@ public abstract class NativeModule {
    * @param moduleObject - the RuntimeObject for this NativeModule
    * @param map - the attribute map of the RuntimeObject
    */
-  public abstract void initialAttrs(RuntimeObject moduleObject, Map<String, RuntimeInstance> map);
+  public abstract void initialAttrs(RuntimeInstance moduleObject, Initializer ini);
 
   /**
    * Performs initialization tasks for this NativeModule when loaded. Heavier initialization tasks - such as 
@@ -78,7 +77,7 @@ public abstract class NativeModule {
    * 
    * @param moduleObject - the RuntimeObject for this NativeModule
    */
-  public abstract void initialize(RuntimeObject moduleObject);
+  public abstract void initialize(RuntimeInstance moduleObject);
 
   public abstract String getName();
   

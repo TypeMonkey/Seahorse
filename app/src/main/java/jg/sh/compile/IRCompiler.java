@@ -6,11 +6,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -18,7 +16,6 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompContext.ContextType;
@@ -494,7 +491,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final FuncDef constructor = dataDefinition.getConstructor();
 
     //Convert attribute descriptors to numbers
-    final LinkedHashMap<String, CodeObject> methods = new LinkedHashMap<>();
+    final LinkedHashMap<String, Integer> methods = new LinkedHashMap<>();
 
     for (FuncDef method : dataDefinition.getMethods().values()) {
       /*
@@ -509,7 +506,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
        */
       final FuncResult result = (FuncResult) method.accept(this, parentContext);
       result.pipeErr(exceptions);
-      methods.put(method.getBoundName().getIdentifier(), result.getCodeObject());
+      methods.put(method.getBoundName().getIdentifier(), result.getCodeObjectIndex());
     }
 
     //Allocate DataRecord on constant pool
@@ -519,31 +516,25 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                              dataDefinition.isSealed());
     final int recordIndex = pool.addComponent(record);
 
-    /**
+    /*
      * One thing to note about DataDefinitions/records. 
      * 
      * While it's a DataDef is a distinct object at runtime,
      * it acts as both a symbol and a function.
      * 
-     * Given a data defintion:
+     * If the interpreter sees that we're invoking - making a function call
+     * - to a DataDefinition (a.k.a a RuntimeDataRecord), it will automatically
+     * deduce that we're instantiating an object based on that DataDefinition.
      * 
-     * data Sample {
-     *  constr() {
-     *   ....
-     *  }
-     * }
-     * 
-     * we instantiate like this:
-     * 
-     * const a := Sample(); //looks like a regular function call.
-     * 
-     * Sample <-> DataRecord corresponding to 'Sample'
-     * Sample() <-> a psuedo-function created at compilation to tie an object
-     *              to a DataRecord, and its associated methods bound to that object.
-     * 
-     * This internal "Sample()" is called first, then the code in constr() is called
-     * after. 
+     * In that case, the interpreter will allocate an empty object first and pass it on
+     * to the constructor as its "self" object - engaging the usual function calling convention.
      */
+
+    /*
+     * We need to go through the body of the constructor and replace all 
+     * return statements to return the "self" object.
+     */
+
 
     instrs.add(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADC, recordIndex));
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
@@ -1124,7 +1115,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     funcLoadingInstrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
     funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
-    return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObj);
+    return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObjIndex);
   }
 
   @Override
@@ -1447,8 +1438,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
+    final CompContext newContext = new CompContext(parentContext, parentContext.getCurrentContext());
+    newContext.setContextValue(ContextKey.NEED_STORAGE, false);
+
     //Add instructions for target first
-    final NodeResult targetResult = attrAccess.getTarget().accept(this, parentContext);
+    final NodeResult targetResult = attrAccess.getTarget().accept(this, newContext);
     if (targetResult.hasExceptions()) {
       exceptions.addAll(targetResult.getExceptions());
     }
@@ -1533,25 +1527,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
+    final CompContext newContext = new CompContext(parentContext, parentContext.getCurrentContext());
+    newContext.setContextValue(ContextKey.NEED_STORAGE, false);
+
     //Add instructions for target first
-    final NodeResult targetResult = arrayAccess.getTarget().accept(this, parentContext);
-    if (targetResult.hasExceptions()) {
-      exceptions.addAll(targetResult.getExceptions());
-    }
-    else {
-      instructions.addAll(targetResult.getInstructions());
-    }
+    arrayAccess.getTarget().accept(this, newContext).pipeErr(exceptions).pipeInstr(instructions);
 
     /*
      * Compile index expression
      */
-    final NodeResult indexResult = arrayAccess.getIndex().accept(this, parentContext);
-    if (indexResult.hasExceptions()) {
-      exceptions.addAll(indexResult.getExceptions());
-    }
-    else {
-      instructions.addAll(indexResult.getInstructions());
-    }
+    arrayAccess.getIndex().accept(this, newContext).pipeErr(exceptions).pipeInstr(instructions);
 
     /*
      * If this is an assignment/storage operation, use STOREATTR 

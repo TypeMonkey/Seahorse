@@ -387,8 +387,8 @@ public enum OpCode {
     OpCode [] options = {STORE, LOAD, STOREATTR, LOADATTR, 
                          LOADC, JUMP, COMMENT, LABEL, 
                          LOADMV, STOREMV, LOAD_CL, STORE_CL, 
-                         ARG, LOADMOD,
-                         CONSTMV, EXPORTMV};
+                         ARG, ALLOCO, LOADMOD, MAKECONST,
+                         CONSTMV, EXPORTMV, HAS_KARG};
     
     ARG_INSTRS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(options)));
   }

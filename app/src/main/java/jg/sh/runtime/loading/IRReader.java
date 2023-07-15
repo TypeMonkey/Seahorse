@@ -148,7 +148,7 @@ public class IRReader {
     }
     
     final boolean hasVariableArgs = object.get(HAS_VAR_PARAMS).getAsBoolean();
-    return new FunctionSignature(positionalCount, keywordParams, hasVariableArgs);
+    return new FunctionSignature(positionalCount, keywordParams, hasVariableArgs, false);
   }
   
   public static RuntimeInstance allocatePoolComponent(HeapAllocator allocator, JsonObject object) {

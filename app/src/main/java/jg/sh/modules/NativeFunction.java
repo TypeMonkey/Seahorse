@@ -51,4 +51,12 @@ public @interface NativeFunction {
    * The default is false.
    */
   boolean hasVariableParams() default false;
+
+  /**
+   * If this function can take in a variable amount of keyword argumentss.
+   * @return whether this function can take in a variable amount of keyword arguments.
+   * 
+   * The default is false.
+   */
+  boolean hasVarKeywordParams() default false;
 }

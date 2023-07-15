@@ -69,6 +69,11 @@ public class CompContext extends Context<CompContext> {
      * Currently inside an object literal
      */
     OBJECT,
+
+    /**
+     * Currently inside a constructor
+     */
+    CONSTR,
     
     /*
      * Currently inside a function or method

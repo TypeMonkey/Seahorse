@@ -23,11 +23,13 @@ import jg.sh.parsing.Module;
 import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.runtime.alloc.CompactMarkSweepCleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.threading.ThreadManager;
+import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.util.StringUtils;
 
 public class SeaHorseInterpreter {
@@ -160,7 +162,12 @@ public class SeaHorseInterpreter {
 
       finder.registerModules(compiledModules);
       RuntimeModule mainModule = finder.getModule(compiledModules.get(0).getName());
-      manager.spinFiber((RuntimeCallable) mainModule.getModuleCallable(), new ArgVector());
+      try {
+        manager.spinFiber((RuntimeCallable) mainModule.getModuleCallable(), new ArgVector());
+      } catch (CallSiteException e) {
+        System.err.println("-- Couldn't initiate main fiber! "+e.getMessage());
+        e.printStackTrace();
+      }
       
       if (options.containsKey(IOption.MEASURE) && ((boolean) options.get(IOption.MEASURE))) {
         final long start = System.nanoTime();

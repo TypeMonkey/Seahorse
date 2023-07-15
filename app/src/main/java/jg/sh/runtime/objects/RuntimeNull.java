@@ -26,9 +26,6 @@ public class RuntimeNull extends RuntimeInstance {
   }
   
   @Override
-  protected void markAdditional(Cleaner cleaner) {}
-  
-  @Override
   public String toString() {
     return "null";
   }

@@ -42,7 +42,4 @@ public class RuntimeCodeObject extends RuntimeInstance {
     return keywordIndexes;
   }
 
-  @Override
-  protected void markAdditional(Cleaner cleaner) {}
-
 }

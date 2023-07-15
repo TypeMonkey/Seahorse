@@ -1,0 +1,10 @@
+use system: println;
+
+const test := object {
+  const attr1 : "hello",
+  attr2 : "bye"
+};
+
+println("hello world "+test.attr1);
+test.attr1 := "go";
+

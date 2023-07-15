@@ -245,20 +245,20 @@ public class RuntimeFloat extends RuntimePrimitive {
   private final double value;
   
   public RuntimeFloat(double value) {
-    super((self, m) -> {
+    super((ini, self) -> {
       final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-      m.put(FuncOperatorCoupling.ADD.getFuncName(), new ImmediateInternalCallable(systemModule, self, ADD));
-      m.put(FuncOperatorCoupling.SUB.getFuncName(), new ImmediateInternalCallable(systemModule, self, SUB));
-      m.put(FuncOperatorCoupling.MUL.getFuncName(), new ImmediateInternalCallable(systemModule, self, MUL));
-      m.put(FuncOperatorCoupling.DIV.getFuncName(), new ImmediateInternalCallable(systemModule, self, DIV));
-      m.put(FuncOperatorCoupling.MOD.getFuncName(), new ImmediateInternalCallable(systemModule, self, MOD));
-      m.put(FuncOperatorCoupling.NEG.getFuncName(), new ImmediateInternalCallable(systemModule, self, NEG));
-      m.put(FuncOperatorCoupling.LESS.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESS));
-      m.put(FuncOperatorCoupling.GREAT.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREAT));
-      m.put(FuncOperatorCoupling.LESSE.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESSE));
-      m.put(FuncOperatorCoupling.GREATE.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREATE));
-      m.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
-      m.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
+      ini.init(FuncOperatorCoupling.ADD.getFuncName(), new ImmediateInternalCallable(systemModule, self, ADD));
+      ini.init(FuncOperatorCoupling.SUB.getFuncName(), new ImmediateInternalCallable(systemModule, self, SUB));
+      ini.init(FuncOperatorCoupling.MUL.getFuncName(), new ImmediateInternalCallable(systemModule, self, MUL));
+      ini.init(FuncOperatorCoupling.DIV.getFuncName(), new ImmediateInternalCallable(systemModule, self, DIV));
+      ini.init(FuncOperatorCoupling.MOD.getFuncName(), new ImmediateInternalCallable(systemModule, self, MOD));
+      ini.init(FuncOperatorCoupling.NEG.getFuncName(), new ImmediateInternalCallable(systemModule, self, NEG));
+      ini.init(FuncOperatorCoupling.LESS.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESS));
+      ini.init(FuncOperatorCoupling.GREAT.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREAT));
+      ini.init(FuncOperatorCoupling.LESSE.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESSE));
+      ini.init(FuncOperatorCoupling.GREATE.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREATE));
+      ini.init(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
+      ini.init(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
     });
     this.value = value;
   }

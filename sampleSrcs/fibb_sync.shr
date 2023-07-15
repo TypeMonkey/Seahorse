@@ -44,7 +44,7 @@ func fib(n){
 }
 
 const start := system.now();
-const value := fibSlow(28);
+const export value := fibSlow(28);
 const end := system.now();
 system.println("*** fibbSlow(28) Time: "+(end - start));
 system.println("Result: "+value);

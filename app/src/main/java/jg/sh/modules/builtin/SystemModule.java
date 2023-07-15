@@ -11,14 +11,15 @@ import jg.sh.common.FunctionSignature;
 import jg.sh.modules.NativeFunction;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
@@ -27,6 +28,7 @@ import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimePrimitive;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.runtime.threading.frames.StackFrame;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
@@ -50,10 +52,10 @@ public class SystemModule extends NativeModule {
   }
 
   @Override
-  public void initialize(RuntimeObject moduleObject) {}
+  public void initialize(RuntimeInstance moduleObject) {}
 
   @Override
-  public void initialAttrs(RuntimeObject systemObject, Map<String, RuntimeInstance> attrs) {}
+  public void initialAttrs(RuntimeInstance systemObject, Initializer ini) {}
 
   @NativeFunction(hasVariableParams = true, optionalParams = {}, positionalParams = 0)
   public RuntimeInstance println(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) {
@@ -120,7 +122,11 @@ public class SystemModule extends NativeModule {
       }
       else if(!module.isLoaded()){
         module.setAsLoaded(true);
-        fiber.queue(module.getModuleCallable());
+        try {
+          fiber.queue(StackFrame.makeFrame(module.getModuleCallable(), new ArgVector(), fiber.getHeapAllocator()));
+        } catch (CallSiteException e) {
+          throw new InvocationException(e.getMessage(), module.getModuleCallable());
+        }
       }
       
       return module.getModuleObject();
@@ -157,10 +163,14 @@ public class SystemModule extends NativeModule {
   public static RuntimeInstance spinOff(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) throws InvocationException{
     RuntimeInstance argument = args.getPositional(ARG_INDEX); 
     if (argument instanceof Callable) {
-      return fiber.getManager().spinFiber( (Callable) argument, new ArgVector());
+      try {
+        return fiber.getManager().spinFiber((Callable) argument, new ArgVector());
+      } catch (CallSiteException e) {
+        throw new InvocationException(e.getMessage(), callable);
+      }
     }
     else {
-      throw new InvocationException("Callable expected", (Callable) args.getPositional(0));     
+      throw new InvocationException("Callable expected", callable);     
     }
   }
 
@@ -168,10 +178,15 @@ public class SystemModule extends NativeModule {
   public RuntimeInstance makeThread(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) throws InvocationException{
     RuntimeInstance argument = args.getPositional(ARG_INDEX); 
     if (argument instanceof Callable) {
-      return fiber.getManager().makeThread((Callable) argument);
+      try {
+        return fiber.getManager().makeThread((Callable) argument, new ArgVector());
+      } catch (CallSiteException e) {
+        throw new InvocationException(e.getMessage(), callable);
+      }
     }
-      
-    throw new InvocationException("Callable expected", (Callable) args.getPositional(0));
+    else {
+      throw new InvocationException("Callable expected", callable);     
+    }
   }
 
   @NativeFunction(positionalParams = 1)

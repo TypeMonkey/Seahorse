@@ -90,14 +90,14 @@ public class RuntimeArray extends RuntimeInstance {
   private final List<RuntimeInstance> array;
   
   public RuntimeArray() {
-    super((self, m) -> {
+    super((ini, self) -> {
       RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
     
-      m.put("size", new ImmediateInternalCallable(systemModule, self, SIZE));
-      m.put("add", new ImmediateInternalCallable(systemModule, self, ADD));
-      m.put("toString", new ImmediateInternalCallable(systemModule, self, TO_STRING));
-      m.put(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
-      m.put(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
+      ini.init("size", new ImmediateInternalCallable(systemModule, self, SIZE));
+      ini.init("add", new ImmediateInternalCallable(systemModule, self, ADD));
+      ini.init("toString", new ImmediateInternalCallable(systemModule, self, TO_STRING));
+      ini.init(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
+      ini.init(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
     });
     array = new ArrayList<>();
   }
@@ -120,13 +120,6 @@ public class RuntimeArray extends RuntimeInstance {
   
   public synchronized int size() {
     return array.size();
-  }
-
-  @Override
-  public void markAdditional(Cleaner cleaner) {
-    for (RuntimeInstance arrValue : array) {
-      cleaner.gcMarkObject(arrValue);
-    }
   }
   
   @Override

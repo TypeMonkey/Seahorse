@@ -8,16 +8,16 @@ import jg.sh.compile.pool.component.CodeObject;
 
 public class FuncResult extends NodeResult {
 
-  private final CodeObject codeObject;
+  private final int codeObjectIndex;
 
   public FuncResult(List<ValidationException> exceptions, 
                     List<Instruction> instructions, 
-                    CodeObject codeObject) {
+                    int codeObjectIndex) {
     super(exceptions, instructions);
-    this.codeObject = codeObject;
+    this.codeObjectIndex = codeObjectIndex;
   }
   
-  public CodeObject getCodeObject() {
-    return codeObject;
+  public int getCodeObjectIndex() {
+    return codeObjectIndex;
   }
 }

@@ -2,22 +2,19 @@ package jg.sh.runtime.threading.frames;
 
 import java.util.Map;
 import java.util.Stack;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.Map.Entry;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
@@ -53,25 +50,19 @@ public abstract class StackFrame implements Markable {
   //private static final int LOCAL_VAR_INIT_AMOUNT = 1;
 
   protected final Stack<RuntimeInstance> operandStack;
-  protected final CompletableFuture<RuntimeInstance> returnValue;
   protected final ArgVector initialArgs;
   
   protected RuntimeInstance [] localVars; 
   protected InvocationException error; // null <- no error, anything else <- error object
   
+  private volatile boolean isDone;
   private int gcFlag;
   
   public StackFrame(RuntimeModule hostModule, 
-                    ArgVector initialArgs, 
-                    BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    this.returnValue = new CompletableFuture<>();
+                    ArgVector initialArgs) {
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
     this.initialArgs = initialArgs;
-
-    if(atCompletion != null){
-      this.returnValue.whenComplete(atCompletion);
-    }
   } 
     
   public abstract StackFrame run(HeapAllocator allocator, Fiber thread);
@@ -86,8 +77,8 @@ public abstract class StackFrame implements Markable {
    * @param instance
    */
   protected void returnValue(RuntimeInstance instance) {
-    returnValue.complete(instance);
     pushOperand(instance);
+    this.isDone = true;
   }
   
   public RuntimeInstance getLocalVar(int varIndex) {
@@ -108,20 +99,17 @@ public abstract class StackFrame implements Markable {
     
     localVars[varIndex] = value;
   }
-    
-  public void setErrorFlag(RuntimeError error) {
-    final InvocationException invocationException = new InvocationException(error, getCallable());
-    getFuture().completeExceptionally(invocationException);
-    this.error = invocationException;
-  }
 
   public void returnError(RuntimeError error) {
-    setErrorFlag(error);
-    getFuture().completeExceptionally(this.error);
+    this.error = new InvocationException(error, getCallable());
   }
   
   public void pushOperand(RuntimeInstance value) {
     operandStack.push(value);
+  }
+
+  public boolean isDone() {
+    return isDone;
   }
   
   public RuntimeInstance popOperand() {
@@ -187,7 +175,7 @@ public abstract class StackFrame implements Markable {
   }
   
   public boolean hasError() {
-    return getFuture().isCompletedExceptionally();
+    return this.error != null;
   }
   
   public void clearOpStack() {
@@ -196,20 +184,17 @@ public abstract class StackFrame implements Markable {
   
   public abstract Callable getCallable();
   
-  public CompletableFuture<RuntimeInstance> getFuture() {
-    return returnValue;
-  }
+  public static StackFrame makeFrame(Callable callable, 
+                                     ArgVector args, 
+                                     HeapAllocator allocator) throws CallSiteException {
 
-  public static StackFrame makeFrame(Callable callable, 
-                                     ArgVector args, 
-                                     HeapAllocator allocator) throws InvocationException {
-    return makeFrame(callable, args, allocator, null);
-  }
-  
-  public static StackFrame makeFrame(Callable callable, 
-                                     ArgVector args, 
-                                     HeapAllocator allocator, 
-                                     BiConsumer<RuntimeInstance, Throwable> atCompletion) throws InvocationException {
+    /*
+     * At Index 0 -> callable
+     * At Index 1 -> self object
+     */
+    args.addAtFront(callable.getSelf());
+    args.addAtFront(callable);
+    
     FunctionSignature signature = callable.getSignature();
     
     /*
@@ -218,15 +203,15 @@ public abstract class StackFrame implements Markable {
     
     //-2 from positional size as the first two arguments are self and the function itself
     if (args.getPositionals().size() - 2 < signature.getPositionalParamCount()) {
-      throw new InvocationException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
+      throw new CallSiteException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
     }
     if (args.getPositionals().size() - 2 > signature.getPositionalParamCount() && !signature.hasVariableParams()) {
-      throw new InvocationException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
+      throw new CallSiteException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
     }
     
     for (String argKey : args.getAttributes().keySet()) {
       if (!signature.getKeywordParams().contains(argKey)) {
-        throw new InvocationException("Unknown keyword argument '"+argKey+"'", callable);
+        throw new CallSiteException("Unknown keyword argument '"+argKey+"'", callable);
       }
     }
     
@@ -237,14 +222,14 @@ public abstract class StackFrame implements Markable {
       //System.out.println("CALLING!!!!! internal ");
 
       RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
-      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, atCompletion);
+      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args);
     }
     else {
       //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, atCompletion);
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args);
       //Push the new frame!
       //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 
@@ -262,7 +247,7 @@ public abstract class StackFrame implements Markable {
           frame.storeLocalVar(keywordIndex, keywordArg.getValue());
         }
         else {
-          throw new InvocationException("Unknown keyword argument '"+keywordArg.getKey()+"'", callable);
+          throw new CallSiteException("Unknown keyword argument '"+keywordArg.getKey()+"'", callable);
         }
       }
       

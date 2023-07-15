@@ -1,16 +1,13 @@
 package jg.sh.runtime.objects.literals;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.modules.NativeFunction;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
-import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
-import jg.sh.runtime.threading.fiber.Fiber;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
@@ -87,13 +84,13 @@ public class RuntimeBool extends RuntimePrimitive {
   private final boolean value;
   
   public RuntimeBool(boolean value) {
-    super((self, m) -> {
+    super((ini, self) -> {
       final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-      m.put(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
-      m.put(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
-      m.put(FuncOperatorCoupling.NOT.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT));
-      m.put(FuncOperatorCoupling.BAND.getFuncName(), new ImmediateInternalCallable(systemModule, self, BAND));
-      m.put(FuncOperatorCoupling.BOR.getFuncName(), new ImmediateInternalCallable(systemModule, self, BOR));
+      ini.init(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
+      ini.init(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
+      ini.init(FuncOperatorCoupling.NOT.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT));
+      ini.init(FuncOperatorCoupling.BAND.getFuncName(), new ImmediateInternalCallable(systemModule, self, BAND));
+      ini.init(FuncOperatorCoupling.BOR.getFuncName(), new ImmediateInternalCallable(systemModule, self, BOR));
     });
     this.value = value;
   }

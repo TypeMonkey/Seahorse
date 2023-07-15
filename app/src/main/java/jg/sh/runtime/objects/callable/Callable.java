@@ -32,12 +32,6 @@ public abstract class Callable extends RuntimeInstance {
   }
   
   public abstract Callable rebind(RuntimeInstance target, HeapAllocator allocator);
-  
-  @Override
-  protected void markAdditional(Cleaner cleaner) {
-    cleaner.gcMarkObject(self);
-    cleaner.gcMarkObject(self);
-  }
 
   public String toString(){
       return getSelf().getClass()+" | "+getSelf();

@@ -17,9 +17,8 @@ public class JavaFrame extends StackFrame{
   
   public JavaFrame(RuntimeModule hostModule, 
                    RuntimeInternalCallable callable, 
-                   ArgVector initialArgs, 
-                   BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, initialArgs, atCompletion);
+                   ArgVector initialArgs) {
+    super(hostModule, initialArgs);
     this.callable = callable;
   }
   
@@ -30,7 +29,7 @@ public class JavaFrame extends StackFrame{
       RuntimeInstance returnValue = internalCallable.getFunction().invoke(thread, initialArgs);
       returnValue(returnValue);
     } catch (InvocationException e) {
-      setErrorFlag(allocator.allocateError(e.getMessage()));
+      returnError(allocator.allocateError(e.getMessage()));
     }
     return null;
   }

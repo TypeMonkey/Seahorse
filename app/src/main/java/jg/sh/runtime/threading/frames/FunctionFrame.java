@@ -1,5 +1,6 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 
@@ -15,6 +16,7 @@ import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.ContextualInstr;
@@ -27,8 +29,7 @@ import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
-import jg.sh.runtime.objects.RuntimeObject;
-import jg.sh.runtime.objects.RuntimeObject.AttrModifier;
+import jg.sh.runtime.objects.RuntimeInstance.AttrModifier;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
@@ -56,13 +57,26 @@ public class FunctionFrame extends StackFrame {
   private final ContextualInstr [] instrs;
 
   private int instrIndex;
+
+  /**
+   * This is solely used by the CALL instruction 
+   * when being invoked on a RuntimeDataRecord.
+   * 
+   * Since a CALL instruction immediately returns the new frame
+   * of the constructor, there's no chance to "overwrite" whatever return
+   * value of that constructor with the allocated instance.
+   * 
+   * With this place holder variable, we can signal to the next invocation of
+   * run() that we need to push the value of "passOver" on the operand stack first.
+   * 
+   */
+  private RuntimeInstance passOver;
   
   public FunctionFrame(RuntimeModule hostModule, 
                        RuntimeCallable callable, 
                        int instrIndex, 
-                       ArgVector initialArgs,
-                       BiConsumer<RuntimeInstance, Throwable> atCompletion) {
-    super(hostModule, initialArgs, atCompletion);
+                       ArgVector initialArgs) {
+    super(hostModule, initialArgs);
     this.callable = callable;
     this.instrs = callable.getCodeObject().getInstrs();
     this.instrIndex = instrIndex;
@@ -70,6 +84,16 @@ public class FunctionFrame extends StackFrame {
 
   @Override
   public StackFrame run(HeapAllocator allocator, Fiber thread) {
+
+    /**
+     * Use solely by CALL when doing data definition instantiation.
+     * See comments for passOver
+     */
+    if (passOver != null) {
+      pushOperand(passOver);
+      passOver = null;
+    }
+
     if (getError() != null) {
       if (getCurrInstr().getExceptionJumpIndex() >= 0) {
         setInstrIndex(getCurrInstr().getExceptionJumpIndex());
@@ -129,20 +153,20 @@ public class FunctionFrame extends StackFrame {
             RuntimeInstance func = left.getAttr(opFuncName);
             if (func instanceof Callable) {
               Callable actualCallable = (Callable) func;     
-              ArgVector args = new ArgVector(actualCallable, actualCallable.getSelf(), right);
+              ArgVector args = new ArgVector(right);
               
               try {
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
                 incrmntInstrIndex();
                 return newFrame;
-              } catch (InvocationException e) {
+              } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
-                setErrorFlag(error);
+                returnError(error);
                 if (current.getExceptionJumpIndex() >= 0) {
                   setInstrIndex(current.getExceptionJumpIndex());
                 }
                 else {
-                  setErrorFlag(error); 
+                  returnError(error); 
                   return null;
                 }
               }
@@ -197,7 +221,7 @@ public class FunctionFrame extends StackFrame {
             RuntimeInstance func = left.getAttr(opFuncName);
             if (func instanceof Callable) {           
               Callable actualCallable = (Callable) func;          
-              ArgVector args = new ArgVector(actualCallable, actualCallable.getSelf(), right);    
+              ArgVector args = new ArgVector(right);    
 
               try {
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
@@ -205,27 +229,27 @@ public class FunctionFrame extends StackFrame {
                 
                 //System.out.println("---- returning new frame!!!");
                 return newFrame;
-              } catch (InvocationException e) {
+              } catch (CallSiteException e) {
                 //System.out.println("--- caught error!!! "+e.getClass()+" | "+e.getMessage());
                 RuntimeError error = allocator.allocateError(e.getMessage());
-                setErrorFlag(error);
+                returnError(error);
                 if (current.getExceptionJumpIndex() >= 0) {
                   setInstrIndex(current.getExceptionJumpIndex());
                 }
                 else {
-                  setErrorFlag(error); 
+                  returnError(error); 
                   return null;
                 }
               }
             }
             else {
               RuntimeError error = allocator.allocateError(coupling.getOpCode().name().toLowerCase()+" isn't a callable");
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error); 
+                returnError(error); 
                 return null;
               }
             }
@@ -237,12 +261,12 @@ public class FunctionFrame extends StackFrame {
             //System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
             //System.out.println(instr.getStart());
 
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -263,32 +287,32 @@ public class FunctionFrame extends StackFrame {
 
             if (func instanceof Callable) {         
               Callable actualCallable = (Callable) func;
-              ArgVector args = new ArgVector(actualCallable, actualCallable.getSelf());
+              ArgVector args = new ArgVector();
               
               try {
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
                 incrmntInstrIndex();
                 return newFrame;
-              } catch (InvocationException e) {
+              } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
-                setErrorFlag(error);
+                returnError(error);
                 if (current.getExceptionJumpIndex() >= 0) {
                   setInstrIndex(current.getExceptionJumpIndex());
                 }
                 else {
-                  setErrorFlag(error); 
+                  returnError(error); 
                   return null;
                 }
               }
             }
             else {
               RuntimeError error = allocator.allocateError("Object isn't callable!");
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error); 
+                returnError(error); 
                 return null;
               }
             }
@@ -296,12 +320,12 @@ public class FunctionFrame extends StackFrame {
           else {
             //unsupported operation          
             RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -331,8 +355,6 @@ public class FunctionFrame extends StackFrame {
           
           if (callable instanceof Callable) {
             Callable actualCallable = (Callable) callable;
-            args.addAtFront(actualCallable.getSelf());
-            args.addAtFront(actualCallable);
             
             try {
               final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
@@ -345,14 +367,14 @@ public class FunctionFrame extends StackFrame {
                 incrmntInstrIndex();
                 return newFrame;
               }
-            } catch (InvocationException e) {
+            } catch (CallSiteException | InvocationException e) {
               RuntimeError error = allocator.allocateError(e.getMessage());
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error);
+                returnError(error);
                 return null;
               }
             }          
@@ -366,10 +388,8 @@ public class FunctionFrame extends StackFrame {
             *      if a "constr" attr exists? and if it does, whether it's a CodeObject?
             */
             final RuntimeCodeObject constructor = (RuntimeCodeObject) dataRecord.getAttr(TokenType.CONSTR.name().toLowerCase());
-            final RuntimeObject selfObject = allocator.allocateEmptyObject();
+            final RuntimeInstance selfObject = allocator.allocateEmptyObject();
             final RuntimeCallable actualCallable = allocator.allocateCallable(getHostModule(), selfObject, constructor);
-            args.addAtFront(actualCallable.getSelf());
-            args.addAtFront(actualCallable);
 
             try {
               final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, thread);
@@ -377,20 +397,19 @@ public class FunctionFrame extends StackFrame {
                 pushOperand(result);
               }
               else {
-                StackFrame newFrame = makeFrame(actualCallable, args, allocator, (r, e) -> {
-                  pushOperand(selfObject);
-                });
+                StackFrame newFrame = makeFrame(actualCallable, args, allocator);
+                passOver = selfObject;
                 incrmntInstrIndex();
                 return newFrame;
               }
-            } catch (InvocationException e) {
+            } catch (CallSiteException | InvocationException e) {
               RuntimeError error = allocator.allocateError(e.getMessage());
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error);
+                returnError(error);
                 return null;
               }
             }
@@ -398,12 +417,12 @@ public class FunctionFrame extends StackFrame {
           else {
             //unsupported operation
             RuntimeError error = allocator.allocateError("Target isn't callable "+callable);
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error);
+              returnError(error);
               return null;
             }
           }
@@ -517,7 +536,7 @@ public class FunctionFrame extends StackFrame {
           }
           
           if (current.getExceptionJumpIndex() >= 0) {
-            setErrorFlag(error);
+            returnError(error);
             setInstrIndex(current.getExceptionJumpIndex());
           }
           else {
@@ -528,7 +547,7 @@ public class FunctionFrame extends StackFrame {
         }
         case POPERR: {
           pushOperand(getError().getErrorObject());
-          setErrorFlag(null);
+          returnError(null);
         }     
         case MAKEARGV : {
           pushOperand(new ArgVector());
@@ -581,6 +600,8 @@ public class FunctionFrame extends StackFrame {
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
           RuntimeInstance object = popOperand();
           
+          //System.out.println("====> object attr: "+object.attrs());
+
           if(object.hasAttr(attrName)) {
             pushOperand(object.getAttr(attrName));
           }
@@ -588,12 +609,12 @@ public class FunctionFrame extends StackFrame {
             //System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet()+" | "+object.getClass()+" | "+instr.getStart());
             
             RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on object.");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
             //System.out.println("---------> ATTR ERROR DONE!!! ");
@@ -606,18 +627,20 @@ public class FunctionFrame extends StackFrame {
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
           RuntimeInstance object = popOperand();
           RuntimeInstance value = popOperand();
+
+          //System.out.println(" ===> STORING ATTR: "+attrName+" | "+object.attrModifiers(attrName));
                   
           try {
             object.setAttribute(attrName, value);
             pushOperand(object);
           } catch (OperationException e) {
             RuntimeError error = allocator.allocateError(e.getMessage());
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -643,7 +666,7 @@ public class FunctionFrame extends StackFrame {
           LoadCellInstr loadInstr = (LoadCellInstr) instr;
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
           
-          RuntimeObject moduleObject = getHostModule().getModuleObject();
+          RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
           if(moduleObject.hasAttr(attrName)) {
             pushOperand(moduleObject.getAttr(attrName));
@@ -652,12 +675,12 @@ public class FunctionFrame extends StackFrame {
             //System.out.println("---------> ATTR ERROR!!! "+"'"+attrName+"' is unfound on object. "+object.getAttributes().keySet());
             
             RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on module.");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
             //System.out.println("---------> ATTR ERROR DONE!!! ");
@@ -668,23 +691,24 @@ public class FunctionFrame extends StackFrame {
         case STOREMV: {
           StoreCellInstr storeInstr = (StoreCellInstr) instr;      
           RuntimeInstance newValue = popOperand();
-          
-          //System.out.println(">>>> STOREMV: "+loadConstant(storeInstr.getIndex())+" | "+storeInstr.getIndex());
-          
+                    
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
+
+          //System.out.println(">>>> STOREMV: "+attrName+" | "+storeInstr.getIndex());
+
           
-          RuntimeObject moduleObject = getHostModule().getModuleObject();
+          RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
           try {
             moduleObject.setAttribute(attrName, newValue);
           } catch (OperationException e) {
             RuntimeError error = allocator.allocateError(e.getMessage());
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -699,44 +723,44 @@ public class FunctionFrame extends StackFrame {
             
             if (loadIndexFunc instanceof Callable) {
               Callable loadIndexCallable = (Callable) loadIndexFunc;
-              ArgVector args = new ArgVector(loadIndexCallable, target, index);
+              ArgVector args = new ArgVector(index);
               
               try {
                 StackFrame newFrame = makeFrame(loadIndexCallable, args, allocator);
                 incrmntInstrIndex();
                 return newFrame;
-              } catch (InvocationException e) {
+              } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
-                setErrorFlag(error);
+                returnError(error);
                 if (current.getExceptionJumpIndex() >= 0) {
                   setInstrIndex(current.getExceptionJumpIndex());
                 }
                 else {
-                  setErrorFlag(error); 
+                  returnError(error); 
                   return null;
                 }
               }
             }
             else {
               RuntimeError error = allocator.allocateError("The target isn't indexible");
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error); 
+                returnError(error); 
                 return null;
               }
             }
           }
           else {
             RuntimeError error = allocator.allocateError("The target isn't indexible");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -754,44 +778,44 @@ public class FunctionFrame extends StackFrame {
             
             if (loadIndexFunc instanceof Callable) {
               Callable storeIndexCallable = (Callable) loadIndexFunc;
-              ArgVector args = new ArgVector(storeIndexCallable, target, index, value);
+              ArgVector args = new ArgVector(index, value);
               
               try {
                 StackFrame newFrame = makeFrame(storeIndexCallable, args, allocator);
                 incrmntInstrIndex();
                 return newFrame;
-              } catch (InvocationException e) {
+              } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
-                setErrorFlag(error);
+                returnError(error);
                 if (current.getExceptionJumpIndex() >= 0) {
                   setInstrIndex(current.getExceptionJumpIndex());
                 }
                 else {
-                  setErrorFlag(error);
+                  returnError(error);
                   return null;
                 }
               }      
             }
             else {
               RuntimeError error = allocator.allocateError("The target isn't indexible");
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error); 
+                returnError(error); 
                 return null;
               }
             }
           }
           else {
             RuntimeError error = allocator.allocateError("The target isn't indexible");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -815,7 +839,7 @@ public class FunctionFrame extends StackFrame {
               if(!module.isLoaded()) {
                 try {
                   Callable moduleCallable = module.getModuleCallable();
-                  StackFrame newFrame = makeFrame(moduleCallable, new ArgVector(moduleCallable, moduleCallable.getSelf()), allocator);               
+                  StackFrame newFrame = makeFrame(moduleCallable, new ArgVector(), allocator);               
                   incrmntInstrIndex();
                   
                   module.setAsLoaded(true);
@@ -824,14 +848,14 @@ public class FunctionFrame extends StackFrame {
                   //System.out.println("----- return loaded module code "+" | "+hasOperand()+" | "+hashCode());
                   
                   return newFrame;
-                } catch (InvocationException e) {
+                } catch (CallSiteException e) {
                   RuntimeError error = allocator.allocateError(e.getMessage());
-                  setErrorFlag(error);
+                  returnError(error);
                   if (current.getExceptionJumpIndex() >= 0) {
                     setInstrIndex(current.getExceptionJumpIndex());
                   }
                   else {
-                    setErrorFlag(error); 
+                    returnError(error); 
                     return null;
                   }
                 }
@@ -843,12 +867,12 @@ public class FunctionFrame extends StackFrame {
             else {
               //Unfound module. Throw an error
               RuntimeError error = allocator.allocateError("Couldn't find the module '"+moduleName+"'");
-              setErrorFlag(error);
+              returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
                 setInstrIndex(current.getExceptionJumpIndex());
               }
               else {
-                setErrorFlag(error); 
+                returnError(error); 
                 return null;
               }
             }
@@ -863,17 +887,38 @@ public class FunctionFrame extends StackFrame {
         * (in the future, these may be extended to object attributes in general)
         */
         case EXPORTMV: {
-          /*
           ArgInstr exportInstr = (ArgInstr) instr;
           String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
-          getHostModule().getModuleObject().setAttrModifiers(varName, AttrModifier.EXPORT);
-          */
+
+          final RuntimeInstance moduleObject = getHostModule().getModuleObject();
+
+          //System.out.println("===> making module variable "+varName+" export!");
+
+          try {
+            moduleObject.appendAttrModifier(varName, AttrModifier.EXPORT);
+          } catch (OperationException e) {
+            //Should never happen as the IRCompiler should always put a 
+            //CONSTMV right after the initial value of a module variable has been set
+            throw new Error(e);
+          }
+          
           break;
         }
         case CONSTMV: {
           ArgInstr exportInstr = (ArgInstr) instr;
           String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
-          getHostModule().getModuleObject().setAttrModifiers(varName, AttrModifier.CONSTANT);
+
+          //System.out.println("===> making module variable "+varName+" constant!");
+
+          final RuntimeInstance moduleObject = getHostModule().getModuleObject();
+          try {
+            moduleObject.appendAttrModifier(varName, AttrModifier.CONSTANT);
+          } catch (OperationException e) {
+            //Should never happen as the IRCompiler should always put a 
+            //CONSTMV right after the initial value of a module variable has been set
+            throw new Error(e);
+          }
+
           break;
         }
         case ALLOCF: {
@@ -896,12 +941,12 @@ public class FunctionFrame extends StackFrame {
           }
           else {
             RuntimeError error = allocator.allocateError("Not a code object");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }
@@ -932,19 +977,25 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case ALLOCO: {
+          final ArgInstr alloco = (ArgInstr) instr;
+
           ArgVector args = (ArgVector) popOperand();
           
-          RuntimeObject object = allocator.allocateEmptyObject((self, m) -> {
-            for(Entry<String, RuntimeInstance> pair : args.getAttributes().entrySet()) {              
+          RuntimeInstance object = allocator.allocateEmptyObject((ini, self) -> {
+            for(Entry<String, RuntimeInstance> pair : args.getAttributes().entrySet()) { 
               if (pair.getValue() instanceof RuntimeCallable) {
                 RuntimeCallable callable = (RuntimeCallable) pair.getValue();
-                m.put(pair.getKey(), callable.rebind(self, allocator));
+                ini.init(pair.getKey(), callable.rebind(self, allocator));
               }
               else {
-                m.put(pair.getKey(), pair.getValue());
+                ini.init(pair.getKey(), pair.getValue());
               }
             }
           });
+
+          if (alloco.getArgument() != 0) {
+            object.seal();
+          }
 
           pushOperand(object);
           break;
@@ -961,26 +1012,21 @@ public class FunctionFrame extends StackFrame {
           final ArgInstr hasInstr = (ArgInstr) instr;
 
           final RuntimeInstance attrValue = popOperand();
-          final RuntimeObject targetObj = (RuntimeObject) popOperand();
+          final RuntimeInstance targetObj = popOperand();
           final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
 
-          if(!attrValue.hasAttr(attrName)) {
-            try {
-              targetObj.setAttribute(attrName, attrValue);
-              targetObj.setAttrModifiers(attrName, AttrModifier.CONSTANT);
-            } catch (OperationException e) {
-              //Should never happen
-              throw new Error(e);
-            }
-          }
-          else {
+          try {
+            targetObj.setAttribute(attrName, attrValue);
+            targetObj.appendAttrModifier(attrName, AttrModifier.CONSTANT);
+            pushOperand(targetObj);
+          } catch (OperationException e) {
             RuntimeError error = allocator.allocateError(attrName+" is not a new attribute and cannot be made immutable.");
-            setErrorFlag(error);
+            returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());
             }
             else {
-              setErrorFlag(error); 
+              returnError(error); 
               return null;
             }
           }

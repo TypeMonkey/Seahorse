@@ -38,11 +38,5 @@ public class RuntimeDataRecord extends RuntimeInstance {
   public Map<String, RuntimeCodeObject> getMethods() {
     return methods;
   }
-
-  @Override
-  protected void markAdditional(Cleaner allocator) {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'markAdditional'");
-  }
   
 }

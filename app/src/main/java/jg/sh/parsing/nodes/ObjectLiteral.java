@@ -1,6 +1,8 @@
 package jg.sh.parsing.nodes;
 
 import java.util.Map;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
@@ -38,7 +40,10 @@ public class ObjectLiteral extends Node {
 
   @Override
   public String repr() {
-    throw new UnsupportedOperationException("Unimplemented method 'repr'");
+    return attributes.values()
+                     .stream()
+                     .map(x -> x.getName() +" : "+x.getInitValue().repr())
+                     .collect(Collectors.joining(","));
   }
 
   @Override

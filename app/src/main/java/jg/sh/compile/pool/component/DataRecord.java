@@ -8,7 +8,7 @@ public class DataRecord implements PoolComponent {
 
   private final String name;
   private final FunctionSignature constructorSignature;
-  private final LinkedHashMap<String, CodeObject> methods;
+  private final LinkedHashMap<String, Integer> methods;
   private final boolean isSealed;
 
   /**
@@ -19,7 +19,7 @@ public class DataRecord implements PoolComponent {
    */
   public DataRecord(String name, 
                     FunctionSignature constructorSignature, 
-                    LinkedHashMap<String, CodeObject> methods,
+                    LinkedHashMap<String, Integer> methods,
                     boolean isSealed) {
     this.name = name;
     this.constructorSignature = constructorSignature;
@@ -45,7 +45,7 @@ public class DataRecord implements PoolComponent {
     return constructorSignature;
   }
 
-  public LinkedHashMap<String, CodeObject> getMethods() {
+  public LinkedHashMap<String, Integer> getMethods() {
     return methods;
   }
 

@@ -63,12 +63,13 @@ public class RunnerThread extends Thread {
 
           //If the fiber completed with a left over excpetion, report it.
           exec.setStatus(exec.hasLeftOverException() ? FiberStatus.TERMINATED : FiberStatus.COMPLETED);
-          fiberCompleter.accept(exec);
 
           if (exec.hasLeftOverException()) {
-            LOG.info("--- CAUGHT ERROR ");
+            System.err.println("Uncaught error: ");
             exec.getLeftOverException().printStackTrace();
           }
+
+          fiberCompleter.accept(exec);
         }
       }
     }

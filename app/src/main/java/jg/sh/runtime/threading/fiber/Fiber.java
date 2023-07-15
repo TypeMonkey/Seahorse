@@ -13,8 +13,8 @@ import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
@@ -39,7 +39,7 @@ import static jg.sh.runtime.objects.callable.InternalFunction.create;
  *  
  * @author Jose
  */
-public class Fiber extends RuntimeObject {
+public class Fiber extends RuntimeInstance {
 
   /**
    * Static counter for Fiber ID creation
@@ -123,17 +123,17 @@ public class Fiber extends RuntimeObject {
                ModuleFinder finder, 
                ThreadManager manager, 
                Cleaner cleaner,
-               BiConsumer<RuntimeObject, Map<String, RuntimeInstance>> initializer) {
-    super((self, m) -> {
+               BiConsumer<Initializer, RuntimeInstance> initializer) {
+    super((ini, self) -> {
       final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
 
-      m.put("startTime", new ImmediateInternalCallable(systemModule, self, START_TIME_GETTER));
-      m.put("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER));
-      m.put("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER));
-      m.put("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER));
+      ini.init("startTime", new ImmediateInternalCallable(systemModule, self, START_TIME_GETTER));
+      ini.init("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER));
+      ini.init("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER));
+      ini.init("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER));
 
       if (initializer != null) {
-        initializer.accept(self, m);
+        initializer.accept(ini, self);
       }
     });
     
@@ -174,22 +174,9 @@ public class Fiber extends RuntimeObject {
    * @param callable - the RuntimeCallable to initialized this Executor with.
    * @args args - the arguments meant to pass to this RuntimeCallable
    */
-  public CompletableFuture<RuntimeInstance> queue(Callable callable, ArgVector args) throws InvocationException {
-    args.addAtFront(callable.getSelf());
-    args.addAtFront(callable);
-    
-    StackFrame frame = StackFrame.makeFrame(callable, args, allocator);
+  public void queue(StackFrame frame) {
     callStack.push(frame);
     
-    return frame.getFuture();
-  }
-
-  /**
-   * Initializes this Executor to execute a RuntimeCallable.
-   * @param callable - the RuntimeCallable to initialized this Executor with.
-   */
-  public CompletableFuture<RuntimeInstance> queue(Callable callable) throws InvocationException {
-    return queue(callable, new ArgVector());
   }
 
   /**
@@ -208,7 +195,7 @@ public class Fiber extends RuntimeObject {
         if (topFrame.hasError()) {
           //error flag was set
           if (!callStack.isEmpty()) {
-            callStack.peek().setErrorFlag(topFrame.getError().getErrorObject());
+            callStack.peek().returnError(topFrame.getError().getErrorObject());
           }
           else {
             leftOverException = topFrame.getError();
@@ -226,43 +213,12 @@ public class Fiber extends RuntimeObject {
         }    
       }
       else {
-        if(!topFrame.getFuture().isDone()) {
+        if(!topFrame.isDone()) {
           callStack.push(topFrame);
         }
         callStack.push(current);
       }      
     }        
-    //System.out.println("---- frames: "+callStack.size());
-    
-    //System.out.println("   *** PROFILE POINT: Pre GC "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-    //cleaner.gc(callStack, allocator, this);
-    //System.out.println("   *** PROFILE POINT: Post GC "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-    
-    /*
-    if (current != null && !current.getFuture().isDone()) {
-      
-      StackFrame prevFrame = current;
-      
-      //System.out.println("   *** PROFILE POINT: Pre GC "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-      cleaner.gc(prevFrame, allocator, this);
-      //System.out.println("   *** PROFILE POINT: Post GC "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-      
-      //cleaner.gc(prevFrame, allocator, this);
-      
-      current = prevFrame.run(allocator, this);
-      
-      if (current == null) {
-        if (prevFrame.getError() != null) {
-          throw new InvocationException(prevFrame.getError(), prevFrame.getCallable());
-        }
-      }
-      else {
-        //System.out.println("   *** PROFILE POINT: Current Frame -- "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-        cleaner.gc(current, allocator, this);
-        //System.out.println("   *** PROFILE POINT: Current Frame GC "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
-      }
-    }
-    */
   }
   
   /*

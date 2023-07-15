@@ -6,7 +6,6 @@ import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.Callable;
 
 public class RuntimeModule implements Markable {
@@ -24,7 +23,7 @@ public class RuntimeModule implements Markable {
   private final Map<Integer, RuntimeInstance> constantMap;
   
   private Callable moduleCallable;
-  private RuntimeObject moduleObject;
+  private RuntimeInstance moduleObject;
   private boolean isLoaded;
   
   private int gcMark;
@@ -37,7 +36,7 @@ public class RuntimeModule implements Markable {
     this.constantMap = constantMap;
   }
   
-  public void setLoadingComponents(RuntimeObject moduleObject, Callable callable) {
+  public void setLoadingComponents(RuntimeInstance moduleObject, Callable callable) {
     this.moduleCallable = callable;
     this.moduleObject = moduleObject;
   }
@@ -54,7 +53,7 @@ public class RuntimeModule implements Markable {
     return constantMap;
   }
   
-  public RuntimeObject getModuleObject() {
+  public RuntimeInstance getModuleObject() {
     return moduleObject;
   }
   
@@ -81,20 +80,7 @@ public class RuntimeModule implements Markable {
   }
 
   @Override
-  public void gcMark(Cleaner cleaner) {       
-    if (moduleObject != null) {
-      cleaner.gcMarkObject(moduleObject);
-    }
+  public void gcMark(Cleaner allocator) {
     
-    //Some modules don't have a code object - all NativeModules, as well as unloaded modules
-    if (moduleCodeObject != null) {
-      cleaner.gcMarkObject(moduleCodeObject);
-    }
-    cleaner.gcMarkObject(moduleCallable);
-    
-    for (RuntimeInstance value : constantMap.values()) {
-      System.out.println("    ** marking constant for "+getName()+" : "+value);
-      cleaner.gcMarkObject(value);
-    }
   }
 }

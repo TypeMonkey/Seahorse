@@ -19,6 +19,7 @@ import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
+import jg.sh.runtime.threading.frames.StackFrame;
 
 
 /**
@@ -42,8 +43,6 @@ public class RuntimeThread extends Fiber {
     }
   );
   
-  private final Callable callable;
-  private final ArgVector args;
   private final Thread thread;
   private final Consumer<Fiber> fiberReporter;
 
@@ -52,16 +51,7 @@ public class RuntimeThread extends Fiber {
                        Cleaner cleaner, 
                        ThreadManager manager,
                        Consumer<Fiber> fiberReporter) {
-    this(allocator, finder, cleaner, manager, null, null, fiberReporter);
-  }
-  
-  public RuntimeThread(HeapAllocator allocator, 
-                       ModuleFinder finder, 
-                       Cleaner cleaner, 
-                       ThreadManager manager, 
-                       Callable callable,
-                       Consumer<Fiber> fiberReporter) {
-    this(allocator, finder, cleaner, manager, callable, new ArgVector(), fiberReporter);
+    this(allocator, finder, cleaner, manager, null, fiberReporter);
   }
 
   /**
@@ -78,16 +68,14 @@ public class RuntimeThread extends Fiber {
                        ModuleFinder finder, 
                        Cleaner cleaner, 
                        ThreadManager manager, 
-                       Callable callable, 
-                       ArgVector args,
+                       StackFrame initialFrame,
                        Consumer<Fiber> fiberReporter) {
-    super(allocator, finder, manager, cleaner, (self, m) -> {
-      m.put("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), self, START));
+    super(allocator, finder, manager, cleaner, (ini, self) -> {
+      ini.init("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), self, START));
     });
-    this.callable = callable;
-    this.args = args;
     this.thread = new Thread(this::startInternal);
     this.fiberReporter = fiberReporter;    
+    queue(initialFrame);
   }
   
   /**
@@ -96,8 +84,6 @@ public class RuntimeThread extends Fiber {
    */
   private void startInternal() {
     try {
-      queue(callable, args);
-
       setStatus(FiberStatus.RUNNING);
       while (hasFrame()) {
         advanceFrame();
@@ -105,17 +91,18 @@ public class RuntimeThread extends Fiber {
 
       markEndTime();
       setStatus(hasLeftOverException() ? FiberStatus.TERMINATED : FiberStatus.COMPLETED);
-      fiberReporter.accept(this);
 
       if (hasLeftOverException()) {
         LOG.info("--- CAUGHT ERROR ");
         getLeftOverException().printStackTrace();
       }
-    } catch (InvocationException e) {
+    } catch (Exception e) {
       setStatus(FiberStatus.TERMINATED);
-      fiberReporter.accept(this);
-      System.err.println("Unhandled error on thread: "+e.getMessage());
+      System.err.println("Uncaught error: ");
+      e.printStackTrace();
     }
+
+    fiberReporter.accept(this);
   }
   
   /**

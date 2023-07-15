@@ -278,6 +278,7 @@ public class Parser {
 
     boolean hasVarParam = false;
     int positionalCount = 0;
+    boolean hasVarKeywordParams = false;
 
     if (!match(RIGHT_PAREN)) {
       do {
@@ -296,6 +297,9 @@ public class Parser {
            */
           hasVarParam = true;
           break;
+        }
+        else if(parameter.isVarArgsKeyword()) {
+          hasVarKeywordParams = true;
         }
         else if(!parameter.hasValue()) {
           positionalCount++;
@@ -327,7 +331,7 @@ public class Parser {
     }
 
     return new FuncDef(name != null ? new Identifier(name) : null, 
-                       new FunctionSignature(positionalCount, optionalParams, hasVarParam),
+                       new FunctionSignature(positionalCount, optionalParams, hasVarParam, hasVarKeywordParams),
                        captureStatement != null ? captureStatement.getCaptures() : Collections.emptySet(), 
                        paramMap, 
                        toExport, 
@@ -454,23 +458,28 @@ public class Parser {
   /**
    * Format:
    * 
-   * [const] [var] paramName [:= node]
+   * [const] [var] [!] paramName [:= node]
    * 
    * where node is the initial value of the parameter
    */
   private Parameter parameter() throws ParseException {
     final Set<Keyword> descriptors = new HashSet<>();
+    boolean varKeywordArgs = false;
+
     if (match(CONST)) {
       descriptors.add(new Keyword(prev()));
     }
     if (match(VAR)) {
       descriptors.add(new Keyword(prev()));
     }
+    if(match(BANG)) {
+      varKeywordArgs = true;
+    }
 
     final Token paramName = matchError(IDENTIFIER, "Parameter name expected.", prev().getEnd());
     final Node initValue = match(ASSIGNMENT) ? expr() : null;
 
-    return new Parameter(new Identifier(paramName), initValue, descriptors);
+    return new Parameter(new Identifier(paramName), initValue, varKeywordArgs, descriptors);
   }
 
   /**
@@ -486,6 +495,7 @@ public class Parser {
     final LinkedHashMap<String, Parameter> paramMap = new LinkedHashMap<>();
     boolean hasVarParam = false;
     int positionalCount = 0;
+    boolean hasVarKeywordParams = false;
 
     while (!match(RIGHT_PAREN)) {
       final Parameter parameter = parameter();
@@ -527,7 +537,7 @@ public class Parser {
     }
 
     return new FuncDef(new Identifier(constrKeyword), 
-                       new FunctionSignature(positionalCount, paramMap.keySet(), hasVarParam),
+                       new FunctionSignature(positionalCount, paramMap.keySet(), hasVarParam, hasVarKeywordParams),
                        captureStatement != null ? captureStatement.getCaptures() : null, 
                        paramMap, 
                        false, 
@@ -542,7 +552,18 @@ public class Parser {
    */
   private Node varDeclrOrConstAttr(Token constKeyword) throws ParseException {
     final Token constToken = prev();
-    if(match(IDENTIFIER)) {
+
+    if (match(EXPORT)) {
+      final Token exportToken = prev();
+      if(match(IDENTIFIER)) {
+        //This is a variable declaration
+        tokenStream.pushback();
+        tokenStream.pushback();
+        return varDeclrs(constToken);
+      }
+      throw new ParseException("Unknown token "+exportToken, exportToken.getStart(), exportToken.getEnd(), moduleName);
+    }
+    else if(match(IDENTIFIER)) {
       //This is a variable declaration
       tokenStream.pushback();
       return varDeclrs(constToken);
@@ -1026,10 +1047,10 @@ public class Parser {
       final Node value = expr();
 
       if (isConst != null) {
-        attrs.put(attributeName.getContent(), new Parameter(new Identifier(attributeName), value, isConst));
+        attrs.put(attributeName.getContent(), new Parameter(new Identifier(attributeName), value, false, isConst));
       }
       else{ 
-        attrs.put(attributeName.getContent(), new Parameter(new Identifier(attributeName), value));
+        attrs.put(attributeName.getContent(), new Parameter(new Identifier(attributeName), value, false));
       }
 
       if (match(COMMA)) {

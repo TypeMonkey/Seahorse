@@ -9,12 +9,15 @@ import java.util.concurrent.locks.ReentrantLock;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
+import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
 import jg.sh.runtime.threading.thread.RuntimeThread;
 
@@ -93,15 +96,11 @@ public class ThreadManager {
    * @param vector - the ArgVector for the function
    * @return the created Fiber
    */
-  public Fiber spinFiber(Callable callable, ArgVector vector) {
+  public Fiber spinFiber(Callable callable, ArgVector vector) throws CallSiteException {
     Fiber executor = new Fiber(allocator, finder, this, cleaner,null);
-    try {
-      executor.queue(callable, vector);
-      threadPool.queueFiber(executor);
-      reportFiber(executor);     
-    } catch (InvocationException e) {
-      e.printStackTrace();
-    }
+    executor.queue(StackFrame.makeFrame(callable, vector, allocator));
+    threadPool.queueFiber(executor);
+    reportFiber(executor);     
     return executor;
   }
   
@@ -112,8 +111,9 @@ public class ThreadManager {
    * 
    * Note: unlike {@link spinFiber}, the created {@link RuntimeThread} hasn't been started.
    */
-  public RuntimeThread makeThread(Callable callable) {
-    RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, callable, this::reportFiber);    
+  public RuntimeThread makeThread(Callable callable, ArgVector vector) throws CallSiteException{
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, initialFrame, this::reportFiber);    
     reportFiber(thread);
     return thread;
   }
