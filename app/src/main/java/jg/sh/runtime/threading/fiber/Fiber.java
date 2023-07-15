@@ -208,7 +208,7 @@ public class Fiber extends RuntimeInstance {
           }
           else {
             //System.out.println("   -> got new frame: "+topFrame.hasOperand()+" | "+topFrame.hashCode()+" | "+topFrame.getClass());
-            leftOver = topFrame.popOperand();
+            leftOver = topFrame.hasOperand() ? topFrame.popOperand() : null;
           }
         }    
       }

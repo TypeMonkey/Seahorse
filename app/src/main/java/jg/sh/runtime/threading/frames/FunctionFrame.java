@@ -94,8 +94,16 @@ public class FunctionFrame extends StackFrame {
       passOver = null;
     }
 
+    /*
+    System.out.println(" ====> returning: "+getInstrIndex()+" | "+
+                        instrs.length+" | "+
+                        instrs[instrs.length - 1].getInstr()+" | "+
+                        hasError()+" | "+
+                        instrs[instrs.length - 1].getExceptionJumpIndex());
+    */
+
     if (getError() != null) {
-      if (getCurrInstr().getExceptionJumpIndex() >= 0) {
+      if (hasInstrLeft() && getCurrInstr().getExceptionJumpIndex() >= 0) {
         setInstrIndex(getCurrInstr().getExceptionJumpIndex());
       }
       else {
@@ -227,7 +235,7 @@ public class FunctionFrame extends StackFrame {
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
                 incrmntInstrIndex();     
                 
-                //System.out.println("---- returning new frame!!!");
+                //System.out.println("---- returning new frame!!! "+getCurrInstr().getInstr()+" | "+instrIndex);
                 return newFrame;
               } catch (CallSiteException e) {
                 //System.out.println("--- caught error!!! "+e.getClass()+" | "+e.getMessage());
@@ -363,11 +371,13 @@ public class FunctionFrame extends StackFrame {
                 pushOperand(result);
               }
               else {
+                //System.out.println(" ===>pre args: "+args.getPositionals().size());
                 StackFrame newFrame = makeFrame(actualCallable, args, allocator);
                 incrmntInstrIndex();
                 return newFrame;
               }
             } catch (CallSiteException | InvocationException e) {
+              LOG.debug(e);
               RuntimeError error = allocator.allocateError(e.getMessage());
               returnError(error);
               if (current.getExceptionJumpIndex() >= 0) {
@@ -559,13 +569,17 @@ public class FunctionFrame extends StackFrame {
           final RuntimeInstance argValue = popOperand();
           
           ArgVector argVector = (ArgVector) popOperand();
+
+          //System.out.println(" ===> arg instr!");
           
           if (argInstr.getArgument() >= 0) {
             String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getArgument())).getValue();
             argVector.setKeywordArg(argName, argValue);
+
+            //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
           }
           else {
-            argVector.addAtFront(argValue);
+            argVector.addPositional(argValue);
           }
           
           pushOperand(argVector);
@@ -1041,7 +1055,9 @@ public class FunctionFrame extends StackFrame {
         case HAS_KARG: {
           final ArgInstr hasInstr = (ArgInstr) instr;
           final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
-          pushOperand(allocator.allocateBool(initialArgs.hasAttr(attrName)));
+          final RuntimeBool result = allocator.allocateBool(initialArgs.hasAttr(attrName));
+          //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
+          pushOperand(result);
           break;
         }
         case CALLA:

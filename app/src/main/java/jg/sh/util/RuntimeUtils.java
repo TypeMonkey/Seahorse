@@ -20,6 +20,8 @@ public final class RuntimeUtils {
 
   public static RuntimeInstance fastCall(Callable callable, ArgVector args, Fiber currentFiber) throws InvocationException {
     if (callable instanceof ImmediateInternalCallable) {
+      args.addAtFront(callable.getSelf());
+      args.addAtFront(callable);
       final ImmediateInternalCallable internalCallable = (ImmediateInternalCallable) callable;
       return internalCallable.getFunction().invoke(currentFiber, args);
     }

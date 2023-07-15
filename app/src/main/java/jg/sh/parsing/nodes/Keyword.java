@@ -5,6 +5,7 @@ import jg.sh.parsing.token.TokenType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Optional;
 
 import jg.sh.common.Location;
 import jg.sh.parsing.Context;
@@ -71,6 +72,11 @@ public class Keyword extends Node {
   
   public static boolean hasKeyword(TokenType keyword, Collection<Keyword> keywords) {
     return keywords.stream().anyMatch(x -> x.getKeyword() == keyword);
+  }
+
+  public static Keyword getKeyword(TokenType keyword, Collection<Keyword> keywords) {
+    final Optional<Keyword> first = keywords.stream().filter(x -> x.getKeyword() == keyword).findFirst();
+    return first.isPresent() ? first.get() : null;
   }
 
   public static boolean hasKeyword(TokenType keyword, Keyword ... keywords) {

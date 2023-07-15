@@ -437,6 +437,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     if (returnStatement.hasValue()) {
+      LOG.info(" COMPILING RETURN: "+returnStatement.getValue());
       returnStatement.getExpr().accept(this, parentContext)
                                .pipeErr(exceptions)
                                .pipeInstr(instrs);
@@ -1071,6 +1072,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      */
     final Map<String, Integer> keywordParamToIndexMap = new HashMap<>();
 
+    int varArgIndex = -1;
+    int keywordVarArgsIndex = -1;
+
     //Compile parameters
     for (Parameter parameter : funcDef.getParameters().values()) {
       final Identifier paramName = parameter.getName();
@@ -1083,14 +1087,22 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         final String keywordCheckDone = genLabelName(paramName.getIdentifier()+"_exists_checkDone");
 
         instrs.add(new ArgInstr(initValue.start, initValue.end, HAS_KARG, keywordNameIndex));
-        instrs.add(new JumpInstr(initValue.start, initValue.end, JUMPF, keywordCheckDone));
+        instrs.add(new JumpInstr(initValue.start, initValue.end, JUMPT, keywordCheckDone));
 
         initValue.accept(this, funcContext).pipeErr(exceptions).pipeInstr(instrs);
+        instrs.add(paramLS.store);
 
         instrs.add(new LabelInstr(initValue.start, initValue.end, keywordCheckDone));
 
         keywordParamToIndexMap.put(paramName.getIdentifier(), paramLS.load.getIndex());
       }
+      else if(parameter.isVarying()) {
+        varArgIndex = paramLS.load.getIndex();
+      }
+      else if(parameter.isVarArgsKeyword()) {
+        keywordVarArgsIndex = paramLS.load.getIndex();
+      }
+
 
       funcContext.addVariable(paramName.getIdentifier(), paramLS, parameter.getDescriptors());
     }
@@ -1104,7 +1116,13 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     instrs.add(new NoArgInstr(Location.DUMMY, Location.DUMMY, RET));
 
     //Now, allocate this function as a code object instance
-    final CodeObject funcCodeObj = new CodeObject(funcDef.getSignature(), funcLabel, keywordParamToIndexMap, instrs, captures);
+    final CodeObject funcCodeObj = new CodeObject(funcDef.getSignature(), 
+                                                  funcLabel, 
+                                                  keywordParamToIndexMap, 
+                                                  varArgIndex, 
+                                                  keywordVarArgsIndex,
+                                                  instrs, 
+                                                  captures);
     final int funcCodeObjIndex = pool.addComponent(funcCodeObj);
 
     //Add on nearest "self" code loading code
@@ -1130,7 +1148,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
     final Op op = binaryOpExpr.getOperator().getOp();
 
-    //LOG.info(" ===> binary expr: "+binaryOpExpr.repr());
+    LOG.info(" ===> binary expr: "+binaryOpExpr.repr());
 
     if(op == Op.ASSIGNMENT) {
       /*
@@ -1404,6 +1422,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final ConstantPool constantPool = parentContext.getConstantPool();
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
+
+    //System.out.println(" ===> visit call: "+funcCall.getTarget().repr()+" => "+Arrays.toString(funcCall.getArguments()));
 
     /*
      * Make an argument vector to pass function arguments

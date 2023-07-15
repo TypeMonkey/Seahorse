@@ -13,13 +13,23 @@ public class RuntimeCodeObject extends RuntimeInstance {
   private final Map<String, Integer> keywordIndexes;
   private final ContextualInstr [] instrs;
   private final int [] captures;
+  private final int varArgIndex;
+  private final int keywordVarArgIndex;
 
-  public RuntimeCodeObject(String boundName, FunctionSignature signature, Map<String, Integer> keywordIndexes, ContextualInstr [] instrs, int [] captures) {
+  public RuntimeCodeObject(String boundName, 
+                           FunctionSignature signature, 
+                           Map<String, Integer> keywordIndexes, 
+                           int varArgIndex,
+                           int keywordVarArgIndex,
+                           ContextualInstr [] instrs, 
+                           int [] captures) {
     this.boundName = boundName;
     this.signature = signature;
     this.keywordIndexes = keywordIndexes;
     this.instrs = instrs;
     this.captures = captures;
+    this.varArgIndex = varArgIndex;
+    this.keywordVarArgIndex = keywordVarArgIndex;
   }
   
   public ContextualInstr [] getInstrs() {
@@ -42,4 +52,11 @@ public class RuntimeCodeObject extends RuntimeInstance {
     return keywordIndexes;
   }
 
+  public int getKeywordVarArgIndex() {
+    return keywordVarArgIndex;
+  }
+
+  public int getVarArgIndex() {
+    return varArgIndex;
+  }
 }

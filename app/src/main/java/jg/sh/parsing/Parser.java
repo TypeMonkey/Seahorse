@@ -473,10 +473,15 @@ public class Parser {
       descriptors.add(new Keyword(prev()));
     }
     if(match(BANG)) {
+      Keyword keyword = null;
+      if ((keyword = Keyword.getKeyword(TokenType.VAR, descriptors)) != null) {
+        throw new ParseException("var keyword for var-keyword args is not allowed.", keyword.start, keyword.end, moduleName);
+      }
+
       varKeywordArgs = true;
     }
 
-    final Token paramName = matchError(IDENTIFIER, "Parameter name expected.", prev().getEnd());
+    final Token paramName = matchError(IDENTIFIER, "Parameter name expected. "+peek()+" | "+prev(), prev().getEnd());
     final Node initValue = match(ASSIGNMENT) ? expr() : null;
 
     return new Parameter(new Identifier(paramName), initValue, varKeywordArgs, descriptors);
@@ -514,6 +519,9 @@ public class Parser {
          */
         hasVarParam = true;
         break;
+      }
+      else if(parameter.isVarArgsKeyword()) {
+        hasVarKeywordParams = true;
       }
       else if(parameter.hasValue()) {
         positionalCount++;
@@ -674,6 +682,7 @@ public class Parser {
       }
 
       final Node returnValue = expr();
+      //System.out.println(" ===> RETURN VALUE: "+returnValue);
 
       final Token semicolon = matchError(SEMICOLON, "';' expected.", returnValue.end);
       return new ReturnStatement(keyword, returnValue, semicolon.getEnd());
@@ -974,28 +983,40 @@ public class Parser {
   private FuncCall funcCall(Node target, Token leftParen) throws ParseException {
     final ArrayList<Argument> arguments = new ArrayList<>();
 
+    LOG.info(" Parsing func call, target: "+target);
+
     while (!match(RIGHT_PAREN)) {
-      final Node arg = expr();
       Argument actualArg = null;
 
-      if (match(ASSIGNMENT)) {
-        if (!(arg instanceof Identifier)) {
-          throw new ParseException("Left hand of assignment must be an identifier.", arg.end, moduleName);
-        }
+      if (match(IDENTIFIER)) {
+        final Identifier targetParam = new Identifier(prev());
 
-        final Node value = expr();
-        actualArg = new Argument((Identifier) arg, value);
+        if (match(ASSIGNMENT)) {
+          final Node value = expr();
+          actualArg = new Argument(targetParam, value);
+        }
+        else {
+          /*
+           * Push back identifier and assignment
+           */
+          tokenStream.pushback();
+          actualArg = new Argument(expr());
+        }
       }
       else {
-        actualArg = new Argument(arg);
+        actualArg = new Argument(expr());
       }
 
       arguments.add(actualArg);
+
+      LOG.info(" ===> Parsing func call arg: "+actualArg+" | "+peek()+" | "+actualArg.getArgument().getClass());
 
       if (match(COMMA)) {
         continue;
       }
     }
+
+    LOG.info(" ====> Parsing func call FINAL: "+arguments);
 
     return new FuncCall(target, prev().getEnd(), arguments.toArray(new Argument[arguments.size()]));
   }

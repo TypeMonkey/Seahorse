@@ -39,7 +39,7 @@ public class ArgVector extends RuntimeInstance {
       throw new Error(e);
     }
   }
-  
+
   public void addAtFront(RuntimeInstance instance) {
     positionals.add(0, instance);
   }

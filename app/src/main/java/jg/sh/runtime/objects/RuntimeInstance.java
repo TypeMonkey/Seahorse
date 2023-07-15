@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
@@ -140,6 +141,15 @@ public class RuntimeInstance implements Markable {
     
   public Map<String, RuntimeInstance> getAttributes() {
     return attributes;
+  }
+
+  @Override
+  public String toString() {
+    String x = System.lineSeparator()+"================================"+System.lineSeparator();
+    for (Entry<String, RuntimeInstance> a : attributes.entrySet()) {
+      x += " => "+(a.getValue() == this)+" "+a.getKey()+" = "+ System.lineSeparator();
+    }
+    return x;
   }
   
   /*

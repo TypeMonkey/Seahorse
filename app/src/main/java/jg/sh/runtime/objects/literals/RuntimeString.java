@@ -22,29 +22,8 @@ public class RuntimeString extends RuntimePrimitive {
     FunctionSignature.ONE_ARG, 
     (fiber, self, callable, args) -> {
       RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-      if (otherOperand instanceof RuntimeString) {
-        RuntimeString otherStr = (RuntimeString) otherOperand;
-        //System.out.println("---- adding?");
-        return fiber.getHeapAllocator().allocateString(self.value + otherStr.getValue());
-      }
-      else if (otherOperand instanceof RuntimeInteger) {
-        RuntimeInteger otherInt = (RuntimeInteger) otherOperand;
-        //System.out.println("---- adding? "+(self.value + otherInt.getValue()));
-        return fiber.getHeapAllocator().allocateString(self.value + otherInt.getValue());
-      }
-      else if (otherOperand instanceof RuntimeBool) {
-        RuntimeBool otherBool = (RuntimeBool) otherOperand;
-        //System.out.println("---- adding?");
-        return fiber.getHeapAllocator().allocateString(self.value + otherBool.getValue());
-      } 
-      else if (otherOperand instanceof RuntimeFloat) {
-        RuntimeFloat otherFloat = (RuntimeFloat) otherOperand;
-        //System.out.println("---- adding?");
-        return fiber.getHeapAllocator().allocateString(self.value + otherFloat.getValue());
-      }
-      
-      //System.out.println("--- not correct type for other operand for add() in RuntimeString");
-      throw new InvocationException("Unsupported operand on addition!", (Callable) args.getPositional(0));
+
+      return fiber.getHeapAllocator().allocateString(self.value + otherOperand.toString());
     }
   );
 

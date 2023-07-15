@@ -15,14 +15,24 @@ public class CodeObject implements PoolComponent{
   private final Map<String, Integer> keywordIndexes;
   private final List<Instruction> instrs;
   private final int [] captures;
+  private final int varArgIndex;
+  private final int keywordVarArgIndex;
   //private final boolean [] constantCaptures;
   
-  public CodeObject(FunctionSignature signature, String boundName, Map<String, Integer> keywordIndexes, List<Instruction> instrs, int [] captures) {
+  public CodeObject(FunctionSignature signature, 
+                    String boundName, 
+                    Map<String, Integer> keywordIndexes, 
+                    int varArgIndex,
+                    int keywordVarArgIndex,
+                    List<Instruction> instrs, 
+                    int [] captures) {
     this.signature = signature;
     this.boundName = boundName;
     this.keywordIndexes = keywordIndexes;
     this.instrs = instrs;
     this.captures = captures;
+    this.varArgIndex = varArgIndex;
+    this.keywordVarArgIndex = keywordVarArgIndex;
     
     /*
     this.constantCaptures = constantCaptures;
@@ -50,6 +60,13 @@ public class CodeObject implements PoolComponent{
     return keywordIndexes;
   }
   
+  public int getKeywordVarArgIndex() {
+    return keywordVarArgIndex;
+  }
+
+  public int getVarArgIndex() {
+    return varArgIndex;
+  }
   /*
   public boolean[] getConstantCaptures() {
     return constantCaptures;

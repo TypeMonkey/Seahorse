@@ -461,6 +461,7 @@ public class ModuleFinder implements Markable {
         new FunctionSignature(0, Collections.emptySet()), 
         "$module_"+compiledFile.getName()+"_start",
         new HashMap<>(), 
+        -1,-1,
         compiledFile.getModuleInstrs(), 
         new int[0]);
     codeObjects.put(-1, moduleCodeObject);
@@ -636,6 +637,8 @@ public class ModuleFinder implements Markable {
       RuntimeCodeObject runtimeCodeObject = allocator.allocateCodeObject(codeObject.getBoundName(), 
                                                                          codeObject.getSignature(), 
                                                                          codeObject.getKeywordIndexes(), 
+                                                                         codeObject.getVarArgIndex(),
+                                                                         codeObject.getKeywordVarArgIndex(),
                                                                          contextualInstrs, 
                                                                          codeObject.getCaptures());
       constantMap.put(coEntry.getKey(), runtimeCodeObject);

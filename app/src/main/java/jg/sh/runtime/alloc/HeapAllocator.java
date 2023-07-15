@@ -136,13 +136,25 @@ public class HeapAllocator {
     return str;
   }
   
-  public RuntimeCodeObject allocateCodeObject(String boundName, FunctionSignature signature,  Map<String, Integer> keywordIndexes, ContextualInstr [] instrs, int [] captures) {
+  public RuntimeCodeObject allocateCodeObject(String boundName, 
+                                              FunctionSignature signature,  
+                                              Map<String, Integer> keywordIndexes, 
+                                              int varArgIndex,
+                                              int keywordVarArgIndex,
+                                              ContextualInstr [] instrs, 
+                                              int [] captures) {
     //perform garbage collection prior to allocation
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
     
-    final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, signature, keywordIndexes, instrs, captures);
+    final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, 
+                                                               signature, 
+                                                               keywordIndexes, 
+                                                               varArgIndex, 
+                                                               keywordVarArgIndex, 
+                                                               instrs, 
+                                                               captures);
     //storage.add(new WeakReference<>(codeObject));
     heapPointer++;
     

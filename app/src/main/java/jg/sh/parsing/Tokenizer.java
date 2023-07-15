@@ -108,7 +108,7 @@ public class Tokenizer implements Iterable<Token> {
           return addToken(new Token("?", TokenType.QUESTION, currentLine, startColumn));
         case '!': {
           return addToken(checkNext('=') ? new Token("!=", TokenType.NOT_EQ, currentLine, startColumn, currentColumn)
-              : new Token("=", TokenType.EQUAL, currentLine, startColumn));
+              : new Token("!", TokenType.BANG, currentLine, startColumn));
         }
         case '+': {
           return addToken(checkNext('=') ? new Token("+=", TokenType.EQ_ADD, currentLine, startColumn, currentColumn)

@@ -93,7 +93,7 @@ public class IRReader {
     final RuntimeCodeObject moduleCodeObject = new RuntimeCodeObject(moduleName, 
                                new FunctionSignature(0, Collections.emptySet()), 
                                Collections.emptyMap(), 
-                               instrs, 
+                               0, 0, instrs, 
                                new int[0]);
     
     //System.out.println("----LOADING MODULE .shrc "+path);
@@ -127,7 +127,7 @@ public class IRReader {
     }
     
     FunctionSignature signature = parseSignature(object.get(SIGNATURE).getAsJsonObject());
-    return new RuntimeCodeObject(boundName, signature, keywordIndexMap, instrs, captures);
+    return new RuntimeCodeObject(boundName, signature, keywordIndexMap, 0, 0, instrs, captures);
   }
   
   public static FunctionSignature parseSignature(JsonObject object) {
