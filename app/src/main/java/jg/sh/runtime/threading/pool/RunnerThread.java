@@ -15,7 +15,7 @@ import jg.sh.runtime.threading.fiber.FiberStatus;
  */
 public class RunnerThread extends Thread {
 
-  private static final int FRAME_AMOUNT = 15;
+  private static final int FRAME_AMOUNT = 10;
   private static int THREAD_ID_COUNTER = 1;
 
   private static Logger LOG = LogManager.getLogger(RunnerThread.class);
