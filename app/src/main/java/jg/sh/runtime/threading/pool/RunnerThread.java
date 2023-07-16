@@ -15,10 +15,14 @@ import jg.sh.runtime.threading.fiber.FiberStatus;
  */
 public class RunnerThread extends Thread {
 
-    private static Logger LOG = LogManager.getLogger(RunnerThread.class);
+  private static final int FRAME_AMOUNT = 10;
+  private static int THREAD_ID_COUNTER = 1;
+
+  private static Logger LOG = LogManager.getLogger(RunnerThread.class);
 
   private final Queue<Fiber> taskQueue;
   private final Consumer<Fiber> fiberCompleter;
+  private final int id;
 
   private volatile boolean stop;
     
@@ -30,6 +34,8 @@ public class RunnerThread extends Thread {
   public RunnerThread(Queue<Fiber> taskQueue, Consumer<Fiber> fiberCompleter) {
     this.taskQueue = taskQueue;
     this.fiberCompleter = fiberCompleter;
+    this.id = THREAD_ID_COUNTER++;
+    setName("Runner Thread "+this.id);
   }
 
   /**
@@ -45,11 +51,40 @@ public class RunnerThread extends Thread {
   public void run() {
     while (!stop) {
       final Fiber exec = taskQueue.poll();
+      //System.out.println(" === pass over swithc! "+id);
 
       if (exec != null) {
         //Set fiber status to running
         exec.setStatus(FiberStatus.RUNNING);
 
+        int frameCount = 0;
+        while (frameCount < FRAME_AMOUNT && exec.hasFrame()) {
+          exec.advanceFrame();
+          frameCount++;
+        }
+
+        if (exec.hasFrame()) {
+          //If the fiber has a pending frame, add it back to the taskqueue
+          exec.setStatus(FiberStatus.IN_QUEUE);
+          taskQueue.add(exec);
+        }
+        else {
+          //The fiber has no more pending frames, marking its completion
+          exec.markEndTime();
+
+          //If the fiber completed with a left over excpetion, report it.
+          exec.setStatus(exec.hasLeftOverException() ? FiberStatus.TERMINATED : FiberStatus.COMPLETED);
+
+          if (exec.hasLeftOverException()) {
+            System.err.println("Uncaught error: ");
+            exec.getLeftOverException().printStackTrace();
+          }
+
+          fiberCompleter.accept(exec);
+        }
+
+
+        /* 
         //Advance fiber by one frame
         exec.advanceFrame();
         if(exec.hasFrame()) {
@@ -71,8 +106,18 @@ public class RunnerThread extends Thread {
 
           fiberCompleter.accept(exec);
         }
+        */
+
+        /**
+         * Not sure
+         */
+        Thread.yield();
       }
     }
     //System.out.println(" ----> Runner thread stopped!!");
+  }
+
+  public int getRunnerId() {
+    return id;
   }
 }

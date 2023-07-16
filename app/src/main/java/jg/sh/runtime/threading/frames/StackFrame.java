@@ -1,9 +1,13 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+
+import com.google.common.collect.Sets;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
@@ -212,10 +216,11 @@ public abstract class StackFrame implements Markable {
       //System.out.println(" ===> "+args.getPositionals());
       throw new CallSiteException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
     }
-    
-    for (String argKey : args.getAttributes().keySet()) {
-      if (!signature.getKeywordParams().contains(argKey) && !signature.hasVarKeywordParams()) {
-        throw new CallSiteException("Unknown keyword argument '"+argKey+"'", callable);
+
+    if(args.attrs().size() > 0 && !signature.hasVarKeywordParams()) {
+      final Set<String> extraKeyswords = Sets.difference(args.attrs(), signature.getKeywordParams());
+      if (extraKeyswords.size() > 0) {
+        throw new CallSiteException("Unknown keyword arguments '"+extraKeyswords+"'", callable);
       }
     }
     
@@ -244,18 +249,28 @@ public abstract class StackFrame implements Markable {
         frame.storeLocalVar(positionalIndex, args.getPositional(positionalIndex));
       }
       
-      Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
-      for(Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
-        //System.out.println(" ===> Arg attr: "+keywordArg.getKey()+" | "+keywordArg.getValue());
-        if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
-          int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
-          //System.out.println("        ===> saving as local: "+keywordIndex);
-          frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+      /**
+       * We combine keyword arguments and extra keyword argument setting 
+       * in one go, by readily allocating the keywordVarArg object and using it's 
+       * initialization parameter to decide which keyword args go in keywordVarArg object
+       * or be saved directly as a local variable
+       */
+      final Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
+      final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
+        for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
+          if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
+            int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
+            //System.out.println("        ===> saving as local: "+keywordIndex);
+            frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+          }
+          else if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
+            ini.init(keywordArg.getKey(), keywordArg.getValue());
+          }
         }
-        else if(!signature.hasVarKeywordParams()){
-          //System.out.println(" ===> bound? |"+regularCallable.getCodeObject().getBoundName()+"|");
-          throw new CallSiteException("Unknown keyword argument '"+keywordArg.getKey()+"' ", callable);
-        }
+      });
+
+      if (signature.hasVarKeywordParams()) {
+        frame.storeLocalVar(regularCallable.getCodeObject().getKeywordVarArgIndex(), leftOverKeywords);
       }
       
       //System.out.println("------------> DONE WITH ARGS");
@@ -271,17 +286,6 @@ public abstract class StackFrame implements Markable {
         frame.storeLocalVar(regularCallable.getCodeObject().getVarArgIndex(), leftOvers);
       }
       
-      //Put any left over keyword args into a new object
-      if (signature.hasVarKeywordParams()) {
-        final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
-          for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
-            if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
-              ini.init(keywordArg.getKey(), keywordArg.getValue());
-            }
-          }
-        });
-        frame.storeLocalVar(regularCallable.getCodeObject().getKeywordVarArgIndex(), leftOverKeywords);
-      }
       toReturn = frame;
     }
     

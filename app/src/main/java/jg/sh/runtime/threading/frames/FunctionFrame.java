@@ -209,6 +209,15 @@ public class FunctionFrame extends StackFrame {
           RuntimeInstance right = popOperand();
           RuntimeInstance left = popOperand();
 
+          /*
+           * Check if we're ADDing two objects - one operand being a String.
+           * If so, add both instance's toString() result
+           */
+          if (left instanceof RuntimeString || right instanceof RuntimeString) {
+            pushOperand(allocator.allocateString(left.toString() + right.toString()));
+            break;
+          }
+
           /**
            * Check if we're both operands are primitives. If so, we can skip
            * the function call routine and operate directly
@@ -264,7 +273,9 @@ public class FunctionFrame extends StackFrame {
           }
           else {
             //unsupported operation
-            RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
+            RuntimeError error = allocator.allocateError("Unsupported operation for "+
+                                                         coupling.getOpCode().name().toLowerCase()+
+                                                         " on "+left.getClass());
             
             //System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
             //System.out.println(instr.getStart());
