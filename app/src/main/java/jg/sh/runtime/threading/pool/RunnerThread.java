@@ -107,11 +107,6 @@ public class RunnerThread extends Thread {
           fiberCompleter.accept(exec);
         }
         */
-
-        /**
-         * Not sure
-         */
-        Thread.yield();
       }
     }
     //System.out.println(" ----> Runner thread stopped!!");
