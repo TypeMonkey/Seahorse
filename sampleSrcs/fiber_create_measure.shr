@@ -1,4 +1,4 @@
-use system:makeThread, println, now, currentFiber;
+use system:makeFiber, println, now, currentFiber;
 
 const measuresCreate := [];
 const measureStart := [];
@@ -7,7 +7,7 @@ func fiberMeasure() {
   var count := 20;
   while(count > 0) {
     const start := now();
-    const f := makeThread( func foo(){
+    const f := makeFiber( func foo(){
       println(currentFiber().getID()+" is running!");
     } );
     measuresCreate.add(now() - start);
@@ -19,12 +19,10 @@ func fiberMeasure() {
     count -= 1;
   }
 
-  println("Thread Creation Elasped Times (in ns): "+measuresCreate.toString());
-  println("Thread start() Elasped Times (in ns): "+measureStart.toString());
+  println("Fiber Creation Elasped Times (in ns): "+measuresCreate.toString());
+  println("Fiber start() Elasped Times (in ns): "+measureStart.toString());
 }
 
 fiberMeasure();
-
-
 
 

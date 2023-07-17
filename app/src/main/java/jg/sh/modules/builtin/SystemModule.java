@@ -190,6 +190,21 @@ public class SystemModule extends NativeModule {
   }
 
   @NativeFunction(positionalParams = 1)
+  public RuntimeInstance makeFiber(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) throws InvocationException{
+    RuntimeInstance argument = args.getPositional(ARG_INDEX); 
+    if (argument instanceof Callable) {
+      try {
+        return fiber.getManager().makeFiber((Callable) argument, new ArgVector());
+      } catch (CallSiteException e) {
+        throw new InvocationException(e.getMessage(), callable);
+      }
+    }
+    else {
+      throw new InvocationException("Callable expected", callable);     
+    }
+  }
+
+  @NativeFunction(positionalParams = 1)
   public RuntimeInstance toString(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) throws InvocationException{
     RuntimeInstance argument = args.getPositional(ARG_INDEX); 
     return fiber.getHeapAllocator().allocateString(argument.toString());

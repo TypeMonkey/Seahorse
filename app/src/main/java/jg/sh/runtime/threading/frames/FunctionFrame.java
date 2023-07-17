@@ -34,6 +34,8 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
+import jg.sh.runtime.objects.literals.RuntimeFloat;
+import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.util.RuntimeUtils;
@@ -130,7 +132,7 @@ public class FunctionFrame extends StackFrame {
           /**
            * EQUAL is a short circuit of:
            * 
-           * left == right || left.equals(right)
+           * left == right || left.$equals(right)
            * 
            * But we only perform the right clause if
            * the left instance has an "equals" method
@@ -144,15 +146,13 @@ public class FunctionFrame extends StackFrame {
             break;
           }
 
-          /**
-           * Check if we're both operands are primitives. If so, we can skip
-           * the function call routine and operate directly
-           */
-          RuntimeInstance fastNumResult = null;
-          if ((fastNumResult = RuntimeUtils.fastNumArith(left, right, op, allocator)) != null) {
-            pushOperand(fastNumResult);
+          final RuntimeInstance result = RuntimeUtils.numEqual(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
             break;
-          } 
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
           
           FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(op);
           final String opFuncName = coupling.getFuncName();
@@ -191,21 +191,7 @@ public class FunctionFrame extends StackFrame {
         }
           
         //Arithmetic instruction opcodes
-        case ADD: 
-        case SUB: 
-        case MUL: 
-        case DIV: 
-        
-        //Bitwise operator
-        case BAND:
-        case BOR:
-          
-        //Comparative operators
-        case LESS: 
-        case GREAT:
-        case LESSE:
-        case GREATE:          
-        case MOD: {
+        case ADD: {
           RuntimeInstance right = popOperand();
           RuntimeInstance left = popOperand();
 
@@ -217,17 +203,142 @@ public class FunctionFrame extends StackFrame {
             pushOperand(allocator.allocateString(left.toString() + right.toString()));
             break;
           }
-
-          /**
-           * Check if we're both operands are primitives. If so, we can skip
-           * the function call routine and operate directly
-           */
-          RuntimeInstance fastNumResult = null;
-          if ((fastNumResult = RuntimeUtils.fastNumArith(left, right, op, allocator)) != null) {
-            pushOperand(fastNumResult);
-            break;
-          } 
           
+          final RuntimeInstance result = RuntimeUtils.numAdd(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case SUB: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeInstance result = RuntimeUtils.numMinus(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case MUL: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeInstance result = RuntimeUtils.numMult(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case DIV: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeInstance result = RuntimeUtils.numDiv(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        
+        //Bitwise operator
+        case BAND: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          if (left instanceof RuntimeInteger && right instanceof RuntimeInteger) {
+            RuntimeInteger lefInt = (RuntimeInteger) left;
+            RuntimeInteger rightInt = (RuntimeInteger) right;
+            pushOperand(allocator.allocateInt(lefInt.getValue() & rightInt.getValue()));
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case BOR: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          if (left instanceof RuntimeInteger && right instanceof RuntimeInteger) {
+            RuntimeInteger lefInt = (RuntimeInteger) left;
+            RuntimeInteger rightInt = (RuntimeInteger) right;
+            pushOperand(allocator.allocateInt(lefInt.getValue() | rightInt.getValue()));
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+          
+        //Comparative operators
+        case LESS: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeBool result = RuntimeUtils.numLess(left, right, false, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case GREAT: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeBool result = RuntimeUtils.numGreat(left, right, false, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case LESSE: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeBool result = RuntimeUtils.numLess(left, right, true, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }
+        case GREATE: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeBool result = RuntimeUtils.numGreat(left, right, true, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+        }         
+        case MOD: {
+          RuntimeInstance right = popOperand();
+          RuntimeInstance left = popOperand();
+          
+          final RuntimeInstance result = RuntimeUtils.numMod(left, right, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the numXXX() methods, then pass it down!
+          
+          LOG.trace(" For: "+instr+" => Not numerical operands. Will call overloaded operator implementation!");
 
           //System.out.println(" --- arith instr! "+op+" | "+right.getClass()+" | "+left.getClass());
                   
@@ -294,9 +405,28 @@ public class FunctionFrame extends StackFrame {
         }
         
         //unary operator
-        case NOT:
+        case NOT: {
+          RuntimeInstance operand = popOperand();
+
+          final RuntimeInstance result = RuntimeUtils.negate(operand, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the negate(), then pass it down!
+
+        }
         case NEG: {
           RuntimeInstance operand = popOperand();
+
+          final RuntimeInstance result = RuntimeUtils.negative(operand, allocator);
+          if (result != null) {
+            pushOperand(result);
+            break;
+          }
+
+          //If the result is still null after using the negate(), then pass it down!
           
           FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(op);
           final String opFuncName = coupling.getFuncName();

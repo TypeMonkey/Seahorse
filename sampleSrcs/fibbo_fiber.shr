@@ -1,4 +1,4 @@
-use system:makeFiber, println, now;
+use system:makeFiber, println, now, currentFiber;
 
 func fib(n){
   if(n < 0){
@@ -15,25 +15,22 @@ func fib(n){
   }
 }
 
-const measuresArr := [];
-const measureEnd := [];
+const measures := [];
 
 func fiberMeasure() {
   var threadCount := 10;
   while(threadCount > 0) {
-    const start := now();
     const f := makeFiber(func foo(){
-      capture start;
       fib(28);
-      measureEnd.add(now() - start);
-      println("Fib(28) Finish Times (in ns): "+measureEnd.toString());
+      measures.add(now() - currentFiber().priorStartTime);
+      println("Fib(28) Finish Times (in ns): "+measures);
     });
-    measuresArr.add(now() - start);
+
+    f.priorStartTime := now();
+    f.start();
 
     threadCount -= 1;
   }
-
-  println("Fibb Creation Times (in ns): "+measuresArr.toString());
 }
 
 fiberMeasure();

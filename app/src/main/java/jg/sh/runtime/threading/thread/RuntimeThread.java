@@ -4,18 +4,9 @@ import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import jg.sh.common.FunctionSignature;
-import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
-import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
-import jg.sh.runtime.objects.ArgVector;
-import jg.sh.runtime.objects.RuntimeNull;
-import jg.sh.runtime.objects.callable.Callable;
-import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
-import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
@@ -32,19 +23,11 @@ import jg.sh.runtime.threading.frames.StackFrame;
 public class RuntimeThread extends Fiber {
 
   private static Logger LOG = LogManager.getLogger(RuntimeThread.class);
-
-  private static final InternalFunction START = InternalFunction.create(
-    RuntimeThread.class,
-    FunctionSignature.NO_ARG, 
-    (fiber, self, callable, args) -> {
-      final RuntimeThread thread = (RuntimeThread) self;
-      thread.start();
-      return RuntimeNull.NULL;
-    }
-  );
   
+  /*
+   * the backing java.lang.Thread
+   */
   private final Thread thread;
-  private final Consumer<Fiber> fiberReporter;
 
   public RuntimeThread(HeapAllocator allocator, 
                        ModuleFinder finder, 
@@ -70,12 +53,8 @@ public class RuntimeThread extends Fiber {
                        ThreadManager manager, 
                        StackFrame initialFrame,
                        Consumer<Fiber> fiberReporter) {
-    super(allocator, finder, manager, cleaner, (ini, self) -> {
-      ini.init("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), self, START));
-    });
+    super(allocator, finder, manager, initialFrame, cleaner, fiberReporter, null);
     this.thread = new Thread(this::startInternal);
-    this.fiberReporter = fiberReporter;    
-    queue(initialFrame);
   }
   
   /**
@@ -108,7 +87,9 @@ public class RuntimeThread extends Fiber {
   /**
    * Starts this RuntimeThread
    */
+  @Override
   public void start() {
+    setStatus(FiberStatus.RUNNING);
     thread.start();
   }
   

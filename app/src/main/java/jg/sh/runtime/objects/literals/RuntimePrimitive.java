@@ -20,9 +20,7 @@ import jg.sh.runtime.objects.RuntimeInstance;
  */
 public abstract class RuntimePrimitive extends RuntimeInstance {
 
-  public RuntimePrimitive(BiConsumer<Initializer, RuntimeInstance> initializer) {
-    super(initializer);
-  }
+  public RuntimePrimitive() {}
   
   @Override
   public void gcMark(Cleaner cleaner) {

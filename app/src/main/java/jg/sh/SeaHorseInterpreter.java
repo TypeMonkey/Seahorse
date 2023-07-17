@@ -56,9 +56,7 @@ public class SeaHorseInterpreter {
   
   public SeaHorseInterpreter(Map<IOption, Object> options) {
     this.options = options;
-    
     this.seahorseCompiler = new SeahorseCompiler();
-    
     this.allocator = new HeapAllocator(MAX_GC_OBJECTS);
     this.finder = new ModuleFinder(allocator, seahorseCompiler, options);
     this.manager = new ThreadManager(allocator, finder, new CompactMarkSweepCleaner(), options);
@@ -157,8 +155,16 @@ public class SeaHorseInterpreter {
       System.gc();
       LOG.info("   *** PROFILE POINT: After Parsing GC: "+(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()));
             
+      /*
       //TODO: Needed so I can latch visualvm on this
-      //Thread.sleep(15000);
+
+      try {
+        Thread.sleep(15000);
+      } catch (InterruptedException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      */
 
       finder.registerModules(compiledModules);
       RuntimeModule mainModule = finder.getModule(compiledModules.get(0).getName());
@@ -188,10 +194,10 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     LOG.info(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/fibb_create_measure.shr";
+    String mainModule = "../sampleSrcs/thread_create_measure.shr";
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
-    options.put(IOption.MEASURE, true);
+    options.put(IOption.MEASURE, false);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
     options.put(IOption.LOG_LEVEL, "OFF");

@@ -89,6 +89,11 @@ public class ThreadManager {
       }
     }
   }
+
+  public void queueFiber(Fiber fiber) {
+    fiber.setStatus(FiberStatus.IN_QUEUE);
+    threadPool.queueFiber(fiber);
+  }
   
   /**
    * Creates and schedules a Fiber for execution
@@ -97,11 +102,25 @@ public class ThreadManager {
    * @return the created Fiber
    */
   public Fiber spinFiber(Callable callable, ArgVector vector) throws CallSiteException {
-    Fiber executor = new Fiber(allocator, finder, this, cleaner,null);
-    executor.queue(StackFrame.makeFrame(callable, vector, allocator));
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    Fiber executor = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
     threadPool.queueFiber(executor);
     reportFiber(executor);     
     return executor;
+  }
+
+  /**
+   * Creates a Fiber to be managed by this ThreadManager
+   * @param callable - the function to run on this thread
+   * @return the created {@link Fiber}
+   * 
+   * Note: Unlike {@link spinFiber}, the created {@link Fiber} isn't started immediately.
+   */
+  public Fiber makeFiber(Callable callable, ArgVector vector) throws CallSiteException {
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    Fiber fiber = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
+    reportFiber(fiber);     
+    return fiber;
   }
   
   /**
@@ -109,7 +128,7 @@ public class ThreadManager {
    * @param callable - the function to run on this thread
    * @return the created {@link RuntimeThread}
    * 
-   * Note: unlike {@link spinFiber}, the created {@link RuntimeThread} hasn't been started.
+   * Note: Unlike {@link spinFiber}, the created {@link RuntimeThread} isn't started immediately.
    */
   public RuntimeThread makeThread(Callable callable, ArgVector vector) throws CallSiteException{
     final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);

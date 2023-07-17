@@ -15,17 +15,7 @@ import jg.sh.runtime.threading.fiber.Fiber;
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
 
-public class RuntimeString extends RuntimePrimitive {  
-  
-  private static final InternalFunction ADD = create(
-    RuntimeString.class, 
-    FunctionSignature.ONE_ARG, 
-    (fiber, self, callable, args) -> {
-      RuntimeInstance otherOperand = args.getPositional(ARG_INDEX);
-
-      return fiber.getHeapAllocator().allocateString(self.value + otherOperand.toString());
-    }
-  );
+public final class RuntimeString extends RuntimePrimitive {  
 
   private static final InternalFunction LESS = create(
     RuntimeString.class, 
@@ -115,16 +105,7 @@ public class RuntimeString extends RuntimePrimitive {
   private final String value;
   
   public RuntimeString(String value) {
-    super((ini, self) -> {
-      final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
-      ini.init(FuncOperatorCoupling.ADD.getFuncName(), new ImmediateInternalCallable(systemModule, self, ADD));
-      ini.init(FuncOperatorCoupling.LESS.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESS));
-      ini.init(FuncOperatorCoupling.GREAT.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREAT));
-      ini.init(FuncOperatorCoupling.LESSE.getFuncName(), new ImmediateInternalCallable(systemModule, self, LESSE));
-      ini.init(FuncOperatorCoupling.GREATE.getFuncName(), new ImmediateInternalCallable(systemModule, self, GREATE));
-      ini.init(FuncOperatorCoupling.EQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, EQUAL));
-      ini.init(FuncOperatorCoupling.NOTEQUAL.getFuncName(), new ImmediateInternalCallable(systemModule, self, NOT_EQUAL));
-    });
+    super();
     this.value = value;
   }
   

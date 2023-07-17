@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
@@ -15,6 +16,7 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeInstance;
+import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
@@ -44,7 +46,17 @@ public class Fiber extends RuntimeInstance {
   /**
    * Static counter for Fiber ID creation
    */
-  private static volatile int FIBER_ID_COUNTER = 1;
+  private static volatile int FIBER_ID_COUNTER = 0;
+
+  private static final InternalFunction START = 
+  create(
+    Fiber.class,
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      self.start();
+      return RuntimeNull.NULL;
+    }
+  );
 
   private static final InternalFunction START_TIME_GETTER = 
   create(
@@ -89,6 +101,7 @@ public class Fiber extends RuntimeInstance {
   private final Stack<StackFrame> callStack;
   private final Cleaner cleaner;
   private final int fiberID;
+  protected final Consumer<Fiber> fiberReporter;
     
   private RuntimeInstance leftOver;
   private InvocationException leftOverException;
@@ -122,7 +135,9 @@ public class Fiber extends RuntimeInstance {
   public Fiber(HeapAllocator allocator, 
                ModuleFinder finder, 
                ThreadManager manager, 
+               StackFrame initialFrame,
                Cleaner cleaner,
+               Consumer<Fiber> fiberReporter,
                BiConsumer<Initializer, RuntimeInstance> initializer) {
     super((ini, self) -> {
       final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
@@ -131,6 +146,7 @@ public class Fiber extends RuntimeInstance {
       ini.init("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER));
       ini.init("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER));
       ini.init("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER));
+      ini.init("start", new ImmediateInternalCallable(systemModule, self, START));
 
       if (initializer != null) {
         initializer.accept(ini, self);
@@ -146,6 +162,18 @@ public class Fiber extends RuntimeInstance {
     this.startTime = -1;
     this.endTime = -1;
     this.status = FiberStatus.CREATED;
+    this.fiberReporter = fiberReporter;
+
+    queue(initialFrame);
+  }
+
+  /**
+   * Queues this Fiber into the ThreadPool
+   */
+  public void start() {
+    if (status == FiberStatus.CREATED) {
+      manager.queueFiber(this);
+    }
   }
 
   @Override
@@ -176,7 +204,6 @@ public class Fiber extends RuntimeInstance {
    */
   public void queue(StackFrame frame) {
     callStack.push(frame);
-    
   }
 
   /**

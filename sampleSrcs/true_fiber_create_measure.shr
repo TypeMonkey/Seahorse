@@ -1,0 +1,22 @@
+use system:makeFiber, println, now, currentFiber;
+
+const measureStart := [];
+
+func fiberMeasure() {
+  var count := 20;
+  while(count > 0) {
+    const start := now();
+    const f := makeFiber( func foo(){
+      measureStart.add(now() - currentFiber().priorStartTime);
+      println("Fiber start() Elasped Times (in ns): "+measureStart);
+    } );
+
+    f.priorStartTime := now();
+    f.start();
+
+    count -= 1;
+  }
+}
+
+fiberMeasure();
+

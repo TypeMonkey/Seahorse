@@ -14,7 +14,6 @@ public class ThreadPool {
     
   private final RunnerThread [] runners;
 
-  private final ConcurrentHashMap<Integer, Fiber> allFibers;
   private final ConcurrentLinkedQueue<Fiber> fiberQueue;
 
   private final Consumer<Fiber> fiberReporter;
@@ -30,7 +29,6 @@ public class ThreadPool {
   public ThreadPool(int poolSize, Consumer<Fiber> reporter) {
     this.runners = new RunnerThread[poolSize];
     this.fiberQueue = new ConcurrentLinkedQueue<>();
-    this.allFibers = new ConcurrentHashMap<>();
     this.fiberReporter = reporter;
   }
 
@@ -39,7 +37,6 @@ public class ThreadPool {
    * @param fiber - the Fiber to queue
    */
   public void queueFiber(Fiber fiber) {
-    allFibers.put(fiber.getFiberID(), fiber);
     fiberQueue.offer(fiber);
   }
 

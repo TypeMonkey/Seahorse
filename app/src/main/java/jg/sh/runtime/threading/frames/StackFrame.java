@@ -24,6 +24,7 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.util.RuntimeUtils;
 
 /**
  * Represents a function's frame on the FunctionStack
@@ -200,28 +201,14 @@ public abstract class StackFrame implements Markable {
     args.addAtFront(callable.getSelf());
     args.addAtFront(callable);
     
-    FunctionSignature signature = callable.getSignature();
+    final FunctionSignature signature = callable.getSignature();
     
     /*
      * Check if arguments are valid first!
      */
-    
-    //-2 from positional size as the first two arguments are self and the function itself
-    if (args.getPositionals().size() - 2 < signature.getPositionalParamCount()) {
-      throw new CallSiteException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
-    }
-    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount() && !signature.hasVariableParams()) {
-      //System.out.println(" === minus 2: "+(args.getPositionals().size() - 2)+" | expected: "+signature.getPositionalParamCount());
-      //System.out.println(" ===> "+args.getPositionals().stream().map(x -> x.getClass().getName()).collect(Collectors.joining(",")));
-      //System.out.println(" ===> "+args.getPositionals());
-      throw new CallSiteException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
-    }
-
-    if(args.attrs().size() > 0 && !signature.hasVarKeywordParams()) {
-      final Set<String> extraKeyswords = Sets.difference(args.attrs(), signature.getKeywordParams());
-      if (extraKeyswords.size() > 0) {
-        throw new CallSiteException("Unknown keyword arguments '"+extraKeyswords+"'", callable);
-      }
+    final CallSiteException exception = RuntimeUtils.checkArgs(callable, signature, args);
+    if (exception != null) {
+      throw exception;
     }
     
     StackFrame toReturn = null;

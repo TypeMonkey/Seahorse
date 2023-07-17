@@ -57,6 +57,14 @@ public class Main {
     compToByte.setType(Boolean.TYPE);
     cliOptions.addOption(compToByte);
 
+    Option poolSize = new Option("p", "Sets the amount of workers in thread pool.");
+    poolSize.setLongOpt("pool");
+    poolSize.setArgs(1);
+    poolSize.setValueSeparator('=');
+    poolSize.setRequired(false);
+    poolSize.setType(Integer.TYPE);
+    cliOptions.addOption(poolSize);
+
     Option loadFromByte = new Option("b", "Prioritizes the loading of a module's bytecode transformation "+System.lineSeparator()+
                                           "before loading the actual module itself.");
     loadFromByte.setLongOpt("load");
@@ -123,6 +131,9 @@ public class Main {
       }
       if (commandLine.hasOption(standardPaths)) {
         options.put(IOption.ST_LIB_PATH, commandLine.getOptionValue(standardPaths));
+      }
+      if (commandLine.hasOption(poolSize)) {
+        options.put(IOption.POOL_SIZE, Integer.parseInt(commandLine.getOptionValue(poolSize)));
       }
       /*
       if (commandLine.hasOption(validate)) {
