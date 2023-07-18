@@ -32,7 +32,7 @@ import static jg.sh.runtime.objects.callable.InternalFunction.create;
  * A fiber is identified with a unique integer ID and two fibers
  * are deemed equal if they match IDs.
  * 
- * Note: While a Fiber is meant to be advanced by several threads, obly one
+ * Note: While a Fiber is meant to be advanced by several threads, only one
  *       thread should be advance a Fiber at a time. 
  * 
  *       This class is inherently thread-unsafe and requires external locking
