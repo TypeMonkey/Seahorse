@@ -22,8 +22,5 @@ public class RuntimeInternalCallable extends Callable {
   public Callable rebind(RuntimeInstance newSelf, HeapAllocator allocator) {
     return new RuntimeInternalCallable(getHostModule(), newSelf, function);
   }
-  
-  @Override
-  protected void markAdditional(Cleaner cleaner) {}
 
 }

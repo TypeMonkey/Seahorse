@@ -1,0 +1,7 @@
+use system: println;
+
+func many(a, const b, c := 1, !e, var g) {
+  println(" extra pos arg: "+g+" | "+e.o);
+}
+
+many(1,2, c := 3, h := 10, o := 90, t := 14, 757, 956, 4974, 1);

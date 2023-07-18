@@ -3,6 +3,7 @@ package jg.sh.runtime.objects.callable;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
@@ -56,19 +57,10 @@ public class RuntimeCallable extends Callable {
   }
   
   @Override
-  public Callable rebind(RuntimeInstance newSelf, HeapAllocator allocator) {
+  public RuntimeCallable rebind(RuntimeInstance newSelf, HeapAllocator allocator) {
     if (newSelf != getSelf()) {
       return allocator.allocateCallable(getHostModule(), newSelf, codeObject, captures);
     }
     return this;
-  }
-  
-  @Override
-  public void markAdditional(Cleaner cleaner) {
-    cleaner.gcMarkObject(codeObject);
-    
-    for (CellReference cellReference : captures) {
-      cleaner.gcMarkObject(cellReference.getValue());
-    }
   }
 }

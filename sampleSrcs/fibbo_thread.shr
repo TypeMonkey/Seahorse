@@ -1,0 +1,36 @@
+use system:makeThread, println, now, currentFiber;
+
+func fib(n){
+  if(n < 0){
+     return -10000;
+  }
+  elif(n = 0){
+     return 0;
+  }
+  elif((n = 1) || (n = 2)){
+     return 1;
+  }
+  else{
+     return fib(n-1) + fib(n-2);
+  }
+}
+
+const measures := [];
+
+func fiberMeasure() {
+  var threadCount := 10;
+  while(threadCount > 0) {
+    const f := makeThread(func foo(){
+      fib(28);
+      measures.add(now() - currentFiber().priorStartTime);
+      println("Fib(28) Finish Times (in ns): "+measures);
+    });
+
+    f.priorStartTime := now();
+    f.start();
+
+    threadCount -= 1;
+  }
+}
+
+fiberMeasure();

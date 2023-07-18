@@ -11,23 +11,18 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import jg.sh.InterpreterOptions.IOption;
-import net.percederberg.grammatica.parser.ParserCreationException;
 
 public class Main {
 
   public static void main(String[] args) {
     ParsedCLIOptions options = parseArguments(args);
     if (options != null) {
-      try {
         SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options.options);
         if(!interpreter.init()) {
           System.err.println("Couldn't properly initialize interpreter. Exiting...");
           return;
         }
         interpreter.executeModule(options.mainModule, options.programArgs);
-      } catch (ParserCreationException e) {
-        System.err.println("Error encountered while initializing parser. Exiting...");
-      }
     }
   }
    
@@ -57,25 +52,22 @@ public class Main {
     Option compToByte = new Option("c", "Writes out the bytecode transformations "+System.lineSeparator()
                                       + "of loaded modules into the current directory.");
     compToByte.setLongOpt("compile");
-    compToByte.setArgs(1);
     compToByte.setValueSeparator('=');
     compToByte.setRequired(false);
     compToByte.setType(Boolean.TYPE);
     cliOptions.addOption(compToByte);
-    
-    Option interpretOnly = new Option("i", "Executes loaded modules "+System.lineSeparator()
-                                         + "without any bytecode transformations");
-    interpretOnly.setLongOpt("inter");
-    interpretOnly.setArgs(1);
-    interpretOnly.setValueSeparator('=');
-    interpretOnly.setRequired(false);
-    interpretOnly.setType(Boolean.TYPE);
-    cliOptions.addOption(interpretOnly);
+
+    Option poolSize = new Option("p", "Sets the amount of workers in thread pool.");
+    poolSize.setLongOpt("pool");
+    poolSize.setArgs(1);
+    poolSize.setValueSeparator('=');
+    poolSize.setRequired(false);
+    poolSize.setType(Integer.TYPE);
+    cliOptions.addOption(poolSize);
 
     Option loadFromByte = new Option("b", "Prioritizes the loading of a module's bytecode transformation "+System.lineSeparator()+
                                           "before loading the actual module itself.");
     loadFromByte.setLongOpt("load");
-    loadFromByte.setArgs(1);
     loadFromByte.setValueSeparator('=');
     loadFromByte.setRequired(false);
     loadFromByte.setType(Boolean.TYPE);
@@ -97,17 +89,8 @@ public class Main {
     standardPaths.setRequired(false);
     cliOptions.addOption(standardPaths);
     
-    Option validate = new Option("v", "Whether to validate the fails (checking of important errors) prior to execution");
-    validate.setLongOpt("validate");
-    validate.setArgs(1);
-    validate.setValueSeparator('=');
-    validate.setRequired(false);
-    validate.setType(Boolean.TYPE);
-    cliOptions.addOption(validate);
-    
-    Option measure = new Option("m", "Whether to output the elapsed milliseconds in executing the module");
+    Option measure = new Option("m", "Whether to output the elapsed nanoseconds in executing the module");
     measure.setLongOpt("measure");
-    measure.setArgs(1);
     measure.setValueSeparator('=');
     measure.setRequired(false);
     measure.setType(Boolean.TYPE);
@@ -133,7 +116,7 @@ public class Main {
       }
       
       if (commandLine.hasOption(compToByte)) {
-        options.put(IOption.COMP_TO_BYTE, commandLine.getOptionValue(compToByte));
+        options.put(IOption.COMP_TO_BYTE, true);
       }
       /*
       if (commandLine.hasOption(interpretOnly)) {
@@ -149,14 +132,19 @@ public class Main {
       if (commandLine.hasOption(standardPaths)) {
         options.put(IOption.ST_LIB_PATH, commandLine.getOptionValue(standardPaths));
       }
+      if (commandLine.hasOption(poolSize)) {
+        options.put(IOption.POOL_SIZE, Integer.parseInt(commandLine.getOptionValue(poolSize)));
+      }
+      /*
       if (commandLine.hasOption(validate)) {
         options.put(IOption.VALIDATE, commandLine.getOptionValue(validate));
       }
+      */
       if (commandLine.hasOption(additional)) {
         options.put(IOption.ADDITIONAL, commandLine.getOptionValue(additional));
       }
       if (commandLine.hasOption(measure)) {
-        options.put(IOption.MEASURE, commandLine.getOptionValue(measure));
+        options.put(IOption.MEASURE, true);
       }
       
       if (commandLine.getArgList().size() >= 1) {

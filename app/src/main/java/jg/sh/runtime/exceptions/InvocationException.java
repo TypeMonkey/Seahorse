@@ -2,8 +2,12 @@ package jg.sh.runtime.exceptions;
 
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.callable.Callable;
-import jg.sh.runtime.objects.literals.RuntimeString;
 
+/**
+ * This exception is thrown by a Callable, indicating either
+ * a RuntimeError thrown directly from it, or passed down from a previous
+ * call due to a lack of a exception handler.
+ */
 public class InvocationException extends Exception {
   
   private final Callable target;
@@ -14,9 +18,13 @@ public class InvocationException extends Exception {
     this.target = target;
     this.errorObject = null;
   }
+
+  public InvocationException(OperationException exception, Callable target) {
+    this(exception.getMessage(), target);
+  }
   
   public InvocationException(RuntimeError error, Callable target) {
-    super(error.getAttr("msg").toString());
+    super(error.getMessage());
     this.errorObject = error;
     this.target = target;
   }

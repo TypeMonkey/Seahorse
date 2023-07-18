@@ -1,11 +1,19 @@
 package jg.sh.runtime.loading;
 
 import java.io.File;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.LambdaConversionException;
+import java.lang.invoke.LambdaMetafactory;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,43 +21,51 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile.SeahorseCompiler;
-import jg.sh.compile.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile.validation.FileValidationReport;
-import jg.sh.compile.validation.Validator;
-import jg.sh.irgen.CompiledFile;
-import jg.sh.irgen.IRCompiler;
-import jg.sh.irgen.IRWriter;
-import jg.sh.irgen.instrs.Instruction;
-import jg.sh.irgen.instrs.JumpInstr;
-import jg.sh.irgen.instrs.LabelInstr;
-import jg.sh.irgen.pool.ConstantPool;
-import jg.sh.irgen.pool.component.BoolConstant;
-import jg.sh.irgen.pool.component.CodeObject;
-import jg.sh.irgen.pool.component.ErrorHandlingRecord;
-import jg.sh.irgen.pool.component.FloatConstant;
-import jg.sh.irgen.pool.component.IntegerConstant;
-import jg.sh.irgen.pool.component.PoolComponent;
-import jg.sh.irgen.pool.component.StringConstant;
+import jg.sh.modules.NativeFunction;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
+import jg.sh.parsing.Module;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
+import jg.sh.runtime.objects.callable.InternalFunction;
+import jg.sh.runtime.objects.callable.PervasiveFuncInterface;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.compile.ObjectFile;
+import jg.sh.compile.SeahorseCompiler;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.JumpInstr;
+import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.pool.ConstantPool;
+import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.CodeObject;
+import jg.sh.compile.pool.component.ErrorHandlingRecord;
+import jg.sh.compile.pool.component.FloatConstant;
+import jg.sh.compile.pool.component.IntegerConstant;
+import jg.sh.compile.pool.component.PoolComponent;
+import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.util.StringUtils;
 
 public class ModuleFinder implements Markable {
+
+  private static Logger LOG = LogManager.getLogger(ModuleFinder.class);
     
   private final HeapAllocator allocator;
   //private final Executor executor;
@@ -71,12 +87,15 @@ public class ModuleFinder implements Markable {
   }
   
   private RuntimeModule prepareSystemModule() {
-    NativeModule systemNativeModule = SystemModule.getNativeModule();
-    RuntimeModule systemModule = systemNativeModule.getModule();
+    final NativeModule systemNativeModule = SystemModule.getNativeModule();
+    final RuntimeModule systemModule = systemNativeModule.getModule();
     
-    RuntimeObject systemObject = allocator.allocateEmptyObject();
+    final RuntimeInstance systemObject = allocator.allocateEmptyObject((o, m) -> {
+      prepareFromAnnotations(systemNativeModule, o, m);
+      systemNativeModule.initialAttrs(m, o);
+    });
     
-    RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
+    final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
     systemModule.setLoadingComponents(systemObject, initialization);
         
     return systemModule;
@@ -142,7 +161,7 @@ public class ModuleFinder implements Markable {
               
               //.shr file is newer. use shr!
               if((module = loadFromSHRFile(shrFile)) != null) {
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 //update shrc file!
@@ -159,7 +178,7 @@ public class ModuleFinder implements Markable {
               //System.out.println("---- shr file is older, loading from shrc "+(module != null));
               
               if(module != null) {
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 //System.out.println("---successfully loaded from shrc");
@@ -167,7 +186,7 @@ public class ModuleFinder implements Markable {
               }
               else if((module = loadFromSHRFile(shrFile)) != null){
                 //fall back to using shrFile if, for some reason, shrcFile couldn't be used
-                RuntimeObject moduleObject = allocator.allocateEmptyObject();
+                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
                 RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
                 module.setLoadingComponents(moduleObject, initCallable);
                 
@@ -181,7 +200,7 @@ public class ModuleFinder implements Markable {
             }
         } 
         else if((module = loadFromSHRFile(shrFile)) != null){
-          RuntimeObject moduleObject = allocator.allocateEmptyObject();
+          RuntimeInstance moduleObject = allocator.allocateEmptyObject();
           RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
           module.setLoadingComponents(moduleObject, initCallable);
           
@@ -198,7 +217,10 @@ public class ModuleFinder implements Markable {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
-          RuntimeObject moduleObject = allocator.allocateEmptyObject();
+          RuntimeInstance moduleObject = allocator.allocateEmptyObject((ini, self) -> {
+            prepareFromAnnotations(nativeModule, ini, self);
+            nativeModule.initialAttrs(self, ini);
+          });
           
           RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
           module = nativeModule.getModule();
@@ -209,6 +231,74 @@ public class ModuleFinder implements Markable {
     }
     
     return module;
+  }
+
+  public void prepareFromAnnotations(NativeModule module, Initializer ini, RuntimeInstance moduleObject) {
+    final Class<?> actualClass = module.getClass();
+    for(Method method : actualClass.getDeclaredMethods()) {
+      if (method.isAnnotationPresent(NativeFunction.class) && 
+          method.getParameterCount() == 4 &&
+
+          method.getParameterTypes()[0] == Fiber.class && 
+          RuntimeInstance.class.isAssignableFrom(method.getParameterTypes()[1]) &&
+          method.getParameterTypes()[2] == RuntimeInternalCallable.class && 
+          method.getParameterTypes()[3] == ArgVector.class &&
+          RuntimeInstance.class.isAssignableFrom(method.getReturnType())) {
+        //Internal function paramters are: Fiber, self (RuntimeInstance), callable, argVector
+        final NativeFunction annotation = method.getAnnotation(NativeFunction.class);
+        final FunctionSignature signature = new FunctionSignature(annotation.positionalParams(), 
+                                                                  new HashSet<>(Arrays.asList(annotation.optionalParams())), 
+                                                                  annotation.hasVariableParams(),
+                                                                  annotation.hasVarKeywordParams());
+
+        final boolean isStatic = Modifier.isStatic(method.getModifiers());
+        final String attrName = annotation.name().isEmpty() ? method.getName() : annotation.name();
+
+        try {
+          final MethodHandles.Lookup lookup = MethodHandles.lookup();
+          final MethodHandle handle = lookup.unreflect(method);
+          final MethodType type = handle.type();
+
+          final MethodType factoryType = isStatic ? 
+                                          MethodType.methodType(PervasiveFuncInterface.class) :
+                                          MethodType.methodType(PervasiveFuncInterface.class, type.parameterType(0));
+
+          final MethodType interMethType = isStatic ? 
+                                            type.changeParameterType(1, RuntimeInstance.class) :
+                                            type.dropParameterTypes(0, 1).changeParameterType(1, RuntimeInstance.class);
+
+          final MethodType targetType = isStatic ? type : type.dropParameterTypes(0, 1);
+
+          CallSite callSite = LambdaMetafactory.metafactory(lookup, 
+                                                            "call", 
+                                                            factoryType, 
+                                                            interMethType, 
+                                                            handle, 
+                                                            targetType);
+          
+          PervasiveFuncInterface internal = (PervasiveFuncInterface) 
+                                            (isStatic ? 
+                                              callSite.getTarget().invoke() :
+                                              callSite.getTarget().invoke(module));
+          PervasiveFuncInterface filter = (f, self, callable, args) -> {
+            try {
+              return internal.call(f, (RuntimeInstance) method.getParameterTypes()[1].cast(self), callable, args);
+            } catch (ClassCastException e) {
+              throw new InvocationException("Expected "+method.getParameterTypes()[1].getName()+
+                                            ", but was a "+self.getClass().getName(), callable);
+            }
+          };
+          InternalFunction function = InternalFunction.create(signature, filter);
+          ini.init(attrName, new RuntimeInternalCallable(module.getModule(), 
+                                                                  moduleObject, 
+                                                                  function));
+
+        } catch (Throwable e) {
+          throw new Error(e);
+        }
+      }
+    }
+
   }
   
   /**
@@ -241,7 +331,6 @@ public class ModuleFinder implements Markable {
   private NativeModule loadFromClassFile(File path){  
     try {
       //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
-      
                         
       URL [] classFileURLArray = {path.getParentFile().toURI().toURL()};
       
@@ -250,32 +339,36 @@ public class ModuleFinder implements Markable {
       
       Class<?> targetClass = Class.forName(StringUtils.getBareFileName(path.getName()), true, classLoader);      
       
-      NativeModule nativeModule = null;
-      
-      if (NativeModule.class.isAssignableFrom(targetClass)) {
-        Method invocationTarget = null;
-        for(Method method : targetClass.getDeclaredMethods()) {
-          if (method.isAnnotationPresent(NativeModuleDiscovery.class) && 
-              NativeModule.class.isAssignableFrom(method.getReturnType()) && 
-              method.getParameterCount() == 0 && 
-              Modifier.isStatic(method.getModifiers())) {
-            invocationTarget = method;
-            break;
-          }
-        }
-                
-        if (invocationTarget != null) {
-          nativeModule = (NativeModule) invocationTarget.invoke(null);
-        }
-        
-      }     
-      
-      return nativeModule;
+      return loadFromClass(targetClass);
     } catch (Exception e) {
-      System.out.println("class loading exception");
-      e.printStackTrace();
+      LOG.debug("Class loading exception", e);
       return null;
     }
+  }
+
+  public NativeModule loadFromClass(Class<?> targetClass) {
+    if (NativeModule.class.isAssignableFrom(targetClass)) {
+      Method invocationTarget = null;
+      for(Method method : targetClass.getDeclaredMethods()) {
+        if (method.isAnnotationPresent(NativeModuleDiscovery.class) && 
+            NativeModule.class.isAssignableFrom(method.getReturnType()) && 
+            method.getParameterCount() == 0 && 
+            Modifier.isStatic(method.getModifiers())) {
+          invocationTarget = method;
+          break;
+        }
+      }
+              
+      if (invocationTarget != null) {
+        try {
+          return (NativeModule) invocationTarget.invoke(null);
+        } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+          return null;
+        }
+      }
+      
+    }     
+    return null;
   }
   
   /**
@@ -289,8 +382,9 @@ public class ModuleFinder implements Markable {
    */
   private RuntimeModule loadFromSHRFile(File path) {
     try {
-      Module module = compiler.formSourceFiles(path.toString())[0];
+      final Module module = compiler.compile(path.toString()).get(0);
       
+      /*
       if (options.containsKey(IOption.VALIDATE) && ((boolean) options.get(IOption.VALIDATE))) {
         Validator validator = new Validator();
         FileValidationReport report = validator.validate(module).get(module.getName());
@@ -299,14 +393,13 @@ public class ModuleFinder implements Markable {
           return null;
         }
       }
-      
-      IRCompiler irCompiler = new IRCompiler();
-      CompiledFile compiledFile = irCompiler.compileModules(module)[0];
-      
-      RuntimeModule runtimeModule = prepareModule(compiledFile);
+      */
+
+      final ObjectFile objectFile = compiler.generateByteCode(module).get(0);      
+      RuntimeModule runtimeModule = prepareModule(objectFile);
       return runtimeModule;
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      LOG.debug("Error encountered while loading .shr file", e);
       return null;
     }
   }
@@ -325,8 +418,8 @@ public class ModuleFinder implements Markable {
    * Registers multiple CompiledFiles with this ModuleFinder
    * @param includedModules - the CompiledFiles to register
    */
-  public void registerModules(CompiledFile ... includedModules) {
-    for (CompiledFile compiledFile : includedModules) {
+  public void registerModules(List<ObjectFile> includedModules) {
+    for (ObjectFile compiledFile : includedModules) {
       registerModule(compiledFile);
     }
   }
@@ -339,7 +432,7 @@ public class ModuleFinder implements Markable {
    * 
    * @param compiledFile - the CompiledFile to register
    */
-  public void registerModule(CompiledFile compiledFile) {
+  public void registerModule(ObjectFile compiledFile) {
     //System.out.println(compiledFile);
     //System.out.println("------------- "+compiledFile.getName());
     
@@ -349,22 +442,26 @@ public class ModuleFinder implements Markable {
     
     RuntimeModule preparedModule = prepareModule(compiledFile);
     
-    RuntimeObject moduleObject = allocator.allocateEmptyObject();
-    RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, moduleObject, preparedModule.getModuleCodeObject(), new CellReference[0]);
+    RuntimeInstance moduleObject = allocator.allocateEmptyObject();
+    RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, 
+                                                              moduleObject, 
+                                                              preparedModule.getModuleCodeObject(), 
+                                                              new CellReference[0]);
     preparedModule.setLoadingComponents(moduleObject, initCallable);
         
     modules.put(preparedModule.getName(), preparedModule);
   }
   
-  private RuntimeModule prepareModule(CompiledFile compiledFile) {
+  private RuntimeModule prepareModule(ObjectFile compiledFile) {
     HashMap<Integer, RuntimeInstance> constantMap = new HashMap<>();
     
     LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getPool());    
     
     final CodeObject moduleCodeObject = new CodeObject(
-        new FunctionSignature(new HashSet<>(), 0), 
+        new FunctionSignature(0, Collections.emptySet()), 
         "$module_"+compiledFile.getName()+"_start",
         new HashMap<>(), 
+        -1,-1,
         compiledFile.getModuleInstrs(), 
         new int[0]);
     codeObjects.put(-1, moduleCodeObject);
@@ -436,7 +533,6 @@ public class ModuleFinder implements Markable {
       }
       else if (component instanceof CodeObject) {
         CodeObject codeObject = (CodeObject) component;
-        
         codeObjects.put(i, codeObject);
       }
     }
@@ -541,6 +637,8 @@ public class ModuleFinder implements Markable {
       RuntimeCodeObject runtimeCodeObject = allocator.allocateCodeObject(codeObject.getBoundName(), 
                                                                          codeObject.getSignature(), 
                                                                          codeObject.getKeywordIndexes(), 
+                                                                         codeObject.getVarArgIndex(),
+                                                                         codeObject.getKeywordVarArgIndex(),
                                                                          contextualInstrs, 
                                                                          codeObject.getCaptures());
       constantMap.put(coEntry.getKey(), runtimeCodeObject);

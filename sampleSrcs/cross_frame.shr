@@ -1,0 +1,12 @@
+use system:spinOff, println, now;
+
+func fiberMeasure() {
+  const start := now();
+  const f := spinOff( func foo(){
+    capture start;
+    println("Fib(28) Finish Times (in ns): ");
+  });
+  println("Fibb Creation Times (in ns): "+(now() - start));
+}
+
+fiberMeasure();

@@ -1,142 +1,96 @@
 package jg.sh.compile;
 
+import jg.sh.parsing.Tokenizer;
+import jg.sh.parsing.exceptions.ParseException;
+import jg.sh.parsing.token.TokenType;
+import jg.sh.util.StringUtils;
+import jg.sh.compile.exceptions.InvalidModulesException;
+import jg.sh.compile.exceptions.ValidationException;
+import jg.sh.parsing.Module;
+import jg.sh.parsing.Parser;
+
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-
-import jg.sh.compile.parsing.exceptions.BadIdentifierException;
-import jg.sh.compile.parsing.nodes.atoms.constructs.Module;
-import jg.sh.compile.parsing.parser.ExpressionBuilder;
-import jg.sh.compile.parsing.parser.SeaHorseWholeParser;
-import jg.sh.compile.parsing.parser.SeaHorseWholeTokenizer;
-import jg.sh.util.StringUtils;
-import net.percederberg.grammatica.parser.ParseException;
-import net.percederberg.grammatica.parser.ParserCreationException;
-import net.percederberg.grammatica.parser.ParserLogException;
-import net.percederberg.grammatica.parser.Token;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Front-end for the SeaHorse first phase of SeaHorse module parsing. 
- *   
- * @author Jose
- *
+ * Front-end for compiling a Seahorse source file (.shr) into 
+ * a Module representation, as well as into Seahorse bytecode.
  */
 public class SeahorseCompiler {
   
-  private final ExpressionBuilder expressionBuilder;
-  private final SeaHorseWholeTokenizer tokenizer;
-  private final SeaHorseWholeParser parser;
-  
-  public SeahorseCompiler() throws ParserCreationException {
-    this.expressionBuilder = new ExpressionBuilder(null);
-    this.tokenizer = new SeaHorseWholeTokenizer(null);
-    this.parser = new SeaHorseWholeParser(null, expressionBuilder);
+  private final Parser parser;
+  private final IRCompiler irCompiler;
+
+  public SeahorseCompiler() {
+    this.parser = new Parser(Collections.emptyList(), null);
+    this.irCompiler = new IRCompiler();
   }
-    
-  /**
-   * Given an array of SeaHorse module source file paths, this 
-   * method parses the source files into raw Modules.
-   * 
-   * @param sourceFiles - an array of String paths to module source files
-   * @return an array of raw Modules, corresponding to their path counterparts in sourceFiles
-   * @throws IOException - if an IOException occurred while reading the source files
-   * @throws ParserCreationException - if an exception was encountered in creating the parser
-   * @throws ParseException - if a syntax mistake was encountered while parsing a source file
-   * @throws ParserLogException - contains a list of errors while parsing
-   * @throws IllegalArgumentException - if the module's name is reserved and cannot be used.
-   */
-  public Module [] formSourceFiles(String ... sourceFiles) throws IOException, 
-                                                   ParserCreationException, 
-                                                   ParseException, 
-                                                   ParserLogException,
-                                                   IllegalArgumentException {
-    
-    Module [] sourceConstructs = new Module[sourceFiles.length];
-        
-    //go through each source and tokenize each file
-    for (int i = 0; i < sourceFiles.length; i++) {
-      parser.reset(null);
-      
-      final Path sourceFilePath = Paths.get(sourceFiles[i]);
-      
-      if (!sourceFilePath.toString().endsWith(".shr")) {
-        throw new IllegalArgumentException("Not a SeaHorse (.shr) file: "+sourceFilePath);
-      }
-      
-      final String moduleName = StringUtils.getBareFileName(sourceFilePath.getFileName().toString());
-      
-      expressionBuilder.setFileName(moduleName);
-      
-      //throw out files that have bad names
-      if (ExpressionBuilder.INVALID_IDENTIFIERS.contains(moduleName)) {
-        throw new IllegalArgumentException("The path module name '"+moduleName+"' is reserved and cannot be used!");
-      }
-      
-      /*
-       * TODO: This way of in-taking files maybe a memory heavy strategy.
-       * 
-       * We're essentially intaking the whole source file - albeit, parsing each line
-       * Immediately - and passing a massive Token list to the parser.
-       * 
-       * An efficient way of doing this is to allow the parser and tokenizer
-       * to work together on when to read from the source file.
-       * 
-       * Until there's a nice way of filtering out comments, this is the current way.
-       */
-      
-      //tokenize file
-      ArrayList<Token> tokens = new ArrayList<>();
-      BufferedReader reader = new BufferedReader(new FileReader(sourceFilePath.toFile()));
-      
-      //THIS IS TEST CODE - START
-      tokenizer.reset(reader);
 
-      Token current = null;
-      while ((current = tokenizer.next()) != null) {
-        tokens.add(current);
-      }
-      //THIS IS TEST CODE - END
-      
-      /*
-       * Need to filter out line comments.
-       */
-      
-      /*
-      String currentLine = null;
-            
-      while ((currentLine = reader.readLine()) != null) {        
-        currentLine = currentLine.startsWith("//") ? String.valueOf('\n') : currentLine+String.valueOf('\n');
-        StringReader lineReader = new StringReader(currentLine);
-        tokenizer.reset(lineReader);
+  public List<Module> compile(List<String> sourceFiles) throws IllegalArgumentException, ParseException, IOException {
+    return compile(sourceFiles.toArray(new String[sourceFiles.size()]));
+  }
 
-        Token current = null;
-        while ((current = tokenizer.next()) != null) {
-          tokens.add(current);
-        }
-      }
-      */
-      
-      reader.close();
-      
-      //tokens.forEach(x -> {System.out.println(x);});
-      
-      //System.out.println("=======================================");
-      
-      //from token list, form the components of the file
-      parser.parseFromTokenList(tokens);
+  public List<Module> compile(String ... sourceFiles) throws IllegalArgumentException, ParseException, IOException {
+    final ArrayList<Module> modules = new ArrayList<>();
 
-      Module parsedConstruct = expressionBuilder.getModule();
-      //System.out.println(" -------- PARSED: "+parsedConstruct.getName());
-      sourceConstructs[i] = parsedConstruct;
+    for (String source : sourceFiles) {
+      final Path sourcePath = Paths.get(source);
+
+      if (!sourcePath.toString().endsWith(".shr")) {
+        throw new IllegalArgumentException("Not a SeaHorse (.shr) file: "+sourcePath);
+      }
+      
+      final String moduleName = StringUtils.getBareFileName(sourcePath.getFileName().toString());
+      
+      //expressionBuilder.setFileName(moduleName);
+      
+      //throw out files that have illegal names
+      if (TokenType.isKeyword(moduleName)) {
+        throw new IllegalArgumentException("The module name '"+moduleName+"' is a keyword and cannot be used!");
+      }
+
+      final BufferedReader sourceReader = new BufferedReader(new FileReader(sourcePath.toFile()));
+      final Tokenizer tokenizer = new Tokenizer(sourceReader, false);
+
+      final Module module = parser.reset(tokenizer, moduleName).parseProgram(); 
+
+      //close reader
+      sourceReader.close();
+      
+      modules.add(module);
     }
-    
-    return sourceConstructs;
+
+    return modules;
   }
-  
-  
+
+  public List<ObjectFile> generateByteCode(List<Module> modules) throws InvalidModulesException {
+    return generateByteCode(modules.toArray(new Module[modules.size()]));
+  }
+
+  public List<ObjectFile> generateByteCode(Module ... modules) throws InvalidModulesException {
+    final ArrayList<ObjectFile> moduleResults = new ArrayList<>();
+    final Map<String, List<ValidationException>> exceptionMap = new HashMap<>();
+
+    for (Module module : modules) {
+      CompilerResult result = irCompiler.compileModule(module);
+      if (!result.isSuccessful()) {
+        exceptionMap.put(module.getName(), result.getValidationExceptions());
+      }
+      moduleResults.add(result.getObjectFile());
+    }
+
+    if (!exceptionMap.isEmpty()) {
+      throw new InvalidModulesException(exceptionMap);
+    }
+
+    return moduleResults;
+  }
 }

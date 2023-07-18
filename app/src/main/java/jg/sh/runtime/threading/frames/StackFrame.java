@@ -1,25 +1,30 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.CompletableFuture;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+import com.google.common.collect.Sets;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.util.RuntimeUtils;
 
 /**
  * Represents a function's frame on the FunctionStack
@@ -51,23 +56,19 @@ public abstract class StackFrame implements Markable {
   //private static final int LOCAL_VAR_INIT_AMOUNT = 1;
 
   protected final Stack<RuntimeInstance> operandStack;
-  protected final Callable callable;
-  protected final CompletableFuture<RuntimeInstance> returnValue;
+  protected final ArgVector initialArgs;
   
   protected RuntimeInstance [] localVars; 
   protected InvocationException error; // null <- no error, anything else <- error object
   
+  private volatile boolean isDone;
   private int gcFlag;
-    
-  //private StackFrame prevFrame;
-  //private StackFrame nextFrame;
   
-  public StackFrame(RuntimeModule hostModule, Callable callable) {
-    this.callable = callable;
-    this.returnValue = new CompletableFuture<>();
+  public StackFrame(RuntimeModule hostModule, 
+                    ArgVector initialArgs) {
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
-    //this.leftOver = RuntimeNull.NULL;
+    this.initialArgs = initialArgs;
   } 
     
   public abstract StackFrame run(HeapAllocator allocator, Fiber thread);
@@ -82,8 +83,8 @@ public abstract class StackFrame implements Markable {
    * @param instance
    */
   protected void returnValue(RuntimeInstance instance) {
-    returnValue.complete(instance);
     pushOperand(instance);
+    this.isDone = true;
   }
   
   public RuntimeInstance getLocalVar(int varIndex) {
@@ -104,15 +105,17 @@ public abstract class StackFrame implements Markable {
     
     localVars[varIndex] = value;
   }
-    
-  public void setErrorFlag(RuntimeError error) {
-    final InvocationException invocationException = new InvocationException(error, callable);
-    getFuture().completeExceptionally(invocationException);
-    this.error = invocationException;
+
+  public void returnError(RuntimeError error) {
+    this.error = new InvocationException(error, getCallable());
   }
   
   public void pushOperand(RuntimeInstance value) {
     operandStack.push(value);
+  }
+
+  public boolean isDone() {
+    return isDone;
   }
   
   public RuntimeInstance popOperand() {
@@ -136,7 +139,7 @@ public abstract class StackFrame implements Markable {
   }
   
   public RuntimeModule getHostModule() {
-    return callable.getHostModule();
+    return getCallable().getHostModule();
   }
   
   @Override
@@ -151,7 +154,7 @@ public abstract class StackFrame implements Markable {
   
   @Override
   public void gcMark(Cleaner cleaner) {
-    cleaner.gcMarkObject(callable);
+    cleaner.gcMarkObject(getCallable());
     
     //System.out.println(" marking frame: "+current.getClass()+"  "+current);
 
@@ -173,69 +176,39 @@ public abstract class StackFrame implements Markable {
   
   protected abstract void markAdditional(Cleaner allocator);
   
-  /*
-  public void registerNext(StackFrame nextFrame) {
-    setNextFrame(nextFrame);
-    nextFrame.setPrevFrame(this);
-  }
-  
-  
-  public void setNextFrame(StackFrame nextFrame) {
-    this.nextFrame = nextFrame;
-  }
-  
-  public void setPrevFrame(StackFrame prevFrame) {
-    this.prevFrame = prevFrame;
-  }
-  
-  public StackFrame getPrevFrame() {
-    return prevFrame;
-  }
-  
-  public StackFrame getNextFrame() {
-    return nextFrame;
-  }
-  */
-  
   public InvocationException getError() {
     return error;
   }
   
   public boolean hasError() {
-    return getFuture().isCompletedExceptionally();
+    return this.error != null;
   }
   
   public void clearOpStack() {
     operandStack.clear();
   }
   
-  public Callable getCallable() {
-    return callable;
-  }
+  public abstract Callable getCallable();
   
-  public CompletableFuture<RuntimeInstance> getFuture() {
-    return returnValue;
-  }
-  
-  public static StackFrame makeFrame(Callable callable, ArgVector args, HeapAllocator allocator) throws InvocationException {
-    FunctionSignature signature = callable.getSignature();
+  public static StackFrame makeFrame(Callable callable, 
+                                     ArgVector args, 
+                                     HeapAllocator allocator) throws CallSiteException {
+
+    /*
+     * At Index 0 -> callable
+     * At Index 1 -> self object
+     */
+    args.addAtFront(callable.getSelf());
+    args.addAtFront(callable);
+    
+    final FunctionSignature signature = callable.getSignature();
     
     /*
      * Check if arguments are valid first!
      */
-    
-    //-2 from positional size as the first two arguments are self and the function itself
-    if (args.getPositionals().size() - 2 < signature.getPositionalParamCount()) {
-      throw new InvocationException("The function requires "+signature.getPositionalParamCount()+" positional arguments", callable);
-    }
-    if (args.getPositionals().size() - 2 > signature.getPositionalParamCount() && !signature.hasVariableParams()) {
-      throw new InvocationException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
-    }
-    
-    for (String argKey : args.getAttributes().keySet()) {
-      if (!signature.getKeywordParams().contains(argKey)) {
-        throw new InvocationException("Unknown keyword argument '"+argKey+"'", callable);
-      }
+    final CallSiteException exception = RuntimeUtils.checkArgs(callable, signature, args);
+    if (exception != null) {
+      throw exception;
     }
     
     StackFrame toReturn = null;
@@ -252,7 +225,7 @@ public abstract class StackFrame implements Markable {
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0);
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args);
       //Push the new frame!
       //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 
@@ -263,35 +236,41 @@ public abstract class StackFrame implements Markable {
         frame.storeLocalVar(positionalIndex, args.getPositional(positionalIndex));
       }
       
-      Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
-      for(Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
-        if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
-          int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
-          frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+      /**
+       * We combine keyword arguments and extra keyword argument setting 
+       * in one go, by readily allocating the keywordVarArg object and using it's 
+       * initialization parameter to decide which keyword args go in keywordVarArg object
+       * or be saved directly as a local variable
+       */
+      final Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
+      final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
+        for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
+          if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
+            int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
+            //System.out.println("        ===> saving as local: "+keywordIndex);
+            frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+          }
+          else if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
+            ini.init(keywordArg.getKey(), keywordArg.getValue());
+          }
         }
-        else {
-          //throw new InvocationException("Unknown keyword argument '"+keywordArg.getKey()+"'", callable);
-        }
+      });
+
+      if (signature.hasVarKeywordParams()) {
+        frame.storeLocalVar(regularCallable.getCodeObject().getKeywordVarArgIndex(), leftOverKeywords);
       }
       
       //System.out.println("------------> DONE WITH ARGS");
       
       //Put any leftover positional arguments in an array
       if (signature.hasVariableParams()) {
-        final int variableArgsIndex = positionalIndex;
+        final RuntimeArray leftOvers = allocator.allocateEmptyArray();
+        //System.out.println(" ===> STARTING VARARGS: "+(positionalIndex + 1)+" | "+args.getPositionals().size()+" | "+args.getPositionals());
+        for(int i = positionalIndex; i < args.getPositionals().size(); i++) {
+          leftOvers.addValue(args.getPositional(i));
+        }
 
-        if(positionalIndex < args.getPositionals().size()) {
-                    
-          RuntimeArray variableArgs = allocator.allocateEmptyArray();
-          for( ; positionalIndex < args.getPositionals().size(); positionalIndex++) {
-            variableArgs.addValue(args.getPositional(positionalIndex));
-          }
-          
-          frame.storeLocalVar(variableArgsIndex, variableArgs);
-        }
-        else {
-          frame.storeLocalVar(variableArgsIndex, null);
-        }
+        frame.storeLocalVar(regularCallable.getCodeObject().getVarArgIndex(), leftOvers);
       }
       
       toReturn = frame;

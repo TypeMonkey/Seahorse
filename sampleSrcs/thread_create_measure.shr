@@ -1,44 +1,29 @@
-from system use makeThread, currentFiber, println, now;
+use system:makeThread, println, now, currentFiber;
 
-func fib(n){
-  if(n < 0){
-     return -10000;
-  }
-  elif(n == 0){
-     return 0;
-  }
-  elif((n == 1) || (n == 2)){
-     return 1;
-  }
-  else{
-     return fib(n-1) + fib(n-2);
-  }
-}
-
-const measuresArr := [];
+const measuresCreate := [];
 const measureStart := [];
 
-func threadMeasure() {
-  var threadCount := 10;
-  while(threadCount > 0) {
+func fiberMeasure() {
+  var count := 20;
+  while(count > 0) {
     const start := now();
-    const t := makeThread( func:foo(){
-      fib(28);
-      measureStart.add(now() - currentFiber().priorStartTime);
-      println("Thread Start Times (in ns): "+measureStart.toString());
-    });
+    const f := makeThread( func foo(){
+      println(currentFiber().getID()+" is running!");
+    } );
+    measuresCreate.add(now() - start);
 
-    measuresArr.add(now() - start);
+    const tStart := now();
+    f.start();
+    measureStart.add(now() - tStart);
 
-    t.priorStartTime = now();
-    t.start();
-    threadCount -= 1;
+    count -= 1;
   }
 
-  println("Thread Creation Times (in ns): "+measuresArr.toString());
+  println("Thread Creation Elasped Times (in ns): "+measuresCreate.toString());
+  println("Thread start() Elasped Times (in ns): "+measureStart.toString());
 }
 
-threadMeasure();
+fiberMeasure();
 
 
 

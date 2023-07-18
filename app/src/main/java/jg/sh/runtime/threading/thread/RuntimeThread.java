@@ -2,24 +2,15 @@ package jg.sh.runtime.threading.thread;
 
 import java.util.function.Consumer;
 
-import jg.sh.common.FunctionSignature;
-import jg.sh.modules.builtin.SystemModule;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
-import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
-import jg.sh.runtime.objects.ArgVector;
-import jg.sh.runtime.objects.RuntimeNull;
-import jg.sh.runtime.objects.callable.Callable;
-import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
-import jg.sh.runtime.objects.callable.InternalFunction;
-import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
-
-import static jg.sh.runtime.objects.callable.InternalFunction.create;
-import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
+import jg.sh.runtime.threading.frames.StackFrame;
 
 
 /**
@@ -31,40 +22,19 @@ import static jg.sh.runtime.objects.callable.InternalFunction.SELF_INDEX;
  */
 public class RuntimeThread extends Fiber {
 
-  private static final InternalFunction START = create(FunctionSignature.NO_ARG, 
-    (fiber, args) -> {
-      final Fiber selfFiber = (Fiber) args.getPositional(SELF_INDEX);
-      if (selfFiber instanceof RuntimeThread) {
-        final RuntimeThread thread = (RuntimeThread) selfFiber;
-        thread.start();
-        return RuntimeNull.NULL;
-      }
-      else {
-        throw new InvocationException("Unsupported operand on start()", (Callable) args.getPositional(0));
-      }
-    }
-  );
+  private static Logger LOG = LogManager.getLogger(RuntimeThread.class);
   
-  private final Callable callable;
-  private final ArgVector args;
+  /*
+   * the backing java.lang.Thread
+   */
   private final Thread thread;
-  private final Consumer<Fiber> fiberReporter;
 
   public RuntimeThread(HeapAllocator allocator, 
                        ModuleFinder finder, 
                        Cleaner cleaner, 
                        ThreadManager manager,
                        Consumer<Fiber> fiberReporter) {
-    this(allocator, finder, cleaner, manager, null, null, fiberReporter);
-  }
-  
-  public RuntimeThread(HeapAllocator allocator, 
-                       ModuleFinder finder, 
-                       Cleaner cleaner, 
-                       ThreadManager manager, 
-                       Callable callable,
-                       Consumer<Fiber> fiberReporter) {
-    this(allocator, finder, cleaner, manager, callable, new ArgVector(), fiberReporter);
+    this(allocator, finder, cleaner, manager, null, fiberReporter);
   }
 
   /**
@@ -81,16 +51,10 @@ public class RuntimeThread extends Fiber {
                        ModuleFinder finder, 
                        Cleaner cleaner, 
                        ThreadManager manager, 
-                       Callable callable, 
-                       ArgVector args,
+                       StackFrame initialFrame,
                        Consumer<Fiber> fiberReporter) {
-    super(allocator, finder, manager, cleaner);
-    this.callable = callable;
-    this.args = args;
+    super(allocator, finder, manager, initialFrame, cleaner, fiberReporter, null);
     this.thread = new Thread(this::startInternal);
-    this.fiberReporter = fiberReporter;    
-
-    setAttribute("start", new ImmediateInternalCallable(SystemModule.getNativeModule().getModule(), this, START));
   }
   
   /**
@@ -99,8 +63,6 @@ public class RuntimeThread extends Fiber {
    */
   private void startInternal() {
     try {
-      queue(callable, args);
-
       setStatus(FiberStatus.RUNNING);
       while (hasFrame()) {
         advanceFrame();
@@ -108,23 +70,26 @@ public class RuntimeThread extends Fiber {
 
       markEndTime();
       setStatus(hasLeftOverException() ? FiberStatus.TERMINATED : FiberStatus.COMPLETED);
-      fiberReporter.accept(this);
 
       if (hasLeftOverException()) {
-        System.out.println("--- CAUGHT ERROR ");
+        LOG.info("--- CAUGHT ERROR ");
         getLeftOverException().printStackTrace();
       }
-    } catch (InvocationException e) {
+    } catch (Exception e) {
       setStatus(FiberStatus.TERMINATED);
-      fiberReporter.accept(this);
-      System.err.println("Unhandled error on thread: "+e.getMessage());
+      System.err.println("Uncaught error: ");
+      e.printStackTrace();
     }
+
+    fiberReporter.accept(this);
   }
   
   /**
    * Starts this RuntimeThread
    */
+  @Override
   public void start() {
+    setStatus(FiberStatus.RUNNING);
     thread.start();
   }
   

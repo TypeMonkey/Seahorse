@@ -69,6 +69,7 @@ public class InterpreterOptions {
      * 
      * Validation checks a module for important errors, such as unfound variable references.
      */
+    @Deprecated
     VALIDATE,
     
     /**
@@ -102,7 +103,17 @@ public class InterpreterOptions {
      * 
      * Note: the main thread (actually a fiber) is executed using this thread pool
      */
-    POOL_SIZE;
+    POOL_SIZE,
+
+    /**
+     * Sets the logging level for diagnostic output from the interpreter.
+     * 
+     * Valid of this option should be a String of the following options (following Log4j2 levels):
+     * ALL, DEBUG, ERROR, FATAL, INFO, OFF, TRACE, WARN
+     * 
+     * The default is OFF
+     */
+    LOG_LEVEL;
   }
   
   private static final Map<IOption, Object> DEFAULTS = new EnumMap<>(IOption.class);
@@ -113,9 +124,9 @@ public class InterpreterOptions {
     DEFAULTS.put(IOption.LOAD_FROM_BYTE, true);
     DEFAULTS.put(IOption.MODULE_SEARCH, moduleSearch);
     DEFAULTS.put(IOption.ST_LIB_PATH, moduleSearch);
-    DEFAULTS.put(IOption.VALIDATE, true);
     DEFAULTS.put(IOption.MEASURE, false);
     DEFAULTS.put(IOption.POOL_SIZE, 1);
+    DEFAULTS.put(IOption.LOG_LEVEL, "OFF");
 
     //DEFAULTS.put(IOption.INTERPRET_ONLY, false);
     //DEFAULTS.put(Option.MAX_HEAP_SIZE, 100000);

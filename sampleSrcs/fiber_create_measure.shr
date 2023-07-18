@@ -1,0 +1,28 @@
+use system:makeFiber, println, now, currentFiber;
+
+const measuresCreate := [];
+const measureStart := [];
+
+func fiberMeasure() {
+  var count := 20;
+  while(count > 0) {
+    const start := now();
+    const f := makeFiber( func foo(){
+      println(currentFiber().getID()+" is running!");
+    } );
+    measuresCreate.add(now() - start);
+
+    const tStart := now();
+    f.start();
+    measureStart.add(now() - tStart);
+
+    count -= 1;
+  }
+
+  println("Fiber Creation Elasped Times (in ns): "+measuresCreate.toString());
+  println("Fiber start() Elasped Times (in ns): "+measureStart.toString());
+}
+
+fiberMeasure();
+
+

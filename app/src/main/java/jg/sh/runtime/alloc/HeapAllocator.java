@@ -1,18 +1,17 @@
 package jg.sh.runtime.alloc;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.loading.ContextualInstr;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
-import jg.sh.runtime.objects.RuntimeObject;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 import jg.sh.runtime.objects.literals.RuntimeFloat;
@@ -57,14 +56,18 @@ public class HeapAllocator {
     
     return object;
   }
+
+  public RuntimeInstance allocateEmptyObject() {    
+    return allocateEmptyObject(null);
+  }
   
-  public RuntimeObject allocateEmptyObject() {    
+  public RuntimeInstance allocateEmptyObject(BiConsumer<Initializer, RuntimeInstance> initializer) {    
     //perform garbage collection prior to allocation
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
     
-    final RuntimeObject object = new RuntimeObject();
+    final RuntimeInstance object = new RuntimeInstance(initializer);
     ///storage.add(new WeakReference<>(object));
     heapPointer++;
     
@@ -133,13 +136,25 @@ public class HeapAllocator {
     return str;
   }
   
-  public RuntimeCodeObject allocateCodeObject(String boundName, FunctionSignature signature,  Map<String, Integer> keywordIndexes, ContextualInstr [] instrs, int [] captures) {
+  public RuntimeCodeObject allocateCodeObject(String boundName, 
+                                              FunctionSignature signature,  
+                                              Map<String, Integer> keywordIndexes, 
+                                              int varArgIndex,
+                                              int keywordVarArgIndex,
+                                              ContextualInstr [] instrs, 
+                                              int [] captures) {
     //perform garbage collection prior to allocation
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
     
-    final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, signature, keywordIndexes, instrs, captures);
+    final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, 
+                                                               signature, 
+                                                               keywordIndexes, 
+                                                               varArgIndex, 
+                                                               keywordVarArgIndex, 
+                                                               instrs, 
+                                                               captures);
     //storage.add(new WeakReference<>(codeObject));
     heapPointer++;
     

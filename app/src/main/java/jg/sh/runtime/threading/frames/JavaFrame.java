@@ -1,8 +1,7 @@
 package jg.sh.runtime.threading.frames;
 
-import jg.sh.modules.NativeModule;
-import jg.sh.modules.NativeModuleDiscovery;
-import jg.sh.modules.builtin.SystemModule;
+import java.util.function.BiConsumer;
+
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
@@ -14,11 +13,13 @@ import jg.sh.runtime.threading.fiber.Fiber;
 
 public class JavaFrame extends StackFrame{
 
-  private final ArgVector initialArgs;
+  private final RuntimeInternalCallable callable;
   
-  public JavaFrame(RuntimeModule hostModule, RuntimeInternalCallable callable, ArgVector initialArgs) {
-    super(hostModule, callable);
-    this.initialArgs = initialArgs;
+  public JavaFrame(RuntimeModule hostModule, 
+                   RuntimeInternalCallable callable, 
+                   ArgVector initialArgs) {
+    super(hostModule, initialArgs);
+    this.callable = callable;
   }
   
   @Override
@@ -28,7 +29,7 @@ public class JavaFrame extends StackFrame{
       RuntimeInstance returnValue = internalCallable.getFunction().invoke(thread, initialArgs);
       returnValue(returnValue);
     } catch (InvocationException e) {
-      setErrorFlag(allocator.allocateError(e.getMessage()));
+      returnError(allocator.allocateError(e.getMessage()));
     }
     return null;
   }
@@ -57,4 +58,7 @@ public class JavaFrame extends StackFrame{
     return initialArgs;
   }
   
+  public RuntimeInternalCallable getCallable() {
+    return callable;
+  }
 }

@@ -1,7 +1,12 @@
 package jg.sh.runtime.objects.literals;
 
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import jg.sh.runtime.alloc.Cleaner;
-import jg.sh.runtime.objects.RuntimeObject;
+import jg.sh.runtime.objects.Initializer;
+import jg.sh.runtime.objects.RuntimeInstance;
 
 /**
  * Represents a runtime literal - numerical values, strings, booleans, and floats.
@@ -13,7 +18,9 @@ import jg.sh.runtime.objects.RuntimeObject;
  * @author Jose
  *
  */
-public abstract class RuntimePrimitive extends RuntimeObject {
+public abstract class RuntimePrimitive extends RuntimeInstance {
+
+  public RuntimePrimitive() {}
   
   @Override
   public void gcMark(Cleaner cleaner) {

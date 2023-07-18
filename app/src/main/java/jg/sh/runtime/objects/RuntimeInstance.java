@@ -1,33 +1,119 @@
 package jg.sh.runtime.objects;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.exceptions.OperationException;
 
 /**
  * Root type representing all runtime entities.
  * 
  * A RuntimeInstance is backed by a Map of attributes.
  */
-public abstract class RuntimeInstance implements Markable {
+public class RuntimeInstance implements Markable {
+
+  public static enum AttrModifier {
+    CONSTANT,
+    EXPORT;
+  }
     
-  protected final Map<String, RuntimeInstance> attributes;
+  private final Map<String, RuntimeInstance> attributes;
+  private final Map<String, EnumSet<AttrModifier>> attrModifiers;
   
+  private volatile boolean isSealed;
+
   private int gcFlag;
+
+  public RuntimeInstance(BiConsumer<Initializer, RuntimeInstance> initializer) {
+    this();
+
+    if (initializer != null) {
+      initializer.accept((n, value, mods) -> {
+        attributes.put(n, value);
+        attrModifiers.put(n, mods.length == 0 ? EnumSet.noneOf(AttrModifier.class) : EnumSet.copyOf(Arrays.asList(mods)));
+      }, this);
+    }
+  }
   
   public RuntimeInstance() {
     this.attributes = new ConcurrentHashMap<>();
+    this.attrModifiers = new ConcurrentHashMap<>();
     this.gcFlag = Cleaner.GC_UNMARK_VALUE;
   }
     
-  public void setAttribute(String name, RuntimeInstance valueAddr) {
-    attributes.put(name, valueAddr);
+  public void setAttribute(String name, RuntimeInstance valueAddr, AttrModifier ... modifiers) throws OperationException {
+    setAttribute(name, valueAddr, Arrays.asList(modifiers));
+  }
+
+  public void setAttribute(String name, RuntimeInstance valueAddr, Collection<AttrModifier> modifiers) throws OperationException {
+    if (isSealed) {
+      throw new OperationException("The object is sealed and immutable");
+    }
+    else if(attrModifiers.getOrDefault(name, EnumSet.noneOf(AttrModifier.class)).contains(AttrModifier.CONSTANT)) {
+      throw new OperationException(name+" is constant and can't be re-assigned");
+    }
+    else {
+      attributes.put(name, valueAddr);
+      attrModifiers.put(name, modifiers.size() == 0 ? EnumSet.noneOf(AttrModifier.class) : EnumSet.copyOf(modifiers));
+    }
+  }
+
+  public void setAttrModifers(String name, AttrModifier ... modifiers) throws OperationException {
+    setAttrModifers(name, Arrays.asList(modifiers));
+  }
+
+  public void setAttrModifers(String name, Collection<AttrModifier> modifiers) throws OperationException {
+    if (isSealed) {
+      throw new OperationException("The object is sealed and immutable");
+    }
+    else if(!attrModifiers.containsKey(name)) {
+      throw new OperationException(name+" doesn't exist on this object");
+    }
+    else {
+      attrModifiers.put(name, modifiers.size() == 0 ? EnumSet.noneOf(AttrModifier.class) : EnumSet.copyOf(modifiers));
+    }
+  }
+
+  public void appendAttrModifier(String name, AttrModifier ... modifiers) throws OperationException {
+    if (isSealed) {
+      throw new OperationException("The object is sealed and immutable");
+    }
+    else if(!attrModifiers.containsKey(name)) {
+      throw new OperationException(name+" doesn't exist on this object");
+    }
+    else {
+      EnumSet<AttrModifier> curMods = attrModifiers.get(name);
+      curMods.addAll(Arrays.asList(modifiers));
+    }
   }
   
   public RuntimeInstance getAttr(String name) {
     return attributes.get(name);
+  }
+
+  public Set<AttrModifier> attrModifiers(String name) {
+    return attrModifiers.get(name);
+  }
+
+  public Set<String> attrs() {
+    return attributes.keySet();
+  }
+
+  public boolean is(String name, AttrModifier mod) {
+    return hasAttr(name) ? attrModifiers.get(name).contains(mod) : false;
+  }
+
+  public void seal() {
+    this.isSealed = true;
   }
   
   public boolean hasAttr(String name) {
@@ -36,6 +122,10 @@ public abstract class RuntimeInstance implements Markable {
   
   public void setGcFlag(int gcFlag) {
     this.gcFlag = gcFlag;
+  }
+
+  public boolean isSealed() {
+    return isSealed;
   }
   
   public int getGcFlag() {
@@ -47,14 +137,19 @@ public abstract class RuntimeInstance implements Markable {
     for (RuntimeInstance attr : attributes.values()) {
       allocator.gcMarkObject(attr);
     }
-    
-    markAdditional(allocator);
   }
-  
-  protected abstract void markAdditional(Cleaner allocator);
-  
+    
   public Map<String, RuntimeInstance> getAttributes() {
     return attributes;
+  }
+
+  @Override
+  public String toString() {
+    String x = System.lineSeparator()+"================================"+System.lineSeparator();
+    for (Entry<String, RuntimeInstance> a : attributes.entrySet()) {
+      x += " => "+(a.getValue() == this)+" "+a.getKey()+" = "+ System.lineSeparator();
+    }
+    return x;
   }
   
   /*

@@ -4,17 +4,19 @@
     {
       "name": "JavaSE-1.8",
       "path": "C:\\Program Files\\Java\\jdk1.8.0_261",
-      "sources" : "C:\\Program Files\\Java\\jdk1.8.0_261\\lib\\src.zip",
+      "sources": "C:\\Program Files\\Java\\jdk1.8.0_261\\lib\\src.zip"
     },
     {
       "name": "JavaSE-18",
       "path": "C:\\Program Files\\Java\\jdk-18.0.2.1",
-      "sources" : "C:\\Program Files\\Java\\jdk-18.0.2.1\\lib\\src.zip"    
+      "sources": "C:\\Program Files\\Java\\jdk-18.0.2.1\\lib\\src.zip"
     },
     {
       "name": "JavaSE-17",
-      "path": "C:\\Program Files\\Java\\jdk-17.0.4.1",
-      "sources" : "C:\\Program Files\\Java\\jdk-17.0.4.1\\lib\\src.zip",
+      "path": "c:\\Program Files\\Java\\graalvm-ce-java17-22.3.2"
     }
-  ]
+  ],
+  "java.debug.settings.onBuildFailureProceed": true,
+  "java.jdt.ls.vmargs": "-XX:+UnlockExperimentalVMOptions -XX:+UseZGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms1G -Xlog:disable",
+  "java.compile.nullAnalysis.mode": "automatic"
 }

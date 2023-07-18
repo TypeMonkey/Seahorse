@@ -9,12 +9,15 @@ import java.util.concurrent.locks.ReentrantLock;
 import jg.sh.InterpreterOptions.IOption;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.objects.ArgVector;
+import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.fiber.FiberStatus;
+import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
 import jg.sh.runtime.threading.thread.RuntimeThread;
 
@@ -86,6 +89,11 @@ public class ThreadManager {
       }
     }
   }
+
+  public void queueFiber(Fiber fiber) {
+    fiber.setStatus(FiberStatus.IN_QUEUE);
+    threadPool.queueFiber(fiber);
+  }
   
   /**
    * Creates and schedules a Fiber for execution
@@ -93,16 +101,26 @@ public class ThreadManager {
    * @param vector - the ArgVector for the function
    * @return the created Fiber
    */
-  public Fiber spinFiber(Callable callable, ArgVector vector) {
-    Fiber executor = new Fiber(allocator, finder, this, cleaner);
-    try {
-      executor.queue(callable, vector);
-      threadPool.queueFiber(executor);
-      reportFiber(executor);     
-    } catch (InvocationException e) {
-      e.printStackTrace();
-    }
+  public Fiber spinFiber(Callable callable, ArgVector vector) throws CallSiteException {
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    Fiber executor = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
+    threadPool.queueFiber(executor);
+    reportFiber(executor);     
     return executor;
+  }
+
+  /**
+   * Creates a Fiber to be managed by this ThreadManager
+   * @param callable - the function to run on this thread
+   * @return the created {@link Fiber}
+   * 
+   * Note: Unlike {@link spinFiber}, the created {@link Fiber} isn't started immediately.
+   */
+  public Fiber makeFiber(Callable callable, ArgVector vector) throws CallSiteException {
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    Fiber fiber = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
+    reportFiber(fiber);     
+    return fiber;
   }
   
   /**
@@ -110,10 +128,11 @@ public class ThreadManager {
    * @param callable - the function to run on this thread
    * @return the created {@link RuntimeThread}
    * 
-   * Note: unlike {@link spinFiber}, the created {@link RuntimeThread} hasn't been started.
+   * Note: Unlike {@link spinFiber}, the created {@link RuntimeThread} isn't started immediately.
    */
-  public RuntimeThread makeThread(Callable callable) {
-    RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, callable, this::reportFiber);    
+  public RuntimeThread makeThread(Callable callable, ArgVector vector) throws CallSiteException{
+    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator);
+    RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, initialFrame, this::reportFiber);    
     reportFiber(thread);
     return thread;
   }
