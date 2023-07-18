@@ -7,7 +7,7 @@ import java.util.function.Consumer;
 import jg.sh.runtime.threading.fiber.Fiber;
 
 /**
- * A pool of worker threads (instances of RunnerThread) that
+ * Manages a pool of worker threads (instances of RunnerThread) that
  * advance queued Fibers by a certain amount of frames.
  */
 public class ThreadPool {
@@ -21,6 +21,8 @@ public class ThreadPool {
   private boolean hasBeenInitialized;
   private boolean hasStarted;
   private boolean hasStopped;
+
+  private volatile int fiberCount;
 
   /**
    * Constructs a ThreadPool
@@ -38,6 +40,55 @@ public class ThreadPool {
    */
   public void queueFiber(Fiber fiber) {
     fiberQueue.offer(fiber);
+    fiberCount++;
+    manageKeepStatus();
+    fiberReporter.accept(fiber);
+  }
+
+  /**
+   * Removes a Fiber from the Fiber queue, or null
+   * if the queue is empty.
+   * @return a Fiber from the Fiber queue, or null
+   * if the queue is empty.
+   */
+  public Fiber pollFiber() {
+    final Fiber polled = fiberQueue.poll();
+    if (polled != null) {
+      fiberCount--;
+    }
+    manageKeepStatus();
+    return polled;
+  }
+
+  private volatile int lastFiberCount;
+
+  private void manageKeepStatus() {
+    final int fiberCountSnapShot = fiberCount;
+    if(lastFiberCount == fiberCountSnapShot){
+      return;
+    }
+    lastFiberCount = fiberCountSnapShot;
+
+    if (runners.length == fiberCountSnapShot) {
+      //System.out.println("locking all!");
+      setKeepFiberAllRunners(true);
+    }
+    else if(runners.length > fiberCountSnapShot) {
+      //System.out.println("unlocking all! "+runners.length+" "+fiberCountSnapShot);
+      setKeepFiberAllRunners(false);
+    }
+    else {
+      //when runners.length < fiberCount
+      setKeepFiberAllRunners(true);
+      //System.out.println("unlocking "+runners[runners.length -1].getId());
+      runners[runners.length - 1].keepFiber(false);
+    }
+  }
+
+  private void setKeepFiberAllRunners(boolean value) {
+    for (RunnerThread t : runners) {
+      t.keepFiber(value);
+    }
   }
 
   /**
@@ -49,7 +100,7 @@ public class ThreadPool {
   public void initialize() {
     if (!hasBeenInitialized) {
       for (int i = 0; i < runners.length; i++) {
-        runners[i] = new RunnerThread(fiberQueue, fiberReporter);
+        runners[i] = new RunnerThread(this::pollFiber, this::queueFiber);
       }
 
       this.hasBeenInitialized = true;

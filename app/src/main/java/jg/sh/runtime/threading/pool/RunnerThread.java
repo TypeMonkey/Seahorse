@@ -2,6 +2,7 @@ package jg.sh.runtime.threading.pool;
 
 import java.util.Queue;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,21 +21,28 @@ public class RunnerThread extends Thread {
 
   private static Logger LOG = LogManager.getLogger(RunnerThread.class);
 
-  private final Queue<Fiber> taskQueue;
-  private final Consumer<Fiber> fiberCompleter;
+  private final Supplier<Fiber> fiberSupplier;
+  private final Consumer<Fiber> fiberConsumer;
   private final int id;
 
   private volatile boolean stop;
+
+  /**
+   * Whether this RunnerThread should keep executing
+   * its current Fiber
+   */
+  private volatile boolean keepFiber;
     
   /**
    * Constructs a RunnerThread
    * @param taskQueue - the Queue to pull Fibers to work on
    * @param fiberCompleter - the Consumer to report Fibers that have completed/terminated
    */
-  public RunnerThread(Queue<Fiber> taskQueue, Consumer<Fiber> fiberCompleter) {
-    this.taskQueue = taskQueue;
-    this.fiberCompleter = fiberCompleter;
+  public RunnerThread(Supplier<Fiber> fiberSupplier, Consumer<Fiber> fiberConsumer) {
+    this.fiberSupplier = fiberSupplier;
+    this.fiberConsumer = fiberConsumer;
     this.id = THREAD_ID_COUNTER++;
+    this.keepFiber = false;
     setName("Runner Thread "+this.id);
   }
 
@@ -47,10 +55,14 @@ public class RunnerThread extends Thread {
     this.stop = stop;
   }
 
+  public void keepFiber(boolean value) {
+    this.keepFiber = value;
+  }
+
   @Override
   public void run() {
     while (!stop) {
-      final Fiber exec = taskQueue.poll();
+      final Fiber exec = fiberSupplier.get();
       //System.out.println(" === pass over swithc! "+id);
 
       if (exec != null) {
@@ -58,7 +70,12 @@ public class RunnerThread extends Thread {
         exec.setStatus(FiberStatus.RUNNING);
 
         int frameCount = 0;
-        while (frameCount < FRAME_AMOUNT && exec.hasFrame()) {
+        /*
+         * Keep advancing this Fiber until the FRAME_AMOUNT, unless
+         * the RunnerThread has been allowed to keep running this Fiber
+         * (if keepFiber is true) 
+         */
+        while ((keepFiber || frameCount < FRAME_AMOUNT) && exec.hasFrame()) {
           exec.advanceFrame();
           frameCount++;
         }
@@ -66,7 +83,7 @@ public class RunnerThread extends Thread {
         if (exec.hasFrame()) {
           //If the fiber has a pending frame, add it back to the taskqueue
           exec.setStatus(FiberStatus.IN_QUEUE);
-          taskQueue.add(exec);
+          fiberConsumer.accept(exec);
         }
         else {
           //The fiber has no more pending frames, marking its completion
@@ -80,7 +97,7 @@ public class RunnerThread extends Thread {
             exec.getLeftOverException().printStackTrace();
           }
 
-          fiberCompleter.accept(exec);
+          fiberConsumer.accept(exec);
         }
 
 
@@ -114,5 +131,9 @@ public class RunnerThread extends Thread {
 
   public int getRunnerId() {
     return id;
+  }
+
+  public boolean isKeepingFiber() {
+    return keepFiber;
   }
 }

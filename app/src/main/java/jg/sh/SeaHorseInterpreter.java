@@ -194,12 +194,12 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     LOG.info(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/thread_create_measure.shr";
+    String mainModule = "../sampleSrcs/fibbo_fiber.shr";
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, false);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
-    options.put(IOption.POOL_SIZE, 2);
+    options.put(IOption.POOL_SIZE, 10);
     options.put(IOption.LOG_LEVEL, "OFF");
     
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
