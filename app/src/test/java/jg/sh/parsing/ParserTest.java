@@ -16,29 +16,23 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import jg.sh.common.FunctionSignature;
 import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.parsing.nodes.BinaryOpExpr;
 import jg.sh.parsing.nodes.FuncCall;
 import jg.sh.parsing.nodes.FuncDef;
-import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.IndexAccess;
-import jg.sh.parsing.nodes.Node;
 import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.FuncCall.Argument;
 import jg.sh.parsing.nodes.Operator.Op;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
-import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.statements.VarDeclr;
-import jg.sh.parsing.nodes.statements.blocks.Block;
-import jg.sh.parsing.nodes.values.Int;
 import jg.sh.parsing.nodes.values.Str;
 
 import static jg.sh.parsing.utils.ParseTestUtils.*;
+import static jg.sh.parsing.nodes.Operator.Op.*;
 
 public class ParserTest {
 
@@ -149,36 +143,77 @@ public class ParserTest {
     assertInstanceOf(BinaryOpExpr.class, returnStatement.getExpr());
 
     final BinaryOpExpr returnExpr = (BinaryOpExpr) returnStatement.getExpr();
-    assertEquals(Op.PLUS, returnExpr.getOperator().getOp());
-
-    //first operand: a
-    assertName("a", returnExpr.getLeft());
-
-    final BinaryOpExpr firstRight = assertAndCast(BinaryOpExpr.class, returnExpr.getRight());
-    assertEquals(Op.PLUS, firstRight.getOperator().getOp());
-
-    //second operand: b
-    assertName("b", firstRight.getLeft());
-
-    //third operand: c[0]
-    assertIndex("c", 0, assertNest(IndexAccess.class, 1, assertAndCast(Parenthesized.class, firstRight.getRight())));
+    final BinaryOpExpr expectedReturn = bin(bin(name("a"), PLUS, name("b")), PLUS, paren(access(name("c"), num(0))));
+    assertNodeEquals(expectedReturn, returnExpr);
 
     //Now, test the other top level statement
     final VarDeclr varDeclr = assertHasVar("b", true, false, true, prog.getStatements());
     
-    final BinaryOpExpr value = assertAndCast(BinaryOpExpr.class, varDeclr.getInitialValue());
-    assertEquals(Op.PLUS, value.getOperator().getOp());
+    final BinaryOpExpr expectedValue = bin(paren(
+                                            bin(
+                                              bin(
+                                                num(10), 
+                                                MINUS, 
+                                                num(90)), 
+                                              PLUS, 
+                                              paren(
+                                                bin(unary(MINUS, num(5366)), 
+                                                    PLUS, 
+                                                    num(5.5))))),
+                                           PLUS, 
+                                           paren(
+                                            bin(
+                                              bin(
+                                                num(50), 
+                                                MULT, 
+                                                num(95)), 
+                                              DIV, 
+                                              paren(num(5.5)))));
+    assertBinEquals(expectedValue, varDeclr.getInitialValue());
+  }
 
-    final Parenthesized fLeft = assertAndCast(Parenthesized.class, value.getLeft());
-    final Parenthesized fRight = assertAndCast(Parenthesized.class, value.getRight());
+  @Test
+  public void testNestedArith() {
+    final String src = "const sample := 10 + 85 - 9.63 * 87 / 74 - func anon() {return -1;}() + 50;";
 
-    //check first left
-    assertInt(10, assertNest(BinaryOpExpr.class, 1, fLeft).getLeft());
-    assertEquals(Op.MINUS, assertNest(BinaryOpExpr.class, 1, fLeft).getOperator().getOp());
-    assertInt(90, assertAndCast(BinaryOpExpr.class, assertNest(BinaryOpExpr.class, 1, fLeft).getRight()).getLeft());
+    //(((10 + 85) - ((9.63 * 87) / 74)) - func anon() {return -1;}()) + 50
 
-    
+    Tokenizer tokenizer = new Tokenizer(new StringReader(src), false);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
 
+    Module prog = null;
+    try {
+      prog = parser.parseProgram();
+    } catch (ParseException e) {
+      fail(e);
+    }
+
+    assertEquals(1, prog.getStatements().size());
+    final VarDeclr varDeclr = assertAndCast(VarDeclr.class, prog.getStatements().get(0));
+    assertEquals("sample", varDeclr.getName().getIdentifier());
+    assertTrue(varDeclr.isConst());
+    assertTrue(varDeclr.hasInitialValue());
+
+    final BinaryOpExpr expr = assertAndCast(BinaryOpExpr.class, varDeclr.getInitialValue());
+    final BinaryOpExpr expected = bin(bin(
+                                        bin(
+                                            bin(
+                                              num(10), 
+                                              PLUS, 
+                                              num(85)), 
+                                            MINUS, 
+                                            bin(
+                                              bin(
+                                                num(9.63), 
+                                                MULT, 
+                                                num(87)), 
+                                              DIV, 
+                                            num(74))), 
+                                          MINUS, 
+                                          call(simpleFunc("anon", unary(MINUS, num(1))))), 
+                                      PLUS, 
+                                      num(50));
+    assertNodeEquals(expected, expr);
   }
 
 }

@@ -142,11 +142,11 @@ public class Fiber extends RuntimeInstance {
     super((ini, self) -> {
       final RuntimeModule systemModule =  SystemModule.getNativeModule().getModule();
 
-      ini.init("startTime", new ImmediateInternalCallable(systemModule, self, START_TIME_GETTER));
-      ini.init("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER));
-      ini.init("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER));
-      ini.init("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER));
-      ini.init("start", new ImmediateInternalCallable(systemModule, self, START));
+      ini.init("startTime", new ImmediateInternalCallable(systemModule, self, START_TIME_GETTER), AttrModifier.CONSTANT);
+      ini.init("endTime", new ImmediateInternalCallable(systemModule, self, END_TIME_GETTER), AttrModifier.CONSTANT);
+      ini.init("getID", new ImmediateInternalCallable(systemModule, self, FIBER_ID_GETTER), AttrModifier.CONSTANT);
+      ini.init("getStatus", new ImmediateInternalCallable(systemModule, self, FIBER_STATUS_GETTER), AttrModifier.CONSTANT);
+      ini.init("start", new ImmediateInternalCallable(systemModule, self, START), AttrModifier.CONSTANT);
 
       if (initializer != null) {
         initializer.accept(ini, self);

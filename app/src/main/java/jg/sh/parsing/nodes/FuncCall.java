@@ -76,7 +76,7 @@ public class FuncCall extends Node {
 
   @Override
   public String repr() {
-    return target.repr() + "(" + Arrays.asList(arguments).stream().map(Argument::toString).collect(Collectors.joining(",")) + ")";
+    return "CALL: "+target.repr() + "(" + Arrays.asList(arguments).stream().map(Argument::toString).collect(Collectors.joining(",")) + ")";
   }
 
   @Override

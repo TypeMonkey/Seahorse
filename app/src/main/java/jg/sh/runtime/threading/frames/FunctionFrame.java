@@ -1175,7 +1175,7 @@ public class FunctionFrame extends StackFrame {
             targetObj.appendAttrModifier(attrName, AttrModifier.CONSTANT);
             pushOperand(targetObj);
           } catch (OperationException e) {
-            RuntimeError error = allocator.allocateError(attrName+" is not a new attribute and cannot be made immutable.");
+            RuntimeError error = allocator.allocateError("Cannot make '"+attrName+"' constant: "+e.getMessage());
             returnError(error);
             if (current.getExceptionJumpIndex() >= 0) {
               setInstrIndex(current.getExceptionJumpIndex());

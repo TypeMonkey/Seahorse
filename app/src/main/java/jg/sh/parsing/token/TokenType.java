@@ -69,16 +69,22 @@ public enum TokenType {
   GR_EQ, 
   ARROW,
   LS_EQ,
+
   PLUS,
   MINUS,
   MULT,
+
   LESS,
   GREAT,
   EQUAL,  //checks if two objects are equal (reference and value)
+
   EXPONENT,
+  
   ASSIGNMENT,
+
   DIV,
   MOD,
+
   AND,
   OR,
   EQ_MULT,

@@ -571,28 +571,36 @@ public class Parser {
       }
       throw new ParseException("Unknown token "+exportToken, exportToken.getStart(), exportToken.getEnd(), moduleName);
     }
-    else if(match(IDENTIFIER)) {
-      //This is a variable declaration
-      tokenStream.pushback();
-      return varDeclrs(constToken);
-    }
     else {
-      final Node target = expr();
-      AttrAccess access = null;
+      final Token firstIdentifier = matchError(IDENTIFIER, "Identifier expected", constToken.getEnd());
 
-      while(match(DOT)) {
-        final Token dot = prev();
-        access = attrAccess(access == null ? target : access, dot);
+      if (match(DOT)) {
+        //This is a ConstAttrDeclr
+        final Node target = new Identifier(firstIdentifier);
+        AttrAccess access = null;
+
+        while(match(IDENTIFIER)) {
+          final Token attrName = prev();
+          access = new AttrAccess(access == null ? target : access, new Identifier(attrName));
+          
+          if(match(ASSIGNMENT)) {
+            break;
+          }
+          matchError(DOT, "Attribute name expected for constant attribute declaration.", access.end);
+        }
+
+        if (access == null) {
+          throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end, moduleName);
+        }
+
+        final Node initValue = expr();
+        return new ConstAttrDeclr(access, initValue);
       }
-
-      if (access == null) {
-        throw new ParseException("Immutable attribute declaration incomplete.", target.start, target.end, moduleName);
+      else {
+        //This is constant varDeclr. Push back identifier and call varDeclrs
+        tokenStream.pushback();
+        return varDeclrs(constKeyword);
       }
-
-      matchError(ASSIGNMENT, "Missing assignment for immutable attribute declaration.", access.end);
-
-      final Node initValue = expr();
-      return new ConstAttrDeclr(access, initValue);
     }
   }
 
@@ -839,100 +847,164 @@ public class Parser {
                         catchBlock.getEnd());
   }
 
+  //Expression parsers START
+
   private Node expr() throws ParseException {
-    Node result = null;
-    Location recent = null;
+    return assign();
+  }
 
-    LOG.info("** new expr: "+peek());
+  public Node assign() throws ParseException {
+    Node firstLeft = or();
 
-    if (match(TRUE, FALSE)) {
-      final Token boolToken = prev();
-      result = new Bool(Boolean.parseBoolean(boolToken.getContent()), boolToken.getStart(), boolToken.getEnd());
-      recent = result.end;
+    if (match(EQ_ADD, EQ_MIN, EQ_MULT, EQ_DIV, EQ_MOD, EQ_EXPO)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = or();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
     }
-    else if (match(INTEGER)) {
-      final Token intToken = prev();
-      result = new Int(Long.parseLong(intToken.getContent()), intToken.getStart(), intToken.getEnd());
-      recent = result.end;
-    }
-    else if (match(DECIMAL)) {
-      final Token floatToken = prev();
-      result = new FloatingPoint(Double.parseDouble(floatToken.getContent()), floatToken.getStart(), floatToken.getEnd());
-      recent = result.end;
-    }
-    else if (match(STRING)) {
-      final Token strToken = prev();
-      result = new Str(strToken.getContent(), strToken.getStart(), strToken.getEnd());
-      recent = result.end;
-    }
-    else if (match(IDENTIFIER)) {
-      final Token identifierToken = prev();
-      result = new Identifier(identifierToken);
-      recent = result.end;
-    }
-    else if (match(NULL)) {
-      final Token nullToken = prev();
-      result = new Null(nullToken.getStart(), nullToken.getEnd());
-      recent = result.end;
-    }
-    else if(match(MODULE, SELF)) {
-      final Token keyword = prev();
-      result = new Keyword(keyword);
-      recent = result.end;
-    }
-    else if (match(LEFT_PAREN)) {
-      final Token leftParen = prev();
-      final Node inner = expr();
-      final Token rightParen = matchError(RIGHT_PAREN, null, inner.end);
-      result = new Parenthesized(inner, leftParen.getStart(), rightParen.getEnd());
-      recent = result.end;
-    }
-    else if (match(LEFT_SQ_BR)) {
-      result = arrayLiteral(prev());
-      recent = result.end;
-    }
-    else if (match(OBJECT)) {
-      result = objectLiteral(prev());
-      recent = result.end;
-    }
-    else if(match(FUNC)) {
-      result = funcDef(prev(), false, false);
-      recent = result.end;
-    }
-    else if(match(BANG, MINUS)) {
-      final Token unary = prev();
-      final Node target = expr();
-      result = new UnaryExpr(new Operator(unary), target);
-      recent = result.end;
-    }
-    /* 
-    else {
-      throw new ParseException("Unkown token '"+peek()+"'", peek().getEnd());
-    }
-    */
 
-   // LOG.info("===> prior to binop: "+result);
+    return firstLeft;
+  }
 
-    /**
+  public Node or() throws ParseException {
+    Node firstLeft = and();
+    
+    while (match(BOOL_OR)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = and();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  public Node and() throws ParseException {
+    Node firstLeft = bitOr();
+    
+    while (match(BOOL_AND)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = bitOr();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node bitOr() throws ParseException {
+    Node firstLeft = bitAnd();
+    
+    while (match(OR)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = bitAnd();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node bitAnd() throws ParseException {
+    Node firstLeft = equality();
+    
+    while (match(AND)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = equality();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node equality() throws ParseException {
+    Node firstLeft = comparative();
+    
+    while (match(EQUAL, NOT_EQ)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = comparative();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node comparative() throws ParseException {
+    Node firstLeft = addSub();
+    
+    while (match(LESS, LS_EQ, GREAT, GR_EQ)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = addSub();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node addSub() throws ParseException {
+    Node firstLeft = multDiv();
+    
+    while (match(PLUS, MINUS)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = multDiv();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node multDiv() throws ParseException {
+    Node firstLeft = unary();
+    
+    while (match(MULT, DIV, MOD, EXPONENT)) {
+      final Token op = prev();
+      final Operator actualOp = new Operator(op);
+      final Node rightOperand = unary();
+      firstLeft = new BinaryOpExpr(firstLeft, rightOperand, actualOp);
+    }
+
+    return firstLeft;
+  }
+
+  private Node unary() throws ParseException {
+    if (match(BANG, MINUS)) {
+      final Token unaryOp = prev();
+      final Node target = unary();
+      return new UnaryExpr(new Operator(unaryOp), target);
+    }
+
+    return funcAttrArrAcess();
+  }
+
+  private Node funcAttrArrAcess() throws ParseException {
+    Node target = primary();
+
+    System.out.println(" ===> funcAttrArrAccess "+target);
+
+     /**
      * Attribute access, function call and index access is more tightly bound
      * to an expression than binary operators
      */
     while (match(LEFT_PAREN, LEFT_SQ_BR, DOT)) {
       final Token op = prev();
+      System.out.println("   => in funcAttrArrAccess "+op);
       switch (op.getType()) {
         case LEFT_PAREN: {
-          result = funcCall(result, op);
-          recent = result.end;
+          System.out.println("   => maybe a call? "+op);
+          target = funcCall(target, op);
+          System.out.println("   => after a call? "+target);
           break;
         }
         case LEFT_SQ_BR: {
-          result = indexAccess(result, op);
-          recent = result.end;
+          target = indexAccess(target, op);
           break;
         }
         case DOT: {
-          result = attrAccess(result, op);
-          recent = result.end;
+          target = attrAccess(target, op);
           break;
         } 
         default: 
@@ -941,15 +1013,63 @@ public class Parser {
       }
     }
 
-    LOG.info("  ===>AFTER attr, arrayand call: "+result+" "+recent);
+    System.out.println(" ===> funcAttrArrAccess AFTER "+target);
 
-    //Exhaust binary operators
-    result = binOpExpr(result);
-    recent = result.end;
-
-    //LOG.info(" **END: "+result.repr());
-    return result;
+    return target;
   }
+
+  private Node primary() throws ParseException {
+    if (match(TRUE, FALSE)) {
+      final Token boolToken = prev();
+      return new Bool(Boolean.parseBoolean(boolToken.getContent()), boolToken.getStart(), boolToken.getEnd());
+    }
+    else if (match(INTEGER)) {
+      final Token intToken = prev();
+      return new Int(Long.parseLong(intToken.getContent()), intToken.getStart(), intToken.getEnd());
+    }
+    else if (match(DECIMAL)) {
+      final Token floatToken = prev();
+      return new FloatingPoint(Double.parseDouble(floatToken.getContent()), floatToken.getStart(), floatToken.getEnd());
+    }
+    else if (match(STRING)) {
+      final Token strToken = prev();
+      return new Str(strToken.getContent(), strToken.getStart(), strToken.getEnd());
+    }
+    else if (match(IDENTIFIER)) {
+      final Token identifierToken = prev();
+      return new Identifier(identifierToken);
+    }
+    else if (match(NULL)) {
+      final Token nullToken = prev();
+      return new Null(nullToken.getStart(), nullToken.getEnd());
+    }
+    else if(match(MODULE, SELF)) {
+      final Token keyword = prev();
+      return new Keyword(keyword);
+    }
+    else if (match(LEFT_PAREN)) {
+      final Token leftParen = prev();
+      final Node inner = expr();
+      final Token rightParen = matchError(RIGHT_PAREN, null, inner.end);
+      return new Parenthesized(inner, leftParen.getStart(), rightParen.getEnd());
+    }
+    else if (match(LEFT_SQ_BR)) {
+      return arrayLiteral(prev());
+    }
+    else if (match(OBJECT)) {
+      return objectLiteral(prev());
+    }
+    else if(match(FUNC)) {
+      return funcDef(prev(), false, false);
+    }
+
+    throw new ParseException("Unknown token "+peek().getContent(), 
+                             peek().getStart(), 
+                             peek().getEnd(), 
+                             moduleName);
+  }
+
+  //Expression parsers END
 
   private ArrayLiteral arrayLiteral(Token leftSqBracket) throws ParseException {
     final ArrayList<Node> values = new ArrayList<>();
@@ -965,6 +1085,7 @@ public class Parser {
     return new ArrayLiteral(leftSqBracket.getStart(), prev().getEnd(), values.toArray(new Node[values.size()]));
   }
 
+  /*
   private Node binOpExpr(Node leftOperand) throws ParseException {
     while(match(TokenType.binOps)) {
       final Token op = prev();
@@ -979,6 +1100,7 @@ public class Parser {
 
     return leftOperand;
   }
+  */
 
   private FuncCall funcCall(Node target, Token leftParen) throws ParseException {
     final ArrayList<Argument> arguments = new ArrayList<>();

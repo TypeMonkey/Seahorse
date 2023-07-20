@@ -20,4 +20,8 @@ public class Null extends Value<Void> {
     return visitor.visitNull(parentContext, this);
   }
   
+  @Override
+  public String toString() {
+    return "~null";
+  }
 }

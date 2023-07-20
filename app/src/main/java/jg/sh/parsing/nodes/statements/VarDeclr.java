@@ -53,6 +53,11 @@ public class VarDeclr extends Statement {
     return initialValue;
   }
 
+  @Override
+  public Node getExpr() {
+    return getInitialValue();
+  }
+
   public boolean hasInitialValue(){ 
     return initialValue != null;
   }

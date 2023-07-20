@@ -29,7 +29,7 @@ public class UnaryExpr extends Node {
 
   @Override
   public String repr() {
-    return unaryOperator.repr()+" "+target.repr();
+    return unaryOperator.repr()+" ["+target.repr()+"]";
   }
 
   @Override

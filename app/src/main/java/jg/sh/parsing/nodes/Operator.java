@@ -102,6 +102,16 @@ public class Operator extends Node {
     this.op = op;
   }
 
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof Operator && ((Operator) o).getOp() == op;
+  }
+
+  @Override
+  public int hashCode() {
+    return op.hashCode();
+  }
+
   public Op getOp() {
     return op;
   }
