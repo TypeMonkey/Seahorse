@@ -843,28 +843,28 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public NodeResult visitString(CompContext parentContext, Str str) {
     final ConstantPool constantPool = parentContext.getConstantPool();
     int index = constantPool.addComponent(new StringConstant(str.getValue()));
-    return valid(new ArgInstr(str.start, str.end, LOADC, index));
+    return valid(new LoadCellInstr(str.start, str.end, LOADC, index));
   }
 
   @Override
   public NodeResult visitInt(CompContext parentContext, Int integer) {
     final ConstantPool constantPool = parentContext.getConstantPool();
     int index = constantPool.addComponent(new IntegerConstant(integer.getValue()));
-    return valid(new ArgInstr(integer.start, integer.end, LOADC, index));
+    return valid(new LoadCellInstr(integer.start, integer.end, LOADC, index));
   }
 
   @Override
   public NodeResult visitBoolean(CompContext parentContext, Bool bool) {
     final ConstantPool constantPool = parentContext.getConstantPool();
     int index = constantPool.addComponent(new BoolConstant(bool.getValue()));
-    return valid(new ArgInstr(bool.start, bool.end, LOADC, index));
+    return valid(new LoadCellInstr(bool.start, bool.end, LOADC, index));
   }
 
   @Override
   public NodeResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
     final ConstantPool constantPool = parentContext.getConstantPool();
     int index = constantPool.addComponent(new FloatConstant(floatingPoint.getValue()));
-    return valid(new ArgInstr(floatingPoint.start, floatingPoint.end, LOADC, index));
+    return valid(new LoadCellInstr(floatingPoint.start, floatingPoint.end, LOADC, index));
   }
 
   @Override
@@ -1130,7 +1130,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
     funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));
-    funcLoadingInstrs.add(new ArgInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
+    funcLoadingInstrs.add(new LoadCellInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
     funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
     return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObjIndex);
@@ -1187,90 +1187,121 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       assignExpr.accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
     }
     else if(op == Op.BOOL_AND) {
-      final String operandFalse = genLabelName("sc_op_false");
-      final String endBranch =  genLabelName("sc_done");
-
-      /*
-       * If the left operand is false, jump to operandFalse
-       */
-      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
-      if (left.hasExceptions()) {
-        exceptions.addAll(left.getExceptions());
-      }
-      else {
-        instrs.addAll(left.getInstructions());
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
-      }
+      //OPTIMIZATION: If the values are literal, just compute them here.
 
       /**
-       * At this point, the left operand must have evaulated to true.
-       * Given that, let's evaluate the right operand. If that evaluates to false,
-       * jump to operandFalse
+       * TODO: This will only handle the very simple case of: a * b
+       *       where "a" and "b" are literals and * is an operator on them.
+       * 
+       * TODO: must implement more intricate constant folding algo.
        */
-      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
-      if (right.hasExceptions()) {
-        exceptions.addAll(right.getExceptions());
+      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
+      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
+      if (leftLiteral instanceof Bool && rightLiteral instanceof Bool) {        
+        final Bool leftBool = (Bool) leftLiteral;
+        final Bool rightBool = (Bool) rightLiteral;
+
+        final int result = pool.addComponent(new BoolConstant(leftBool.getValue() && rightBool.getValue()));
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, result));
       }
       else {
-        instrs.addAll(right.getInstructions());
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+        final String operandFalse = genLabelName("sc_op_false");
+        final String endBranch =  genLabelName("sc_done");
+
+        /*
+        * If the left operand is false, jump to operandFalse
+        */
+        final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+        if (left.hasExceptions()) {
+          exceptions.addAll(left.getExceptions());
+        }
+        else {
+          instrs.addAll(left.getInstructions());
+          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+        }
+
+        /**
+         * At this point, the left operand must have evaulated to true.
+         * Given that, let's evaluate the right operand. If that evaluates to false,
+         * jump to operandFalse
+         */
+        final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+        if (right.hasExceptions()) {
+          exceptions.addAll(right.getExceptions());
+        }
+        else {
+          instrs.addAll(right.getInstructions());
+          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+        }
+
+        /*
+        * At this point, both operands are true. Jump to endBranch
+        */
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+        //operandFalse label start
+        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
+        final int falseConstant = pool.addComponent(new BoolConstant(false));
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+
+        //endBranch label end
+        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
       }
-
-      /*
-       * At this point, both operands are true. Jump to endBranch
-       */
-      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
-
-      //operandFalse label start
-      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
-      final int falseConstant = pool.addComponent(new BoolConstant(false));
-      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
-
-      //endBranch label end
-      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
     }
     else if(op == Op.BOOL_OR) {
-      final String operandTrue = genLabelName("sc_op_true");
-      final String endBranch =  genLabelName("sc_done");
+      //OPTIMIZATION: If the values are literal, just compute them here.
+      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
+      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
+      if (leftLiteral instanceof Bool && rightLiteral instanceof Bool) {
+        final Bool leftBool = (Bool) leftLiteral;
+        final Bool rightBool = (Bool) rightLiteral;
 
-      /*
-       * If the left operand is true, jump to operandTrue
-       */
-      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
-      if (left.hasExceptions()) {
-        exceptions.addAll(left.getExceptions());
+        final int result = pool.addComponent(new BoolConstant(leftBool.getValue() || rightBool.getValue()));
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, result));
       }
       else {
-        instrs.addAll(left.getInstructions());
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+        final String operandTrue = genLabelName("sc_op_true");
+        final String endBranch =  genLabelName("sc_done");
+
+        /*
+        * If the left operand is true, jump to operandTrue
+        */
+        final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+        if (left.hasExceptions()) {
+          exceptions.addAll(left.getExceptions());
+        }
+        else {
+          instrs.addAll(left.getInstructions());
+          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+        }
+
+        /**
+         * At this point, the left operand must have evaulated to false.
+         * Given that, let's evaluate the right operand. If that evaluates to true,
+         * jump to operandTrue
+         */
+        final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+        if (right.hasExceptions()) {
+          exceptions.addAll(right.getExceptions());
+        }
+        else {
+          instrs.addAll(right.getInstructions());
+          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+        }
+
+        //At this point, neither operand is true. Push true and jump to endBranch
+        final int falseConstant = pool.addComponent(new BoolConstant(false));
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+        //operandTrue label start
+        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
+        final int trueConstantAddr = pool.addComponent(new BoolConstant(true));
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstantAddr));
+
+        //endBranch label start
+        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
       }
-
-      /**
-       * At this point, the left operand must have evaulated to false.
-       * Given that, let's evaluate the right operand. If that evaluates to true,
-       * jump to operandTrue
-       */
-      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
-      if (right.hasExceptions()) {
-        exceptions.addAll(right.getExceptions());
-      }
-      else {
-        instrs.addAll(right.getInstructions());
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
-      }
-
-      //At this point, neither operand is true. Push true and jump to endBranch
-      final int falseConstant = pool.addComponent(new BoolConstant(false));
-      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
-      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
-
-      //operandTrue label start
-      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
-      final int trueConstantAddr = pool.addComponent(new BoolConstant(true));
-      instrs.add(new ArgInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstantAddr));
-
-      //endBranch label start
-      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
     }
     else if(op == Op.ARROW) {
       /**
@@ -1308,27 +1339,276 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, BIND));
     }
     else {
-      /**
-       * Compile left operand first.
-       */
-      final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
-      leftResult.pipeErr(exceptions).pipeInstr(instrs);
-            
-      /**
-       * Compile the right operand next
-       */
-      final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
-      rightResult.pipeErr(exceptions).pipeInstr(instrs);
+      //OPTIMIZATION: If the values are literal, just compute them here.
+      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
+      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
+      if (leftLiteral instanceof Int && rightLiteral instanceof Int) {
+        final Int leftInt = (Int) leftLiteral;
+        final Int rightInt = (Int) rightLiteral;
 
+        int loadIndex = -1;
 
-      final OpCode opCode = opToCode(op);
-      if (opCode == null) {
-        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                               binaryOpExpr.getOperator().start, 
-                                               binaryOpExpr.getOperator().end));
+        switch (op) {
+          case PLUS: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() + rightInt.getValue()));
+            break;
+          }
+          case MINUS: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() - rightInt.getValue()));
+            break;
+          }
+          case MULT: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() * rightInt.getValue()));
+            break;
+          }
+          case DIV: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() / rightInt.getValue()));
+            break;
+          }
+          case MOD: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() % rightInt.getValue()));
+            break;
+          }
+          case LESS: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() < rightInt.getValue()));
+            break;
+          }
+          case GREAT: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() > rightInt.getValue()));
+            break;
+          }
+          case GR_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() >= rightInt.getValue()));
+            break;
+          }
+          case LS_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() <= rightInt.getValue()));
+            break;
+          }
+          case EQUAL: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() == rightInt.getValue()));
+            break;
+          }
+          case NOT_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() != rightInt.getValue()));
+            break;
+          }
+          case AND: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() & rightInt.getValue()));
+            break;
+          }
+          case OR: {
+            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() | rightInt.getValue()));
+            break;
+          }
+          default: {
+            LOG.warn("Unknown operator for arith optimization: "+op);
+            break;
+          }
+        }
+
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+      }
+      else if (leftLiteral instanceof Int && rightLiteral instanceof FloatingPoint) {
+        final Int leftInt = (Int) leftLiteral;
+        final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
+
+        int loadIndex = -1;
+
+        switch (op) {
+          case PLUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() + rightFloat.getValue()));
+            break;
+          }
+          case MINUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() - rightFloat.getValue()));
+            break;
+          }
+          case MULT: {
+            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() * rightFloat.getValue()));
+            break;
+          }
+          case DIV: {
+            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() / rightFloat.getValue()));
+            break;
+          }
+          case MOD: {
+            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() % rightFloat.getValue()));
+            break;
+          }
+          case LESS: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() < rightFloat.getValue()));
+            break;
+          }
+          case GREAT: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() > rightFloat.getValue()));
+            break;
+          }
+          case GR_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() >= rightFloat.getValue()));
+            break;
+          }
+          case LS_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() <= rightFloat.getValue()));
+            break;
+          }
+          case EQUAL: {
+            loadIndex = pool.addComponent(new BoolConstant(((double) leftInt.getValue()) == rightFloat.getValue()));
+            break;
+          }
+          case NOT_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(((double) leftInt.getValue()) != rightFloat.getValue()));
+            break;
+          }
+          default: {
+            LOG.warn("Unknown operator for arith optimization: "+op);
+            break;
+          }
+        }
+
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+      }
+      else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof Int) {
+        final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
+        final Int rightInt = (Int) rightLiteral;
+
+        int loadIndex = -1;
+
+        switch (op) {
+          case PLUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() + rightInt.getValue()));
+            break;
+          }
+          case MINUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() - rightInt.getValue()));
+            break;
+          }
+          case MULT: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() * rightInt.getValue()));
+            break;
+          }
+          case DIV: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() / rightInt.getValue()));
+            break;
+          }
+          case MOD: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() % rightInt.getValue()));
+            break;
+          }
+          case LESS: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() < rightInt.getValue()));
+            break;
+          }
+          case GREAT: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() > rightInt.getValue()));
+            break;
+          }
+          case GR_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() >= rightInt.getValue()));
+            break;
+          }
+          case LS_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() <= rightInt.getValue()));
+            break;
+          }
+          case EQUAL: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() == ((double) rightInt.getValue())));
+            break;
+          }
+          case NOT_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() != ((double) rightInt.getValue())));
+            break;
+          }
+          default: {
+            LOG.warn("Unknown operator for arith optimization: "+op);
+            break;
+          }
+        }
+
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+      }
+      else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof FloatingPoint) {
+        final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
+        final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
+
+        int loadIndex = -1;
+
+        switch (op) {
+          case PLUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() + rightFloat.getValue()));
+            break;
+          }
+          case MINUS: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() - rightFloat.getValue()));
+            break;
+          }
+          case MULT: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() * rightFloat.getValue()));
+            break;
+          }
+          case DIV: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() / rightFloat.getValue()));
+            break;
+          }
+          case MOD: {
+            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() % rightFloat.getValue()));
+            break;
+          }
+          case LESS: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() < rightFloat.getValue()));
+            break;
+          }
+          case GREAT: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() > rightFloat.getValue()));
+            break;
+          }
+          case GR_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() >= rightFloat.getValue()));
+            break;
+          }
+          case LS_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() <= rightFloat.getValue()));
+            break;
+          }
+          case EQUAL: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() == rightFloat.getValue()));
+            break;
+          }
+          case NOT_EQ: {
+            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() != rightFloat.getValue()));
+            break;
+          }
+          default: {
+            LOG.warn("Unknown operator for arith optimization: "+op);
+            break;
+          }
+        }
+
+        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
       }
       else {
-        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        /**
+         * Compile left operand first.
+         */
+        final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
+        leftResult.pipeErr(exceptions).pipeInstr(instrs);
+              
+        /**
+         * Compile the right operand next
+         */
+        final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
+        rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
+
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
       }
     }
 
@@ -1667,6 +1947,27 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<Instruction> instructions = new ArrayList<>();
     final List<ValidationException> exceptions = new ArrayList<>();
 
+    final Operator op = unaryExpr.getOperator();
+
+    //OPTIMIZATION: If the values are literal, just compute them here.
+    final Node target = unwrap(unaryExpr.getTarget());
+    if (target instanceof Bool) {
+      final Bool targetBool = (Bool) target;
+      if (op.getOp() == Op.BANG) {
+        final int negatedIndex = parentContext.getConstantPool()
+                                              .addComponent(new BoolConstant(!targetBool.getValue()));
+        return valid(new LoadCellInstr(unaryExpr.start, unaryExpr.end, LOADC, negatedIndex));
+      }
+    }
+    else if (target instanceof Int) {
+      final Int targetInt = (Int) target;
+      if (op.getOp() == Op.MINUS) {
+        final int negatedIndex = parentContext.getConstantPool()
+                                              .addComponent(new IntegerConstant(-targetInt.getValue()));
+        return valid(new LoadCellInstr(unaryExpr.start, unaryExpr.end, LOADC, negatedIndex));
+      }
+    }
+
     //Compile target expression first
     final NodeResult targetResult = unaryExpr.getTarget().accept(this, parentContext);
     if (targetResult.hasExceptions()) {
@@ -1678,7 +1979,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
 
     //Then add instruction for unary operator
-    final Operator op = unaryExpr.getOperator();
     switch (op.getOp()) {
       case MINUS: {
         instructions.add(new NoArgInstr(unaryExpr.start, unaryExpr.end, NEG));
@@ -1709,6 +2009,13 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final ArrayList<T> newList = new ArrayList<>(left);
     newList.addAll(right);
     return newList;
+  }
+
+  private static Node unwrap(Node target) {
+    while (target instanceof Parenthesized) {
+      target = ((Parenthesized) target).getInner();
+    }
+    return target;
   }
   //Utility methods - END
 }

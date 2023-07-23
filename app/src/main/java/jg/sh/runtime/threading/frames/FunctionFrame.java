@@ -732,8 +732,8 @@ public class FunctionFrame extends StackFrame {
         * Load/store instructions 
         */
         case LOADC: {
-          ArgInstr loadcInstr = (ArgInstr) instr;
-          pushOperand(getHostModule().getConstantMap().get(loadcInstr.getArgument()));
+          LoadCellInstr loadcInstr = (LoadCellInstr) instr;
+          pushOperand(getHostModule().getConstantMap().get(loadcInstr.getIndex()));
           break;
         }
         case LOAD: {          

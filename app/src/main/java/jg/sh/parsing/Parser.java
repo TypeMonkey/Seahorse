@@ -856,7 +856,7 @@ public class Parser {
   public Node assign() throws ParseException {
     Node firstLeft = or();
 
-    if (match(EQ_ADD, EQ_MIN, EQ_MULT, EQ_DIV, EQ_MOD, EQ_EXPO)) {
+    if (match(EQ_ADD, EQ_MIN, EQ_MULT, EQ_DIV, EQ_MOD, EQ_EXPO, ASSIGNMENT)) {
       final Token op = prev();
       final Operator actualOp = new Operator(op);
       final Node rightOperand = or();

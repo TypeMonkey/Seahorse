@@ -1,11 +1,2 @@
-use system;
-use otherModule;
-use HelloWorld;
-
-system.println("I'm a very simple module");
-HelloWorld.sample();
-
-//system.println(system.argv);
-//system.argv.add("custom arg");
-//system.println("======================== done ");
-//system.println(system.argv);
+//const test := (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
+const test := 80 - 90;
