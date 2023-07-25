@@ -5,10 +5,10 @@ package jg.sh.compile.instrs;
  */
 public class LoadStorePair {
 
-  public final LoadCellInstr load;
-  public final StoreCellInstr store;
+  public final LoadInstr load;
+  public final StoreInstr store;
 
-  public LoadStorePair(LoadCellInstr load, StoreCellInstr store) {
+  public LoadStorePair(LoadInstr load, StoreInstr store) {
     this.load = load;
     this.store = store;
   }

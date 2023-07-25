@@ -1,17 +1,15 @@
 package jg.sh.runtime.threading.frames;
 
-import java.util.Set;
 import java.util.Map.Entry;
-import java.util.function.BiConsumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.OpCode;
-import jg.sh.compile.instrs.StoreCellInstr;
+import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
@@ -34,7 +32,6 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
-import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
@@ -705,7 +702,7 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case ARG: {
-          ArgInstr argInstr = (ArgInstr) instr;          
+          LoadInstr argInstr = (LoadInstr) instr;          
           //Pop the actual argument
           final RuntimeInstance argValue = popOperand();
           
@@ -713,8 +710,8 @@ public class FunctionFrame extends StackFrame {
 
           //System.out.println(" ===> arg instr!");
           
-          if (argInstr.getArgument() >= 0) {
-            String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getArgument())).getValue();
+          if (argInstr.getIndex() >= 0) {
+            String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getIndex())).getValue();
             argVector.setKeywordArg(argName, argValue);
 
             //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
@@ -732,26 +729,26 @@ public class FunctionFrame extends StackFrame {
         * Load/store instructions 
         */
         case LOADC: {
-          LoadCellInstr loadcInstr = (LoadCellInstr) instr;
+          LoadInstr loadcInstr = (LoadInstr) instr;
           pushOperand(getHostModule().getConstantMap().get(loadcInstr.getIndex()));
           break;
         }
         case LOAD: {          
-          LoadCellInstr loadInstr = (LoadCellInstr) instr;
+          LoadInstr loadInstr = (LoadInstr) instr;
           
           //System.out.println(" ------- LOAD: LOCAL VARS: "+getLocalVars().length+", "+loadInstr.getIndex()+" | AT: "+hashCode());
           pushOperand(getLocalVar(loadInstr.getIndex()));
           break;
         }
         case STORE: {
-          StoreCellInstr storeInstr = (StoreCellInstr) instr;
+          StoreInstr storeInstr = (StoreInstr) instr;
           RuntimeInstance value = popOperand();
           storeLocalVar(storeInstr.getIndex(), value);
           //System.out.println(" ==== STORE: "+instr+" | "+instr.getStart()+" | AT: "+hashCode());
           break;
         }
         case LOADATTR: {
-          LoadCellInstr loadInstr = (LoadCellInstr) instr;
+          LoadInstr loadInstr = (LoadInstr) instr;
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
           RuntimeInstance object = popOperand();
           
@@ -778,7 +775,7 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case STOREATTR: {
-          StoreCellInstr storeInstr = (StoreCellInstr) instr;
+          StoreInstr storeInstr = (StoreInstr) instr;
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
           RuntimeInstance object = popOperand();
           RuntimeInstance value = popOperand();
@@ -807,18 +804,18 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case LOAD_CL: {
-          LoadCellInstr loadInstr = (LoadCellInstr) instr;
+          LoadInstr loadInstr = (LoadInstr) instr;
           pushOperand(getCapture(loadInstr.getIndex()));
           break;
         }
         case STORE_CL: {
-          StoreCellInstr storeInstr = (StoreCellInstr) instr;
+          StoreInstr storeInstr = (StoreInstr) instr;
           RuntimeInstance value = popOperand();
           setCapture(storeInstr.getIndex(), value);
           break;
         }
         case LOADMV: {
-          LoadCellInstr loadInstr = (LoadCellInstr) instr;
+          LoadInstr loadInstr = (LoadInstr) instr;
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
           
           RuntimeInstance moduleObject = getHostModule().getModuleObject();
@@ -844,7 +841,7 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case STOREMV: {
-          StoreCellInstr storeInstr = (StoreCellInstr) instr;      
+          StoreInstr storeInstr = (StoreInstr) instr;      
           RuntimeInstance newValue = popOperand();
                     
           String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
@@ -978,7 +975,7 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case LOADMOD: {
-          LoadCellInstr loadInstr = (LoadCellInstr) instr;
+          LoadInstr loadInstr = (LoadInstr) instr;
           
           if(loadInstr.getIndex() < 0) {
             //Load the current module
@@ -1164,11 +1161,11 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case MAKECONST: {
-          final ArgInstr hasInstr = (ArgInstr) instr;
+          final LoadInstr hasInstr = (LoadInstr) instr;
 
           final RuntimeInstance attrValue = popOperand();
           final RuntimeInstance targetObj = popOperand();
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getIndex())).getValue();
 
           try {
             targetObj.setAttribute(attrName, attrValue);
@@ -1194,8 +1191,8 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case HAS_KARG: {
-          final ArgInstr hasInstr = (ArgInstr) instr;
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
+          final LoadInstr hasInstr = (LoadInstr) instr;
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getIndex())).getValue();
           final RuntimeBool result = allocator.allocateBool(initialArgs.hasAttr(attrName));
           //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
           pushOperand(result);

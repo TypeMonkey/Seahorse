@@ -26,6 +26,8 @@ public enum OpCode {
   
   /*
    * Arithmetic operators
+   * 
+   * Instruction class: NoArgInstr
    */
   ADD,
   SUB,
@@ -36,6 +38,8 @@ public enum OpCode {
   
   /*
    * Comparative operators
+   * 
+   * Instruction class: NoArgInstr
    */
   LESS,
   GREAT,
@@ -49,17 +53,23 @@ public enum OpCode {
    * 
    * Both AND and OR are compiled away to their explicit
    * instruction list equivalents
+   * 
+   * Instruction class: NoArgInstr
    */
   NOT,
   
   /*
    * Bitwise operators 
+   * 
+   * Instruction class: NoArgInstr
    */
   BAND,
   BOR,
   
   /*
    * Instruction jumps and function calls
+   * 
+   * Instruction class: JumpInstr
    */
   JUMP,  //Jumps to the given label unconditionally. DOESN'T POP operand from operand stack
   
@@ -179,6 +189,8 @@ public enum OpCode {
    * 
    * Note: the attribute must be a new addition to the object. If this
    *       instruction is used on an existing attribute, an error will be thrown.
+   * 
+   * Instruction class: LoadInstr (due to its reliance on the constant pool)
    */
   MAKECONST,
   
@@ -344,6 +356,8 @@ public enum OpCode {
    * TOP     -> true or false
    *          | ArgVector
    * BOTTOM  -<
+   * 
+   * Instruction class: LoadInstr (due to its reliance on the constant pool)
    */
   HAS_KARG,
   
@@ -364,6 +378,8 @@ public enum OpCode {
    * BOTTOM ->
    * 
    * This instruction repops the argVector on the operand stack
+   * 
+   * Instruction class: LoadInstr (due to its reliance on the constant pool)
    */
   ARG,
 

@@ -6,9 +6,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.LoadStorePair;
-import jg.sh.compile.instrs.StoreCellInstr;
+import jg.sh.compile.instrs.StoreInstr;
+import jg.sh.compile.optimization.OptimizableTarget;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.nodes.Keyword;
@@ -114,11 +115,11 @@ public class CompContext extends Context<CompContext> {
       this(context, pair, new HashSet<>(Arrays.asList(descriptors)));
     }
     
-    public LoadCellInstr getLoadInstr() {
+    public LoadInstr getLoadInstr() {
       return pair.load;
     }
     
-    public StoreCellInstr getStoreInstr() {
+    public StoreInstr getStoreInstr() {
       return pair.store;
     }
 
@@ -153,6 +154,11 @@ public class CompContext extends Context<CompContext> {
   private final ContextType currentContext;
   private final ConstantPool constantPool;
 
+  /**
+   * Used by the OptimizingIRCompiler to track and use constants
+   */
+  private final Map<String, OptimizableTarget> constantVarMap;
+
   public CompContext(ContextType currentContext, ConstantPool constantPool) {
     this(null, currentContext, constantPool);
   }
@@ -163,6 +169,7 @@ public class CompContext extends Context<CompContext> {
     this.varMap = new HashMap<>();
     this.currentContext = currentContext;
     this.constantPool = parent.constantPool;
+    this.constantVarMap = new HashMap<>();
   } 
   
   public CompContext(CompContext parent, ContextType currentContext, ConstantPool constantPool) {
@@ -171,6 +178,7 @@ public class CompContext extends Context<CompContext> {
     this.varMap = new HashMap<>();
     this.currentContext = currentContext;
     this.constantPool = constantPool;
+    this.constantVarMap = new HashMap<>();
   } 
 
   /**
@@ -216,6 +224,23 @@ public class CompContext extends Context<CompContext> {
   
   public void setContextValue(ContextKey key, Object value) {
     contextMap.put(key, value);
+  }
+
+  public void setConstant(String var, OptimizableTarget target) {
+    constantVarMap.put(var, target);
+  }
+
+  public OptimizableTarget getConstant(String var) {
+    final CompContext compContext = search(c -> c.constantVarMap.containsKey(var), true);
+    return compContext != null ? compContext.constantVarMap.get(var) : null;
+  }
+
+  public boolean hasConstant(String var) {
+    return constantVarMap.containsKey(var);
+  }
+
+  public OptimizableTarget getImmediateConstant(String name) {
+    return constantVarMap.get(name);
   }
 
   public boolean hasContextValue(ContextKey contextKey) {

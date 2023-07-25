@@ -15,9 +15,9 @@ import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.CommentInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LabelInstr;
-import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.NoArgInstr;
-import jg.sh.compile.instrs.StoreCellInstr;
+import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeInstance;
@@ -392,15 +392,15 @@ public final class IRWriter {
         ds.writeInt(labelBytes.length);
         ds.write(labelBytes);
       }
-      else if (ogInstr instanceof LoadCellInstr) {
-        LoadCellInstr instr = (LoadCellInstr) ogInstr;
+      else if (ogInstr instanceof LoadInstr) {
+        LoadInstr instr = (LoadInstr) ogInstr;
         ds.writeInt(instr.getIndex());
       }
       else if (ogInstr instanceof NoArgInstr) {
         //do nothing. There's no argument
       }
-      else if (ogInstr instanceof StoreCellInstr) {
-        StoreCellInstr instr = (StoreCellInstr) ogInstr;
+      else if (ogInstr instanceof StoreInstr) {
+        StoreInstr instr = (StoreInstr) ogInstr;
         ds.writeInt(instr.getIndex());
       }
       else {

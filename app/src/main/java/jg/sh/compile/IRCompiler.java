@@ -26,18 +26,19 @@ import jg.sh.compile.instrs.CommentInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
-import jg.sh.compile.instrs.LoadCellInstr;
+import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.LoadStorePair;
 import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.OpCode;
-import jg.sh.compile.instrs.StoreCellInstr;
+import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.compile.pool.ConstantPool;
+import jg.sh.compile.pool.ConstantPool.MutableIndex;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
 import jg.sh.compile.pool.component.DataRecord;
-import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
+import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.NodeVisitor;
@@ -101,9 +102,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * Module var allocator (any variable declared at top-level will be compiled using this)
      */
     final VarAllocator allocator = (name, start, end) -> {
-      final int moduleNameIndex = constantPool.addComponent(new StringConstant(name));
-      return new LoadStorePair(new LoadCellInstr(start, end, LOADMV, moduleNameIndex), 
-                               new StoreCellInstr(start, end, STOREMV, moduleNameIndex));
+      final StringConstant moduleVarName = constantPool.addString(name);
+      return new LoadStorePair(moduleVarName.linkInstr(new LoadInstr(start, end, LOADMV, moduleVarName.getIndex().getIndex())), 
+                               moduleVarName.linkInstr(new StoreInstr(start, end, STOREMV, moduleVarName.getIndex().getIndex())));
     };
     moduleContext.setContextValue(ContextKey.VAR_ALLOCATOR, allocator);
 
@@ -111,7 +112,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * Unbounded functions and toplevel statements, when referring to "self", means
      * they're referring to the module instance.
      */
-    final Instruction [] moduleLoadInstr = {new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1)};
+    final Instruction [] moduleLoadInstr = {new LoadInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1)};
     moduleContext.setContextValue(ContextKey.SELF_CODE, moduleLoadInstr);
 
     /*
@@ -351,8 +352,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final VarAllocator varAllocator = (VarAllocator) parentContext.getValue(ContextKey.VAR_ALLOCATOR);
 
     //Allocate constant string for module name
-    final int moduleNameIndex = constantPool.addComponent(new StringConstant(moduleName.getIdentifier()));
-    
+    final StringConstant moduleNameConstant = constantPool.addString(moduleName.getIdentifier());
+    final LoadInstr moduleNameLoad = moduleNameConstant.linkInstr(new LoadInstr(moduleName.start, 
+                                                                                moduleName.end, 
+                                                                                LOADMOD, 
+                                                                                moduleNameConstant.getExactIndex()));    
     if(useStatement.getCompAliasMap().isEmpty()) {
       /*
        * If the useStatement isn't importing any components, then
@@ -383,10 +387,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
                               //Load Module and store it in respective module variable
                               new CommentInstr("*** Bare loading of "+useStatement.getModuleName().getIdentifier()+""),
-                              new LoadCellInstr(useStatement.start,
-                                                useStatement.end,
-                                                LOADMOD, 
-                                                moduleNameIndex),
+                              moduleNameLoad,
                               loadStore.store);
     }
     else {
@@ -400,17 +401,18 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(new CommentInstr("*** Importing '"+compEntry.getKey()+"' from "+moduleName.getIdentifier()+" ***"));
 
         //Load module
-        instrs.add(new LoadCellInstr(useStatement.start,
-                                     useStatement.end,
-                                     LOADMOD, 
-                                     moduleNameIndex));
+        instrs.add(moduleNameLoad);
 
         //The variable name to refer to the imported module component
         final Identifier moduleVarHandle = compEntry.getValue() != null ?
                                             compEntry.getValue() : 
                                             compEntry.getKey();
 
-        final int compNameIndex = constantPool.addComponent(new StringConstant(compEntry.getKey().getIdentifier()));
+        final StringConstant compNameConstant = constantPool.addString(compEntry.getKey().getIdentifier());
+        final LoadInstr compLoadInstr = compNameConstant.linkInstr(new LoadInstr(compEntry.getKey().start, 
+                                                                                 compEntry.getKey().end, 
+                                                                                 LOADATTR, 
+                                                                                 compNameConstant.getExactIndex()));
 
         //Load and store instructions for impoted module components
         final LoadStorePair loadStore = varAllocator.generate(moduleVarHandle.getIdentifier(), 
@@ -418,10 +420,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                                               moduleVarHandle.end);
 
         //Load the specific attribute so it can be stored in our module
-        instrs.add(new LoadCellInstr(compEntry.getKey().start, 
-                                     compEntry.getKey().end, 
-                                     LOADATTR, 
-                                     compNameIndex));
+        instrs.add(compLoadInstr);
         
         instrs.add(loadStore.store);
         compMap.put(moduleVarHandle, loadStore);
@@ -492,7 +491,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final FuncDef constructor = dataDefinition.getConstructor();
 
     //Convert attribute descriptors to numbers
-    final LinkedHashMap<String, Integer> methods = new LinkedHashMap<>();
+    final LinkedHashMap<String, MutableIndex> methods = new LinkedHashMap<>();
 
     for (FuncDef method : dataDefinition.getMethods().values()) {
       /*
@@ -511,11 +510,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     }
 
     //Allocate DataRecord on constant pool
-    final DataRecord record = new DataRecord(dataDefinition.getName().getIdentifier(), 
-                                             constructor.getSignature(), 
-                                             methods, 
-                                             dataDefinition.isSealed());
-    final int recordIndex = pool.addComponent(record);
+    final DataRecord dataRecord = pool.addDataRecord(dataDefinition.getName().getIdentifier(), 
+                                                       constructor.getSignature(), 
+                                                       methods, 
+                                                       dataDefinition.isSealed());
 
     /*
      * One thing to note about DataDefinitions/records. 
@@ -531,13 +529,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * to the constructor as its "self" object - engaging the usual function calling convention.
      */
 
-    /*
-     * We need to go through the body of the constructor and replace all 
-     * return statements to return the "self" object.
-     */
-
-
-    instrs.add(new LoadCellInstr(Location.DUMMY, Location.DUMMY, LOADC, recordIndex));
+    instrs.add(dataRecord.linkInstr(new LoadInstr(dataDefinition.start, 
+                                                  dataDefinition.end, 
+                                                  LOADC, 
+                                                  dataRecord.getExactIndex())));
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
@@ -764,7 +759,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final String catchLabel = genLabelName("catch");
     
     //Make an ErrorHandlingRecord for this try-catch block
-    constantPool.addComponent(new ErrorHandlingRecord(tryStartLabel, tryEndLabel, catchLabel));
+    constantPool.addErrorHandling(tryStartLabel, tryEndLabel, catchLabel);
     
     //add instructions for try block first
     instrs.add(new LabelInstr(tryCatch.start, tryCatch.end, tryStartLabel));
@@ -841,30 +836,30 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
   @Override
   public NodeResult visitString(CompContext parentContext, Str str) {
-    final ConstantPool constantPool = parentContext.getConstantPool();
-    int index = constantPool.addComponent(new StringConstant(str.getValue()));
-    return valid(new LoadCellInstr(str.start, str.end, LOADC, index));
+    final ConstantPool pool = parentContext.getConstantPool();
+    final StringConstant constant = pool.addString(str.getValue());
+    return valid(constant.linkInstr(new LoadInstr(str.start, str.end, LOADC, constant.getExactIndex())));
   }
 
   @Override
   public NodeResult visitInt(CompContext parentContext, Int integer) {
-    final ConstantPool constantPool = parentContext.getConstantPool();
-    int index = constantPool.addComponent(new IntegerConstant(integer.getValue()));
-    return valid(new LoadCellInstr(integer.start, integer.end, LOADC, index));
+    final ConstantPool pool = parentContext.getConstantPool();
+    final IntegerConstant constant = pool.addInt(integer.getValue());
+    return valid(constant.linkInstr(new LoadInstr(integer.start, integer.end, LOADC, constant.getExactIndex())));
   }
 
   @Override
   public NodeResult visitBoolean(CompContext parentContext, Bool bool) {
-    final ConstantPool constantPool = parentContext.getConstantPool();
-    int index = constantPool.addComponent(new BoolConstant(bool.getValue()));
-    return valid(new LoadCellInstr(bool.start, bool.end, LOADC, index));
+    final ConstantPool pool = parentContext.getConstantPool();
+    final BoolConstant constant = pool.addBoolean(bool.getValue());
+    return valid(constant.linkInstr(new LoadInstr(bool.start, bool.end, LOADC, constant.getExactIndex())));
   }
 
   @Override
   public NodeResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
-    final ConstantPool constantPool = parentContext.getConstantPool();
-    int index = constantPool.addComponent(new FloatConstant(floatingPoint.getValue()));
-    return valid(new LoadCellInstr(floatingPoint.start, floatingPoint.end, LOADC, index));
+    final ConstantPool pool = parentContext.getConstantPool();
+    final FloatConstant constant = pool.addFloat(floatingPoint.getValue());
+    return valid(constant.linkInstr(new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getExactIndex())));
   }
 
   @Override
@@ -929,7 +924,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         return valid(new JumpInstr(keyword.start, keyword.end, JUMP, targetLabel));
       }
       case MODULE: {
-        return valid(new LoadCellInstr(keyword.start, keyword.end, LOADMOD, -1));
+        return valid(new LoadInstr(keyword.start, keyword.end, LOADMOD, -1));
       }
       case SELF: {
         final Instruction [] selfLoad = (Instruction[]) parentContext.getValue(ContextKey.SELF_CODE);
@@ -974,8 +969,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, 0);
     final VarAllocator localVarAlloc = (name, start, end) -> {
       final int varIndex = (int) funcContext.getValue(ContextKey.LOCAL_VAR_INDEX);
-      final LoadStorePair LS = new LoadStorePair(new LoadCellInstr(start, end, LOAD, varIndex), 
-                                                 new StoreCellInstr(start, end, STORE, varIndex));
+      final LoadStorePair LS = new LoadStorePair(new LoadInstr(start, end, LOAD, varIndex), 
+                                                 new StoreInstr(start, end, STORE, varIndex));
       funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, varIndex + 1);
       return LS;
     };
@@ -1017,8 +1012,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           capturedInfo.getContext().setContextValue(ContextKey.CL_VAR_INDEX, closureIndex + 1);
         }
 
-        final LoadStorePair loadStore = new LoadStorePair(new LoadCellInstr(capture.start, capture.end, LOAD_CL, captureIndex), 
-                                                        new StoreCellInstr(capture.start, capture.end, STORE_CL, captureIndex));
+        final LoadStorePair loadStore = new LoadStorePair(new LoadInstr(capture.start, capture.end, LOAD_CL, captureIndex), 
+                                                          new StoreInstr(capture.start, capture.end, STORE_CL, captureIndex));
 
         funcContext.addVariable(capture.getIdentifier(), loadStore);
         captures[captureIndex] = capturedInfo.getLoadInstr().getIndex();
@@ -1083,10 +1078,14 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       if (parameter.hasValue()) {
         //This is an optional parameter
         final Node initValue = parameter.getInitValue();
-        final int keywordNameIndex = pool.addComponent(new StringConstant(paramName.getIdentifier()));
+        final StringConstant keywordNameConstant = pool.addString(paramName.getIdentifier());
+
         final String keywordCheckDone = genLabelName(paramName.getIdentifier()+"_exists_checkDone");
 
-        instrs.add(new ArgInstr(initValue.start, initValue.end, HAS_KARG, keywordNameIndex));
+        instrs.add(keywordNameConstant.linkInstr(new LoadInstr(parameter.start, 
+                                                               parameter.end, 
+                                                               HAS_KARG, 
+                                                               keywordNameConstant.getExactIndex())));
         instrs.add(new JumpInstr(initValue.start, initValue.end, JUMPT, keywordCheckDone));
 
         initValue.accept(this, funcContext).pipeErr(exceptions).pipeInstr(instrs);
@@ -1116,24 +1115,23 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     instrs.add(new NoArgInstr(Location.DUMMY, Location.DUMMY, RET));
 
     //Now, allocate this function as a code object instance
-    final CodeObject funcCodeObj = new CodeObject(funcDef.getSignature(), 
-                                                  funcLabel, 
-                                                  keywordParamToIndexMap, 
-                                                  varArgIndex, 
-                                                  keywordVarArgsIndex,
-                                                  instrs, 
-                                                  captures);
-    final int funcCodeObjIndex = pool.addComponent(funcCodeObj);
+    final CodeObject funcCodeObj = pool.addCodeObject(funcDef.getSignature(), 
+                                                      funcLabel, 
+                                                      keywordParamToIndexMap, 
+                                                      varArgIndex, 
+                                                      keywordVarArgsIndex,
+                                                      instrs, 
+                                                      captures);
 
     //Add on nearest "self" code loading code
     final Instruction [] selfLoadCode = (Instruction[]) parentContext.getValue(ContextKey.SELF_CODE);
 
     final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
     funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));
-    funcLoadingInstrs.add(new LoadCellInstr(funcDef.start, funcDef.end, LOADC, funcCodeObjIndex));
+    funcLoadingInstrs.add(funcCodeObj.linkInstr(new LoadInstr(funcDef.end, funcDef.end, LOADC, funcCodeObj.getExactIndex())));
     funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
-    return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObjIndex);
+    return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObj.getIndex());
   }
 
   @Override
@@ -1201,8 +1199,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         final Bool leftBool = (Bool) leftLiteral;
         final Bool rightBool = (Bool) rightLiteral;
 
-        final int result = pool.addComponent(new BoolConstant(leftBool.getValue() && rightBool.getValue()));
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, result));
+        final BoolConstant result = pool.addBoolean(leftBool.getValue() && rightBool.getValue());
+        instrs.add(result.linkInstr(new LoadInstr(binaryOpExpr.start, 
+                                                  binaryOpExpr.end, 
+                                                  LOADC, 
+                                                  result.getExactIndex())));
       }
       else {
         final String operandFalse = genLabelName("sc_op_false");
@@ -1241,8 +1242,9 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
         //operandFalse label start
         instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
-        final int falseConstant = pool.addComponent(new BoolConstant(false));
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+
+        final BoolConstant falseConstant = pool.addBoolean(false);
+        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
 
         //endBranch label end
         instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
@@ -1256,8 +1258,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         final Bool leftBool = (Bool) leftLiteral;
         final Bool rightBool = (Bool) rightLiteral;
 
-        final int result = pool.addComponent(new BoolConstant(leftBool.getValue() || rightBool.getValue()));
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, result));
+        final BoolConstant result = pool.addBoolean(leftBool.getValue() || rightBool.getValue());
+        instrs.add(result.linkInstr(new LoadInstr(binaryOpExpr.start, 
+                                                  binaryOpExpr.end, 
+                                                  LOADC, 
+                                                  result.getExactIndex())));
       }
       else {
         final String operandTrue = genLabelName("sc_op_true");
@@ -1290,14 +1295,14 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         }
 
         //At this point, neither operand is true. Push true and jump to endBranch
-        final int falseConstant = pool.addComponent(new BoolConstant(false));
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant));
+        final BoolConstant falseConstant = pool.addBoolean(false);
+        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
         instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
 
         //operandTrue label start
         instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
-        final int trueConstantAddr = pool.addComponent(new BoolConstant(true));
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstantAddr));
+        final BoolConstant trueConstant = pool.addBoolean(true);
+        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
 
         //endBranch label start
         instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
@@ -1320,7 +1325,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instrs.addAll(leftResult.getInstructions());
-        instrs.add(new ArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, ARG, -1));
+        instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, ARG, -1));
       }
             
       /**
@@ -1332,7 +1337,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instrs.addAll(rightResult.getInstructions());
-        instrs.add(new ArgInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, -1));
+        instrs.add(new LoadInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, -1));
       }
 
       //Add bind instruction
@@ -1346,59 +1351,59 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         final Int leftInt = (Int) leftLiteral;
         final Int rightInt = (Int) rightLiteral;
 
-        int loadIndex = -1;
+        PoolComponent component = null;
 
         switch (op) {
           case PLUS: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() + rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() + rightInt.getValue());
             break;
           }
           case MINUS: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() - rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() - rightInt.getValue());
             break;
           }
           case MULT: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() * rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() * rightInt.getValue());
             break;
           }
           case DIV: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() / rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() / rightInt.getValue());
             break;
           }
           case MOD: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() % rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() % rightInt.getValue());
             break;
           }
           case LESS: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() < rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() < rightInt.getValue());
             break;
           }
           case GREAT: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() > rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() > rightInt.getValue());
             break;
           }
           case GR_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() >= rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() >= rightInt.getValue());
             break;
           }
           case LS_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() <= rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() <= rightInt.getValue());
             break;
           }
           case EQUAL: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() == rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() == rightInt.getValue());
             break;
           }
           case NOT_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() != rightInt.getValue()));
+            component = pool.addBoolean(leftInt.getValue() != rightInt.getValue());
             break;
           }
           case AND: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() & rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() & rightInt.getValue());
             break;
           }
           case OR: {
-            loadIndex = pool.addComponent(new IntegerConstant(leftInt.getValue() | rightInt.getValue()));
+            component = pool.addInt(leftInt.getValue() | rightInt.getValue());
             break;
           }
           default: {
@@ -1407,57 +1412,57 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           }
         }
 
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
       }
       else if (leftLiteral instanceof Int && rightLiteral instanceof FloatingPoint) {
         final Int leftInt = (Int) leftLiteral;
         final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
 
-        int loadIndex = -1;
+        PoolComponent component = null;
 
         switch (op) {
           case PLUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() + rightFloat.getValue()));
+            component = pool.addFloat(leftInt.getValue() + rightFloat.getValue());
             break;
           }
           case MINUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() - rightFloat.getValue()));
+            component = pool.addFloat(leftInt.getValue() - rightFloat.getValue());
             break;
           }
           case MULT: {
-            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() * rightFloat.getValue()));
+            component = pool.addFloat(leftInt.getValue() * rightFloat.getValue());
             break;
           }
           case DIV: {
-            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() / rightFloat.getValue()));
+            component = pool.addFloat(leftInt.getValue() / rightFloat.getValue());
             break;
           }
           case MOD: {
-            loadIndex = pool.addComponent(new FloatConstant(leftInt.getValue() % rightFloat.getValue()));
+            component = pool.addFloat(leftInt.getValue() % rightFloat.getValue());
             break;
           }
           case LESS: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() < rightFloat.getValue()));
+            component = pool.addBoolean(leftInt.getValue() < rightFloat.getValue());
             break;
           }
           case GREAT: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() > rightFloat.getValue()));
+            component = pool.addBoolean(leftInt.getValue() > rightFloat.getValue());
             break;
           }
           case GR_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() >= rightFloat.getValue()));
+            component = pool.addBoolean(leftInt.getValue() >= rightFloat.getValue());
             break;
           }
           case LS_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftInt.getValue() <= rightFloat.getValue()));
+            component = pool.addBoolean(leftInt.getValue() <= rightFloat.getValue());
             break;
           }
           case EQUAL: {
-            loadIndex = pool.addComponent(new BoolConstant(((double) leftInt.getValue()) == rightFloat.getValue()));
+            component = pool.addBoolean(((double) leftInt.getValue()) == rightFloat.getValue());
             break;
           }
           case NOT_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(((double) leftInt.getValue()) != rightFloat.getValue()));
+            component = pool.addBoolean(((double) leftInt.getValue()) != rightFloat.getValue());
             break;
           }
           default: {
@@ -1466,57 +1471,57 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           }
         }
 
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
       }
       else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof Int) {
         final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
         final Int rightInt = (Int) rightLiteral;
 
-        int loadIndex = -1;
+        PoolComponent component = null;
 
         switch (op) {
           case PLUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() + rightInt.getValue()));
+            component = pool.addFloat(leftFloat.getValue() + rightInt.getValue());
             break;
           }
           case MINUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() - rightInt.getValue()));
+            component = pool.addFloat(leftFloat.getValue() - rightInt.getValue());
             break;
           }
           case MULT: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() * rightInt.getValue()));
+            component = pool.addFloat(leftFloat.getValue() * rightInt.getValue());
             break;
           }
           case DIV: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() / rightInt.getValue()));
+            component = pool.addFloat(leftFloat.getValue() / rightInt.getValue());
             break;
           }
           case MOD: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() % rightInt.getValue()));
+            component = pool.addFloat(leftFloat.getValue() % rightInt.getValue());
             break;
           }
           case LESS: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() < rightInt.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() < rightInt.getValue());
             break;
           }
           case GREAT: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() > rightInt.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() > rightInt.getValue());
             break;
           }
           case GR_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() >= rightInt.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() >= rightInt.getValue());
             break;
           }
           case LS_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() <= rightInt.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() <= rightInt.getValue());
             break;
           }
           case EQUAL: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() == ((double) rightInt.getValue())));
+            component = pool.addBoolean(leftFloat.getValue() == ((double) rightInt.getValue()));
             break;
           }
           case NOT_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() != ((double) rightInt.getValue())));
+            component = pool.addBoolean(leftFloat.getValue() != ((double) rightInt.getValue()));
             break;
           }
           default: {
@@ -1525,57 +1530,57 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           }
         }
 
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
       }
       else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof FloatingPoint) {
         final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
         final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
 
-        int loadIndex = -1;
+        PoolComponent component = null;
 
         switch (op) {
           case PLUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() + rightFloat.getValue()));
+            component = pool.addFloat(leftFloat.getValue() + rightFloat.getValue());
             break;
           }
           case MINUS: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() - rightFloat.getValue()));
+            component = pool.addFloat(leftFloat.getValue() - rightFloat.getValue());
             break;
           }
           case MULT: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() * rightFloat.getValue()));
+            component = pool.addFloat(leftFloat.getValue() * rightFloat.getValue());
             break;
           }
           case DIV: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() / rightFloat.getValue()));
+            component = pool.addFloat(leftFloat.getValue() / rightFloat.getValue());
             break;
           }
           case MOD: {
-            loadIndex = pool.addComponent(new FloatConstant(leftFloat.getValue() % rightFloat.getValue()));
+            component = pool.addFloat(leftFloat.getValue() % rightFloat.getValue());
             break;
           }
           case LESS: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() < rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() < rightFloat.getValue());
             break;
           }
           case GREAT: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() > rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() > rightFloat.getValue());
             break;
           }
           case GR_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() >= rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() >= rightFloat.getValue());
             break;
           }
           case LS_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() <= rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() <= rightFloat.getValue());
             break;
           }
           case EQUAL: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() == rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() == rightFloat.getValue());
             break;
           }
           case NOT_EQ: {
-            loadIndex = pool.addComponent(new BoolConstant(leftFloat.getValue() != rightFloat.getValue()));
+            component = pool.addBoolean(leftFloat.getValue() != rightFloat.getValue());
             break;
           }
           default: {
@@ -1584,7 +1589,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           }
         }
 
-        instrs.add(new LoadCellInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, loadIndex));
+        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
       }
       else {
         /**
@@ -1648,7 +1653,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     //These are instructions appended after ALLOCO for constant attrs
-    final List<ArgInstr> constInstrs = new ArrayList<>();
+    final List<LoadInstr> constInstrs = new ArrayList<>();
 
     /*
      * Make an argument vector to pass object attributes
@@ -1665,7 +1670,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      */
     for (Entry<String, Parameter> attr: objectLiteral.getAttributes().entrySet()) {
       final Parameter attrParam = attr.getValue();
-      final int attrNameIndex = constantPool.addComponent(new StringConstant(attr.getKey()));
+      final StringConstant attrName = constantPool.addString(attr.getKey());
 
       final NodeResult valueRes = attrParam.getInitValue().accept(this, parentContext);
       if(valueRes.hasExceptions()) {
@@ -1673,19 +1678,19 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instructions.addAll(valueRes.getInstructions());
-        instructions.add(new ArgInstr(attrParam.start, attrParam.end, ARG, attrNameIndex));
+        instructions.add(attrName.linkInstr(new LoadInstr(attrParam.start, attrParam.end, ARG, attrName.getExactIndex())));
       }
 
       if (attr.getValue().hasDescriptor(TokenType.CONST)) {
-        final int descriptorIndex = constantPool.addComponent(new IntegerConstant(1));
-        constInstrs.add(new ArgInstr(attr.getValue().getName().start, 
-                                     attr.getValue().getName().end, 
-                                     LOADC, 
-                                     descriptorIndex));
-        constInstrs.add(new ArgInstr(attr.getValue().getName().start, 
-                                     attr.getValue().getName().end, 
-                                     MAKECONST, 
-                                     attrNameIndex));
+        final IntegerConstant descriptor = constantPool.addInt(1);
+        constInstrs.add(descriptor.linkInstr(new LoadInstr(attr.getValue().getName().start, 
+                                                          attr.getValue().getName().end, 
+                                                          LOADC, 
+                                                          descriptor.getExactIndex())));
+        constInstrs.add(attrName.linkInstr(new LoadInstr(attr.getValue().getName().start, 
+                                                         attr.getValue().getName().end, 
+                                                         MAKECONST, 
+                                                         attrName.getExactIndex())));
       }
     }
 
@@ -1716,14 +1721,19 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
        * If the argument isn't geared towards an optional parameter,
        * the argNameIndex is -1, signaling that it's a positional argument.
        */
-      final int argNameIndex = arg.hasName() ? 
-                                  constantPool.addComponent(new StringConstant(arg.getParamName().getIdentifier())) : 
-                                  -1;
-
-      instructions.add(new ArgInstr(arg.getArgument().start, 
-                                    arg.getArgument().end, 
-                                    ARG, 
-                                    argNameIndex));
+      if (arg.hasName()) {
+        final StringConstant argName = constantPool.addString(arg.getParamName().getIdentifier());
+        instructions.add(argName.linkInstr(new LoadInstr(arg.getParamName().start, 
+                                                         arg.getArgument().end, 
+                                                         ARG, 
+                                                         argName.getExactIndex())));
+      }
+      else {
+        instructions.add(new LoadInstr(arg.getArgument().start, 
+                                      arg.getArgument().end, 
+                                      ARG, 
+                                      -1));
+      }
     }
 
     funcCall.getTarget().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instructions);
@@ -1753,12 +1763,12 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     /*
      * Allocate attribute name in the constant pool. 
      */
-    final int attrNameIndex = constantPool.addComponent(new StringConstant(attrAccess.getAttrName().getIdentifier()));
+    final StringConstant attrName = constantPool.addString(attrAccess.getAttrName().getIdentifier());
     if (parentContext.hasContextValue(ContextKey.NEED_STORAGE) && (boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
-      instructions.add(new StoreCellInstr(attrAccess.start, attrAccess.end, STOREATTR, attrNameIndex));
+      instructions.add(attrName.linkInstr(new StoreInstr(attrAccess.start, attrAccess.end, STOREATTR, attrName.getExactIndex())));
     }
     else {
-      instructions.add(new LoadCellInstr(attrAccess.start, attrAccess.end, LOADATTR, attrNameIndex));
+      instructions.add(attrName.linkInstr(new LoadInstr(attrAccess.start, attrAccess.end, LOADATTR, attrName.getExactIndex())));
     }
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
@@ -1784,7 +1794,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instructions.addAll(valueResult.getInstructions());
-        instructions.add(new ArgInstr(value.start, value.end, ARG, -1));
+        instructions.add(new LoadInstr(value.start, value.end, ARG, -1));
       }
     }
 
@@ -1810,14 +1820,14 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                             .pipeInstr(instrs);
 
     //Allocate attr name on constant pool
-    final int attrName = pool.addComponent(new StringConstant(constAttrDeclr.getAttr().getAttrName().getIdentifier()));
+    final StringConstant attrName = pool.addString(constAttrDeclr.getAttr().getAttrName().getIdentifier());
 
     //Allocate int for modifier
-    final int constCode = pool.addComponent(new IntegerConstant(1));
-    instrs.add(new LoadCellInstr(constAttrDeclr.start, constAttrDeclr.end, LOADC, constCode));
+    final IntegerConstant constCode = pool.addInt(1);
+    instrs.add(constCode.linkInstr(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, LOADC, constCode.getExactIndex())));
 
-    //Use the SETDESC instr
-    instrs.add(new ArgInstr(constAttrDeclr.start, constAttrDeclr.end, MAKECONST, attrName));
+    //Use the MAKECONST instr
+    instrs.add(attrName.linkInstr(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, MAKECONST, attrName.getExactIndex())));
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -1954,17 +1964,17 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     if (target instanceof Bool) {
       final Bool targetBool = (Bool) target;
       if (op.getOp() == Op.BANG) {
-        final int negatedIndex = parentContext.getConstantPool()
-                                              .addComponent(new BoolConstant(!targetBool.getValue()));
-        return valid(new LoadCellInstr(unaryExpr.start, unaryExpr.end, LOADC, negatedIndex));
+        final BoolConstant negated = parentContext.getConstantPool()
+                                                  .addBoolean(!targetBool.getValue());
+        return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
       }
     }
     else if (target instanceof Int) {
       final Int targetInt = (Int) target;
       if (op.getOp() == Op.MINUS) {
-        final int negatedIndex = parentContext.getConstantPool()
-                                              .addComponent(new IntegerConstant(-targetInt.getValue()));
-        return valid(new LoadCellInstr(unaryExpr.start, unaryExpr.end, LOADC, negatedIndex));
+        final IntegerConstant negated = parentContext.getConstantPool()
+                                                     .addInt(-targetInt.getValue());
+        return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
       }
     }
 

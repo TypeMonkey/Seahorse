@@ -3,12 +3,14 @@ package jg.sh.compile.pool.component;
 import java.util.LinkedHashMap;
 
 import jg.sh.common.FunctionSignature;
+import jg.sh.common.Location;
+import jg.sh.compile.pool.ConstantPool.MutableIndex;
 
-public class DataRecord implements PoolComponent {
+public class DataRecord extends PoolComponent {
 
   private final String name;
   private final FunctionSignature constructorSignature;
-  private final LinkedHashMap<String, Integer> methods;
+  private final LinkedHashMap<String, MutableIndex> methods;
   private final boolean isSealed;
 
   /**
@@ -19,8 +21,9 @@ public class DataRecord implements PoolComponent {
    */
   public DataRecord(String name, 
                     FunctionSignature constructorSignature, 
-                    LinkedHashMap<String, Integer> methods,
+                    LinkedHashMap<String, MutableIndex> methods,
                     boolean isSealed) {
+    super(ComponentType.DATA_RECORD);
     this.name = name;
     this.constructorSignature = constructorSignature;
     this.methods = methods;
@@ -45,7 +48,7 @@ public class DataRecord implements PoolComponent {
     return constructorSignature;
   }
 
-  public LinkedHashMap<String, Integer> getMethods() {
+  public LinkedHashMap<String, MutableIndex> getMethods() {
     return methods;
   }
 
@@ -54,7 +57,7 @@ public class DataRecord implements PoolComponent {
   }
 
   @Override
-  public ComponentType getType() {
-    return ComponentType.DATA_RECORD;
+  public String toString() {
+    return "<data_record> "+name+" methods: "+methods;
   }
 }

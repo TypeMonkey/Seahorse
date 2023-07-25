@@ -6,9 +6,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import jg.sh.common.FunctionSignature;
+import jg.sh.common.Location;
 import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.pool.ConstantPool.MutableIndex;
 
-public class CodeObject implements PoolComponent{
+public class CodeObject extends PoolComponent{
   
   private final FunctionSignature signature;
   private final String boundName;
@@ -26,6 +28,7 @@ public class CodeObject implements PoolComponent{
                     int keywordVarArgIndex,
                     List<Instruction> instrs, 
                     int [] captures) {
+    super(ComponentType.CODE);
     this.signature = signature;
     this.boundName = boundName;
     this.keywordIndexes = keywordIndexes;
@@ -88,10 +91,5 @@ public class CodeObject implements PoolComponent{
                          instrs.stream()
                                .map(x -> "        "+x.toString())
                                .collect(Collectors.joining(System.lineSeparator()));
-  }
-
-  @Override
-  public ComponentType getType() {
-    return ComponentType.CODE;
   }
 }

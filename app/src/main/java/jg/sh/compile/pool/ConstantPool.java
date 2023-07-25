@@ -2,10 +2,15 @@ package jg.sh.compile.pool;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import jg.sh.common.FunctionSignature;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.MutableInstr;
 import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.CodeObject;
 import jg.sh.compile.pool.component.DataRecord;
 import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
@@ -14,13 +19,53 @@ import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
 
 public class ConstantPool {
+
+  public static class MutableIndex {
+
+    private final List<MutableInstr> linkedLoads;
+    private int index;
+
+    public MutableIndex(int initialIndex) {
+      this.linkedLoads = new ArrayList<>();
+      this.index = initialIndex;
+    }
+
+    public MutableIndex() {
+      this(-1);
+    }
+
+    public <T extends MutableInstr> T linkInstr(T mutableInstr) {
+      linkedLoads.add(mutableInstr);
+      return mutableInstr;
+    }
+
+    public void increment() {
+      setIndex(index + 1);
+    }
+
+    public void decrement() {
+      setIndex(index - 1);
+    }
+
+    public void setIndex(int index) {
+      this.index = index;
+
+      for (MutableInstr instr : linkedLoads) {
+        instr.setIndex(index);
+      }
+    }
+
+    public int getIndex() {
+      return index;
+    }
+  }
   
-  private final Map<String, Integer> stringConstants;
-  private final Map<Long, Integer> integerConstants;
-  private final Map<Double, Integer> floatConstants;
-  private final Map<Boolean, Integer> booleanConstants;
+  private final Map<String, StringConstant> stringConstants;
+  private final Map<Long, IntegerConstant> integerConstants;
+  private final Map<Double, FloatConstant> floatConstants;
+  private final Map<Boolean, BoolConstant> booleanConstants;
+  private final Map<String, DataRecord> dataRecords;
   private final List<ErrorHandlingRecord> errorHandlingRecords;
-  private final Map<DataRecord, Integer> dataRecords;
 
   private final List<PoolComponent> allComponents;
   
@@ -32,8 +77,8 @@ public class ConstantPool {
     this.floatConstants = new HashMap<>();
     this.booleanConstants = new HashMap<>();
     this.dataRecords = new HashMap<>();
+    this.errorHandlingRecords = new ArrayList<>();
     
-    errorHandlingRecords = new ArrayList<>();
     allComponents = new ArrayList<>();
     currentIndex = 0;
   }
@@ -50,97 +95,85 @@ public class ConstantPool {
    */
   public void preloadCommonConstants() {
     //Load boolean values
-    addComponent(new BoolConstant(true));   
-    addComponent(new BoolConstant(false));
+    addBoolean(true);   
+    addBoolean(false);
 
     //Load integer values from -255 to 255
     for(long i = -255; i <= 255; i++) {
-      addNewComponent(new IntegerConstant(i));
+      addInt(i);
     }
   }
-  
-  /**
-   * Adds a constant to this ContantPool
-   * @param component - the PoolComponent (constant) to add to the pool
-   *   
-   *   If the component is a string, boolean, integer, or float, this method
-   *   will first check is an equivalent value has already been added to this pool.
-   *   
-   *   If so, it'll return that value's index. Else, it'll add the component to the pool
-   *   and return the index associated with the addition.
-   * 
-   * @return the index to refer to the given constant
-   */
-  public int addComponent(PoolComponent component) { 
-    switch (component.getType()) {
-      case STRING: {
-        StringConstant stringConstant = (StringConstant) component;
-        if(stringConstants.containsKey(stringConstant.getValue())) {
-          return stringConstants.get(stringConstant.getValue());
-        }
-        else {
-          int index = addNewComponent(component);
-          stringConstants.put(stringConstant.getValue(), index);
-          return index;
-        }
-      }
-      case BOOLEAN: {
-        BoolConstant boolConstant = (BoolConstant) component;
-        if(booleanConstants.containsKey(boolConstant.getValue())) {
-          return booleanConstants.get(boolConstant.getValue());
-        }
-        else {
-          int index = addNewComponent(component);
-          booleanConstants.put(boolConstant.getValue(), index);
-          return index;
-        }
-      }
-      case INT: {
-        IntegerConstant integerConstant = (IntegerConstant) component;
-        if(integerConstants.containsKey(integerConstant.getValue())) {
-          return integerConstants.get(integerConstant.getValue());
-        }
-        else {
-          int index = addNewComponent(component);
-          integerConstants.put(integerConstant.getValue(), index);
-          return index;
-        }
-      }
-      case FLOAT: {
-        FloatConstant floatConstant = (FloatConstant) component;
-        if(floatConstants.containsKey(floatConstant.getValue())) {
-          return floatConstants.get(floatConstant.getValue());
-        }
-        else {
-          int index = addNewComponent(component);
-          floatConstants.put(floatConstant.getValue(), index);
-          return index;
-        }
-      }
-      case ERROR_RECORD: {
-        ErrorHandlingRecord errorHandlingRecord = (ErrorHandlingRecord) component;
-        errorHandlingRecords.add(errorHandlingRecord);
-        return addNewComponent(errorHandlingRecord);
-      }
-      case DATA_RECORD: {
-        DataRecord dataRecord = (DataRecord) component;
-        if (dataRecords.containsKey(dataRecord)) {
-          return dataRecords.get(dataRecord);
-        }
-        else {
-          int index = addNewComponent(component);
-          dataRecords.put(dataRecord, index);
-          return index;
-        }
-      }
-      default:
-        return addNewComponent(component);
-    }
+
+  public StringConstant addString(String value) {
+    return stringConstants.computeIfAbsent(value, 
+                          (e) -> {
+                            return addNewComponent(new StringConstant(e));
+                          });
+  }
+
+  public IntegerConstant addInt(long value) {
+    return integerConstants.computeIfAbsent(value, 
+                          (e) -> {
+                            return addNewComponent(new IntegerConstant(e));
+                          });
+  }
+
+  public FloatConstant addFloat(double value) {
+    return floatConstants.computeIfAbsent(value, 
+                          (e) -> {
+                            return addNewComponent(new FloatConstant(e));
+                          });
+  }
+
+  public BoolConstant addBoolean(boolean value) {
+    return booleanConstants.computeIfAbsent(value, 
+                          (e) -> {
+                            return addNewComponent(new BoolConstant(e));
+                          });
+  }
+
+  public CodeObject addCodeObject(FunctionSignature signature, 
+                                 String boundName, 
+                                 Map<String, Integer> keywordIndexes, 
+                                 int varArgIndex,
+                                 int keywordVarArgIndex,
+                                 List<Instruction> instrs, 
+                                 int [] captures) {
+    final CodeObject codeObject = new CodeObject(signature, boundName, keywordIndexes, varArgIndex, keywordVarArgIndex, instrs, captures);
+    return addNewComponent(codeObject);
+  }
+
+  public ErrorHandlingRecord addErrorHandling(String startTryLabel, 
+                                    String endTryLabel, 
+                                    String catchLabel) {
+    final ErrorHandlingRecord record = new ErrorHandlingRecord(startTryLabel, endTryLabel, catchLabel);
+    errorHandlingRecords.add(record);
+    return addNewComponent(record);
+  }
+
+  public DataRecord addDataRecord(String name, 
+                                 FunctionSignature constructorSignature, 
+                                 LinkedHashMap<String, MutableIndex> methods,
+                                 boolean isSealed) {
+    final DataRecord record = new DataRecord(name, constructorSignature, methods, isSealed);
+    return dataRecords.computeIfAbsent(record.getName(), 
+                          (e) -> {
+                            return addNewComponent(record);
+                          });
   }
   
-  private int addNewComponent(PoolComponent component) {
+  private <T extends PoolComponent> T addNewComponent(T component) {
     allComponents.add(component);
-    return currentIndex++;
+    component.setIndex(new MutableIndex(currentIndex++));
+    return component;
+  }
+
+  public void removeComponent(int index) {
+    allComponents.remove(index);
+    //Update all indices of right-towards components
+    for (int i = index; i < allComponents.size(); i++) {
+      allComponents.get(i).getIndex().decrement();
+    }
   }
   
   public PoolComponent getComponent(int index) {
@@ -151,26 +184,26 @@ public class ConstantPool {
     return allComponents;
   }
   
-  public Map<String, Integer> getStringConstants() {
+  public Map<String, StringConstant> getStringConstants() {
     return stringConstants;
   }
   
-  public Map<Boolean, Integer> getBooleanConstants() {
+  public Map<Boolean, BoolConstant> getBooleanConstants() {
     return booleanConstants;
   }
   
-  public Map<Long, Integer> getIntegerConstants() {
+  public Map<Long, IntegerConstant> getIntegerConstants() {
     return integerConstants;
   }
   
-  public Map<Double, Integer> getFloatConstants() {
+  public Map<Double, FloatConstant> getFloatConstants() {
     return floatConstants;
   }
   
   public List<ErrorHandlingRecord> getErrorHandlingRecords() {
     return errorHandlingRecords;
   }
-  
+
   public int getPoolSize() {
     return allComponents.size();
   }

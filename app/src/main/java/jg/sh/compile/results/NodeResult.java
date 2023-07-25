@@ -6,15 +6,30 @@ import java.util.List;
 
 import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.optimization.OptimizableTarget;
 
 public class NodeResult {
   
   private final List<ValidationException> exceptions;
   private final List<Instruction> instructions;
 
+  private OptimizableTarget optimizableTarget;
+
   protected NodeResult(List<ValidationException> exceptions, List<Instruction> instructions) {
     this.exceptions = exceptions;
     this.instructions = instructions;
+  }
+
+  public void setTarget(OptimizableTarget target) {
+    this.optimizableTarget = target;
+  }
+
+  public OptimizableTarget getOptimizableTarget() {
+    return optimizableTarget;
+  }
+
+  public boolean isOptimizable() { 
+    return optimizableTarget != null;
   }
 
   public boolean hasExceptions() {

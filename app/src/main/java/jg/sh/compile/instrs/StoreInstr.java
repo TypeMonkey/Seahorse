@@ -2,11 +2,11 @@ package jg.sh.compile.instrs;
 
 import jg.sh.common.Location;
 
-public class StoreCellInstr extends Instruction{
+public class StoreInstr extends Instruction implements MutableInstr {
   
  private int index;
   
-  public StoreCellInstr(Location start, Location end, OpCode initialOpCode, int index) {
+  public StoreInstr(Location start, Location end, OpCode initialOpCode, int index) {
     super(start, end, initialOpCode);
     this.index = index;
   }

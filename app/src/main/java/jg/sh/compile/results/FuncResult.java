@@ -4,20 +4,21 @@ import java.util.List;
 
 import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.pool.ConstantPool.MutableIndex;
 import jg.sh.compile.pool.component.CodeObject;
 
 public class FuncResult extends NodeResult {
 
-  private final int codeObjectIndex;
+  private final MutableIndex codeObjectIndex;
 
   public FuncResult(List<ValidationException> exceptions, 
                     List<Instruction> instructions, 
-                    int codeObjectIndex) {
+                    MutableIndex codeObjectIndex) {
     super(exceptions, instructions);
     this.codeObjectIndex = codeObjectIndex;
   }
   
-  public int getCodeObjectIndex() {
+  public MutableIndex getCodeObjectIndex() {
     return codeObjectIndex;
   }
 }
