@@ -35,6 +35,7 @@ public class ConstantPool {
     }
 
     public <T extends MutableInstr> T linkInstr(T mutableInstr) {
+      mutableInstr.setIndex(index);
       linkedLoads.add(mutableInstr);
       return mutableInstr;
     }

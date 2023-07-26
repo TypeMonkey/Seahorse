@@ -1,8 +1,5 @@
 package jg.sh.compile.pool.component;
 
-import jg.sh.common.Location;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
-
 public class IntegerConstant extends PoolComponent {
 
   private final long value;

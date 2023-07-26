@@ -6,9 +6,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.common.Location;
 import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
 
 public class CodeObject extends PoolComponent{
   

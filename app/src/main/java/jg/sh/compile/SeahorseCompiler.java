@@ -6,6 +6,7 @@ import jg.sh.parsing.token.TokenType;
 import jg.sh.util.StringUtils;
 import jg.sh.compile.exceptions.InvalidModulesException;
 import jg.sh.compile.exceptions.ValidationException;
+import jg.sh.compile.optimization.OptimizingIRCompiler;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;
 

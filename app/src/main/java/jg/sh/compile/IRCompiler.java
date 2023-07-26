@@ -78,6 +78,7 @@ import jg.sh.parsing.nodes.values.Null;
 import jg.sh.parsing.nodes.values.Str;
 import jg.sh.parsing.token.TokenType;
 import jg.sh.util.Pair;
+import jg.sh.compile.results.ConstantResult;
 import jg.sh.compile.results.FuncResult;
 import jg.sh.compile.results.NodeResult;
 import jg.sh.compile.results.VarResult;
@@ -87,7 +88,7 @@ import static jg.sh.compile.instrs.OpCode.*;
 
 public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
-  private static Logger LOG = LogManager.getLogger(IRCompiler.class);
+  private static final Logger LOG = LogManager.getLogger(IRCompiler.class);
 
   public IRCompiler() {}
 
@@ -835,31 +836,35 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   }
 
   @Override
-  public NodeResult visitString(CompContext parentContext, Str str) {
+  public ConstantResult visitString(CompContext parentContext, Str str) {
     final ConstantPool pool = parentContext.getConstantPool();
     final StringConstant constant = pool.addString(str.getValue());
-    return valid(constant.linkInstr(new LoadInstr(str.start, str.end, LOADC, constant.getExactIndex())));
+    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(str.start, str.end, LOADC, constant.getExactIndex()));
+    return new ConstantResult(constant, loadInstr);
   }
 
   @Override
-  public NodeResult visitInt(CompContext parentContext, Int integer) {
+  public ConstantResult visitInt(CompContext parentContext, Int integer) {
     final ConstantPool pool = parentContext.getConstantPool();
     final IntegerConstant constant = pool.addInt(integer.getValue());
-    return valid(constant.linkInstr(new LoadInstr(integer.start, integer.end, LOADC, constant.getExactIndex())));
+    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(integer.start, integer.end, LOADC, constant.getExactIndex()));
+    return new ConstantResult(constant, loadInstr);  
   }
 
   @Override
-  public NodeResult visitBoolean(CompContext parentContext, Bool bool) {
+  public ConstantResult visitBoolean(CompContext parentContext, Bool bool) {
     final ConstantPool pool = parentContext.getConstantPool();
     final BoolConstant constant = pool.addBoolean(bool.getValue());
-    return valid(constant.linkInstr(new LoadInstr(bool.start, bool.end, LOADC, constant.getExactIndex())));
+    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(bool.start, bool.end, LOADC, constant.getExactIndex()));
+    return new ConstantResult(constant, loadInstr);
   }
 
   @Override
-  public NodeResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
+  public ConstantResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
     final ConstantPool pool = parentContext.getConstantPool();
     final FloatConstant constant = pool.addFloat(floatingPoint.getValue());
-    return valid(constant.linkInstr(new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getExactIndex())));
+    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getExactIndex()));
+    return new ConstantResult(constant, loadInstr);
   }
 
   @Override
@@ -1344,276 +1349,27 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, BIND));
     }
     else {
-      //OPTIMIZATION: If the values are literal, just compute them here.
-      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
-      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
-      if (leftLiteral instanceof Int && rightLiteral instanceof Int) {
-        final Int leftInt = (Int) leftLiteral;
-        final Int rightInt = (Int) rightLiteral;
+      /**
+       * Compile left operand first.
+       */
+      final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
+      leftResult.pipeErr(exceptions).pipeInstr(instrs);
+            
+      /**
+       * Compile the right operand next
+       */
+      final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
+      rightResult.pipeErr(exceptions).pipeInstr(instrs);
 
-        PoolComponent component = null;
 
-        switch (op) {
-          case PLUS: {
-            component = pool.addInt(leftInt.getValue() + rightInt.getValue());
-            break;
-          }
-          case MINUS: {
-            component = pool.addInt(leftInt.getValue() - rightInt.getValue());
-            break;
-          }
-          case MULT: {
-            component = pool.addInt(leftInt.getValue() * rightInt.getValue());
-            break;
-          }
-          case DIV: {
-            component = pool.addInt(leftInt.getValue() / rightInt.getValue());
-            break;
-          }
-          case MOD: {
-            component = pool.addInt(leftInt.getValue() % rightInt.getValue());
-            break;
-          }
-          case LESS: {
-            component = pool.addBoolean(leftInt.getValue() < rightInt.getValue());
-            break;
-          }
-          case GREAT: {
-            component = pool.addBoolean(leftInt.getValue() > rightInt.getValue());
-            break;
-          }
-          case GR_EQ: {
-            component = pool.addBoolean(leftInt.getValue() >= rightInt.getValue());
-            break;
-          }
-          case LS_EQ: {
-            component = pool.addBoolean(leftInt.getValue() <= rightInt.getValue());
-            break;
-          }
-          case EQUAL: {
-            component = pool.addBoolean(leftInt.getValue() == rightInt.getValue());
-            break;
-          }
-          case NOT_EQ: {
-            component = pool.addBoolean(leftInt.getValue() != rightInt.getValue());
-            break;
-          }
-          case AND: {
-            component = pool.addInt(leftInt.getValue() & rightInt.getValue());
-            break;
-          }
-          case OR: {
-            component = pool.addInt(leftInt.getValue() | rightInt.getValue());
-            break;
-          }
-          default: {
-            LOG.warn("Unknown operator for arith optimization: "+op);
-            break;
-          }
-        }
-
-        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
-      }
-      else if (leftLiteral instanceof Int && rightLiteral instanceof FloatingPoint) {
-        final Int leftInt = (Int) leftLiteral;
-        final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
-
-        PoolComponent component = null;
-
-        switch (op) {
-          case PLUS: {
-            component = pool.addFloat(leftInt.getValue() + rightFloat.getValue());
-            break;
-          }
-          case MINUS: {
-            component = pool.addFloat(leftInt.getValue() - rightFloat.getValue());
-            break;
-          }
-          case MULT: {
-            component = pool.addFloat(leftInt.getValue() * rightFloat.getValue());
-            break;
-          }
-          case DIV: {
-            component = pool.addFloat(leftInt.getValue() / rightFloat.getValue());
-            break;
-          }
-          case MOD: {
-            component = pool.addFloat(leftInt.getValue() % rightFloat.getValue());
-            break;
-          }
-          case LESS: {
-            component = pool.addBoolean(leftInt.getValue() < rightFloat.getValue());
-            break;
-          }
-          case GREAT: {
-            component = pool.addBoolean(leftInt.getValue() > rightFloat.getValue());
-            break;
-          }
-          case GR_EQ: {
-            component = pool.addBoolean(leftInt.getValue() >= rightFloat.getValue());
-            break;
-          }
-          case LS_EQ: {
-            component = pool.addBoolean(leftInt.getValue() <= rightFloat.getValue());
-            break;
-          }
-          case EQUAL: {
-            component = pool.addBoolean(((double) leftInt.getValue()) == rightFloat.getValue());
-            break;
-          }
-          case NOT_EQ: {
-            component = pool.addBoolean(((double) leftInt.getValue()) != rightFloat.getValue());
-            break;
-          }
-          default: {
-            LOG.warn("Unknown operator for arith optimization: "+op);
-            break;
-          }
-        }
-
-        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
-      }
-      else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof Int) {
-        final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
-        final Int rightInt = (Int) rightLiteral;
-
-        PoolComponent component = null;
-
-        switch (op) {
-          case PLUS: {
-            component = pool.addFloat(leftFloat.getValue() + rightInt.getValue());
-            break;
-          }
-          case MINUS: {
-            component = pool.addFloat(leftFloat.getValue() - rightInt.getValue());
-            break;
-          }
-          case MULT: {
-            component = pool.addFloat(leftFloat.getValue() * rightInt.getValue());
-            break;
-          }
-          case DIV: {
-            component = pool.addFloat(leftFloat.getValue() / rightInt.getValue());
-            break;
-          }
-          case MOD: {
-            component = pool.addFloat(leftFloat.getValue() % rightInt.getValue());
-            break;
-          }
-          case LESS: {
-            component = pool.addBoolean(leftFloat.getValue() < rightInt.getValue());
-            break;
-          }
-          case GREAT: {
-            component = pool.addBoolean(leftFloat.getValue() > rightInt.getValue());
-            break;
-          }
-          case GR_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() >= rightInt.getValue());
-            break;
-          }
-          case LS_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() <= rightInt.getValue());
-            break;
-          }
-          case EQUAL: {
-            component = pool.addBoolean(leftFloat.getValue() == ((double) rightInt.getValue()));
-            break;
-          }
-          case NOT_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() != ((double) rightInt.getValue()));
-            break;
-          }
-          default: {
-            LOG.warn("Unknown operator for arith optimization: "+op);
-            break;
-          }
-        }
-
-        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
-      }
-      else if (leftLiteral instanceof FloatingPoint && rightLiteral instanceof FloatingPoint) {
-        final FloatingPoint leftFloat = (FloatingPoint) leftLiteral;
-        final FloatingPoint rightFloat = (FloatingPoint) rightLiteral;
-
-        PoolComponent component = null;
-
-        switch (op) {
-          case PLUS: {
-            component = pool.addFloat(leftFloat.getValue() + rightFloat.getValue());
-            break;
-          }
-          case MINUS: {
-            component = pool.addFloat(leftFloat.getValue() - rightFloat.getValue());
-            break;
-          }
-          case MULT: {
-            component = pool.addFloat(leftFloat.getValue() * rightFloat.getValue());
-            break;
-          }
-          case DIV: {
-            component = pool.addFloat(leftFloat.getValue() / rightFloat.getValue());
-            break;
-          }
-          case MOD: {
-            component = pool.addFloat(leftFloat.getValue() % rightFloat.getValue());
-            break;
-          }
-          case LESS: {
-            component = pool.addBoolean(leftFloat.getValue() < rightFloat.getValue());
-            break;
-          }
-          case GREAT: {
-            component = pool.addBoolean(leftFloat.getValue() > rightFloat.getValue());
-            break;
-          }
-          case GR_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() >= rightFloat.getValue());
-            break;
-          }
-          case LS_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() <= rightFloat.getValue());
-            break;
-          }
-          case EQUAL: {
-            component = pool.addBoolean(leftFloat.getValue() == rightFloat.getValue());
-            break;
-          }
-          case NOT_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() != rightFloat.getValue());
-            break;
-          }
-          default: {
-            LOG.warn("Unknown operator for arith optimization: "+op);
-            break;
-          }
-        }
-
-        instrs.add(component.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex())));
+      final OpCode opCode = opToCode(op);
+      if (opCode == null) {
+        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                              binaryOpExpr.getOperator().start, 
+                                              binaryOpExpr.getOperator().end));
       }
       else {
-        /**
-         * Compile left operand first.
-         */
-        final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
-        leftResult.pipeErr(exceptions).pipeInstr(instrs);
-              
-        /**
-         * Compile the right operand next
-         */
-        final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
-        rightResult.pipeErr(exceptions).pipeInstr(instrs);
-
-
-        final OpCode opCode = opToCode(op);
-        if (opCode == null) {
-          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                                binaryOpExpr.getOperator().start, 
-                                                binaryOpExpr.getOperator().end));
-        }
-        else {
-          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
-        }
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
       }
     }
 
@@ -1959,34 +1715,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     final Operator op = unaryExpr.getOperator();
 
-    //OPTIMIZATION: If the values are literal, just compute them here.
-    final Node target = unwrap(unaryExpr.getTarget());
-    if (target instanceof Bool) {
-      final Bool targetBool = (Bool) target;
-      if (op.getOp() == Op.BANG) {
-        final BoolConstant negated = parentContext.getConstantPool()
-                                                  .addBoolean(!targetBool.getValue());
-        return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
-      }
-    }
-    else if (target instanceof Int) {
-      final Int targetInt = (Int) target;
-      if (op.getOp() == Op.MINUS) {
-        final IntegerConstant negated = parentContext.getConstantPool()
-                                                     .addInt(-targetInt.getValue());
-        return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
-      }
-    }
-
     //Compile target expression first
-    final NodeResult targetResult = unaryExpr.getTarget().accept(this, parentContext);
-    if (targetResult.hasExceptions()) {
-      exceptions.addAll(targetResult.getExceptions());
-    }
-    else {
-      instructions.addAll(targetResult.getInstructions());
-    }
-
+    unaryExpr.getTarget().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instructions);
 
     //Then add instruction for unary operator
     switch (op.getOp()) {
@@ -2013,12 +1743,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     String ret = labelName+labelTag;
     labelTag++;
     return ret;
-  }
-
-  private static <T> List<T> concat(List<T> left, List<T> right) {
-    final ArrayList<T> newList = new ArrayList<>(left);
-    newList.addAll(right);
-    return newList;
   }
 
   private static Node unwrap(Node target) {

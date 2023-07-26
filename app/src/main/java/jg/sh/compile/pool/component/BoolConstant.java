@@ -1,7 +1,5 @@
 package jg.sh.compile.pool.component;
 
-import jg.sh.common.Location;
-
 public class BoolConstant extends PoolComponent{
 
   private final boolean value;

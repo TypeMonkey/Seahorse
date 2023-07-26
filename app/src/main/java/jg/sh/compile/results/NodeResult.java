@@ -20,8 +20,9 @@ public class NodeResult {
     this.instructions = instructions;
   }
 
-  public void setTarget(OptimizableTarget target) {
+  public NodeResult setTarget(OptimizableTarget target) {
     this.optimizableTarget = target;
+    return this;
   }
 
   public OptimizableTarget getOptimizableTarget() {
