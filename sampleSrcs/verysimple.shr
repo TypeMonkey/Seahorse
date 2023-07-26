@@ -1,2 +1,4 @@
-//const test := (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
-const test := 80 - 90;
+use system;
+
+const test := (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
+system.println(test);

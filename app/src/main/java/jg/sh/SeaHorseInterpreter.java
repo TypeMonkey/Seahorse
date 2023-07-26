@@ -200,7 +200,7 @@ public class SeaHorseInterpreter {
     options.put(IOption.MEASURE, false);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
-    options.put(IOption.LOG_LEVEL, "ALL");
+    options.put(IOption.LOG_LEVEL, "OFF");
     
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
     interpreter.init();

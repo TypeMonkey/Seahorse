@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import jg.sh.compile.optimization.OptimizingIRCompiler;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;
 import jg.sh.parsing.Tokenizer;
@@ -20,7 +21,7 @@ public class IRCompileTest {
   public void testSimple() {
     try {
       final Module module = compileModule("multiFuncs.shr");
-      final IRCompiler compiler = new IRCompiler();
+      final IRCompiler compiler = new OptimizingIRCompiler();
       CompilerResult objectFile = compiler.compileModule(module);
 
       if (objectFile.isSuccessful()) {

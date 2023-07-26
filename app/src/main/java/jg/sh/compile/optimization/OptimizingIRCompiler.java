@@ -27,7 +27,7 @@ import static jg.sh.compile.instrs.OpCode.*;
 
 public class OptimizingIRCompiler extends IRCompiler {
 
-  private static final Logger LOG = LogManager.getLogger(IRCompiler.class);
+  private static final Logger LOG = LogManager.getLogger(OptimizingIRCompiler.class);
   
   @Override
   public ConstantResult visitInt(CompContext parentContext, Int integer) {
@@ -45,33 +45,52 @@ public class OptimizingIRCompiler extends IRCompiler {
 
   @Override
   public NodeResult visitUnary(CompContext parentContext, UnaryExpr unaryExpr) {
-    final NodeResult result = super.visitUnary(parentContext, unaryExpr);
+    LOG.info(" => UNARY Optimize visit: "+unaryExpr);
+    final NodeResult result = unaryExpr.getTarget().accept(this, parentContext);
+
     if (result.isOptimizable()) {
       final Operator op = unaryExpr.getOperator();
       final ConstantPool pool = parentContext.getConstantPool();
 
       final OptimizableTarget target = result.getOptimizableTarget();
+
+      LOG.info("UNARY IS OPTIMIZABLE: "+unaryExpr+" | "+target);
+
       if (target.getComponent() instanceof BoolConstant) {
         final BoolConstant targetBool = (BoolConstant) target.getComponent();
         if (op.getOp() == Op.BANG) {
           final BoolConstant negated = pool.addBoolean(!targetBool.getValue());
-          return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
+          pool.removeComponent(targetBool.getExactIndex());
+
+          LOG.info(" ==> UNARY optimizable result: "+negated);
+          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
+          return valid(negated.linkInstr(loadConstant)).setTarget(new OptimizableTarget(negated));
         }
       }
       else if (target.getComponent() instanceof IntegerConstant) {
         final IntegerConstant targetInt = (IntegerConstant) target.getComponent();
-        if (op.getOp() == Op.BANG) {
+        if (op.getOp() == Op.MINUS) {
           final IntegerConstant negated = pool.addInt(-targetInt.getValue());
-          return valid(negated.linkInstr(new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex())));
+          pool.removeComponent(targetInt.getExactIndex());
+
+          LOG.info(" ==> UNARY optimizable result: "+negated);
+          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
+          return valid(negated.linkInstr(loadConstant)).setTarget(new OptimizableTarget(negated));
         }
+      }
+      else {
+        LOG.info("UNARY unknown OPTIMIZABLE type: "+target.getComponent().getClass());
       }
     }
 
-    return result;
+    LOG.info(" =========== UNARY, NOT OPTIMIZABLE "+unaryExpr);
+    return super.visitUnary(parentContext, unaryExpr);
   }
 
   @Override
   public NodeResult visitBinaryExpr(CompContext parentContext, BinaryOpExpr binaryOpExpr) {
+    LOG.info(" => BINOP Optimize visit: "+binaryOpExpr);
+
     final ConstantPool pool = parentContext.getConstantPool();
     final Op op = binaryOpExpr.getOperator().getOp();
     final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
@@ -80,6 +99,8 @@ public class OptimizingIRCompiler extends IRCompiler {
     if (leftResult.isOptimizable() && rightResult.isOptimizable()) {
       final OptimizableTarget leftTarget = leftResult.getOptimizableTarget();
       final OptimizableTarget rightTarget = rightResult.getOptimizableTarget();
+
+      LOG.info("IS OPTIMIZABLE!!! "+binaryOpExpr+" | "+leftTarget.getComponent()+" "+rightTarget.getComponent());
 
       if (leftTarget.getComponent() instanceof IntegerConstant && rightTarget.getComponent() instanceof IntegerConstant) {
         final IntegerConstant leftInt = (IntegerConstant) leftTarget.getComponent();
@@ -146,6 +167,8 @@ public class OptimizingIRCompiler extends IRCompiler {
           }
         }
 
+        LOG.info(" ==> OPTIMIZABLE RESULT (II):  "+binaryOpExpr.repr()+" = "+component);
+
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
@@ -210,6 +233,8 @@ public class OptimizingIRCompiler extends IRCompiler {
             break;
           }
         }
+
+        LOG.info(" ==> OPTIMIZABLE RESULT (IF): "+binaryOpExpr.repr()+" = "+component);
 
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
@@ -276,6 +301,8 @@ public class OptimizingIRCompiler extends IRCompiler {
           }
         }
 
+        LOG.info(" ==> OPTIMIZABLE RESULT (FI): "+binaryOpExpr.repr()+" = "+component);
+
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
@@ -341,6 +368,8 @@ public class OptimizingIRCompiler extends IRCompiler {
           }
         }
 
+        LOG.info(" ==> OPTIMIZABLE RESULT (FF): "+binaryOpExpr.repr()+" = "+component);
+
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
@@ -349,8 +378,53 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         return valid(loadC).setTarget(new OptimizableTarget(component));
       }
-    }
+      else if (leftTarget.getComponent() instanceof BoolConstant && rightTarget.getComponent() instanceof BoolConstant) {
+        final BoolConstant leftBool = (BoolConstant) leftTarget.getComponent();
+        final BoolConstant rightBool = (BoolConstant) rightTarget.getComponent();
 
+        PoolComponent component = null;
+
+        switch (op) {
+          case BOOL_AND: {
+            component = pool.addBoolean(leftBool.getValue() && rightBool.getValue());
+            break;
+          }
+          case BOOL_OR: {
+            component = pool.addBoolean(leftBool.getValue() || rightBool.getValue());
+            break;
+          }
+          case OR: {
+            component = pool.addBoolean(leftBool.getValue() | rightBool.getValue());
+            break;
+          }
+          case AND: {
+            component = pool.addBoolean(leftBool.getValue() & rightBool.getValue());
+            break;
+          }
+          default: {
+            LOG.warn("Unknown operator for boolean optimization: "+op);
+            break;
+          }
+        }
+
+        LOG.info(" ==> OPTIMIZABLE RESULT (BB): "+binaryOpExpr.repr()+" = "+component);
+
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
+        component.linkInstr(loadC);
+
+        /*
+        No need to remove PoolComponents for booleans.
+        pool.removeComponent(leftFloat.getExactIndex());
+        pool.removeComponent(rightFloat.getExactIndex());
+        */
+
+        return valid(loadC).setTarget(new OptimizableTarget(component));
+      }
+      else {
+        LOG.info("FAIL Optimization "+leftTarget.getComponent().getClass()+" || "+rightTarget.getComponent().getClass());
+      }
+    }
+    
     return super.visitBinaryExpr(parentContext, binaryOpExpr);
   }
 }

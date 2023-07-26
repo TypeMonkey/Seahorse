@@ -32,7 +32,7 @@ public class SeahorseCompiler {
 
   public SeahorseCompiler() {
     this.parser = new Parser(Collections.emptyList(), null);
-    this.irCompiler = new IRCompiler();
+    this.irCompiler = new OptimizingIRCompiler();
   }
 
   public List<Module> compile(List<String> sourceFiles) throws IllegalArgumentException, ParseException, IOException {
@@ -85,6 +85,10 @@ public class SeahorseCompiler {
       if (!result.isSuccessful()) {
         exceptionMap.put(module.getName(), result.getValidationExceptions());
       }
+      
+      //Squash ObjectFile ConstantPool to delete unused entries
+      result.getObjectFile().getPool().squash();
+      
       moduleResults.add(result.getObjectFile());
     }
 

@@ -25,6 +25,7 @@ public class ConstantPoolTest {
     assertEquals(1, instr.getIndex());
 
     pool.removeComponent(0);
+    pool.squash();
     assertEquals(0, instr.getIndex());
 
     assertEquals(1, pool.getComponent(1).getIndex().getIndex());

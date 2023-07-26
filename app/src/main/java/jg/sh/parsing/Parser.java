@@ -983,7 +983,7 @@ public class Parser {
   private Node funcAttrArrAcess() throws ParseException {
     Node target = primary();
 
-    System.out.println(" ===> funcAttrArrAccess "+target);
+    //System.out.println(" ===> funcAttrArrAccess "+target);
 
      /**
      * Attribute access, function call and index access is more tightly bound
@@ -991,12 +991,12 @@ public class Parser {
      */
     while (match(LEFT_PAREN, LEFT_SQ_BR, DOT)) {
       final Token op = prev();
-      System.out.println("   => in funcAttrArrAccess "+op);
+      //System.out.println("   => in funcAttrArrAccess "+op);
       switch (op.getType()) {
         case LEFT_PAREN: {
-          System.out.println("   => maybe a call? "+op);
+          //System.out.println("   => maybe a call? "+op);
           target = funcCall(target, op);
-          System.out.println("   => after a call? "+target);
+          //System.out.println("   => after a call? "+target);
           break;
         }
         case LEFT_SQ_BR: {
@@ -1013,7 +1013,7 @@ public class Parser {
       }
     }
 
-    System.out.println(" ===> funcAttrArrAccess AFTER "+target);
+    //System.out.println(" ===> funcAttrArrAccess AFTER "+target);
 
     return target;
   }

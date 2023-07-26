@@ -170,10 +170,18 @@ public class ConstantPool {
   }
 
   public void removeComponent(int index) {
-    allComponents.remove(index);
-    //Update all indices of right-towards components
-    for (int i = index; i < allComponents.size(); i++) {
-      allComponents.get(i).getIndex().decrement();
+    allComponents.set(index, null);
+  }
+
+  public void squash() {
+    for (int i = allComponents.size() - 1; i >= 0; i--) {
+      if (allComponents.get(i) == null) {
+        allComponents.remove(i);
+
+        for (int t = allComponents.size() - 1; t >= i; t--) {
+          allComponents.get(t).getIndex().decrement();
+        }
+      }
     }
   }
   

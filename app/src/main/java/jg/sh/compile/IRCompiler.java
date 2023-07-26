@@ -1271,7 +1271,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       //operandTrue label start
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
       final BoolConstant trueConstant = pool.addBoolean(true);
-      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
+      instrs.add(trueConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
 
       //endBranch label start
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));

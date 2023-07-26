@@ -730,7 +730,9 @@ public class FunctionFrame extends StackFrame {
         */
         case LOADC: {
           LoadInstr loadcInstr = (LoadInstr) instr;
-          pushOperand(getHostModule().getConstantMap().get(loadcInstr.getIndex()));
+          RuntimeInstance constant = getHostModule().getConstantMap().get(loadcInstr.getIndex());
+          pushOperand(constant);
+          LOG.info(" ==> LOADC "+loadcInstr.getIndex()+" || "+constant);
           break;
         }
         case LOAD: {          
@@ -1119,9 +1121,8 @@ public class FunctionFrame extends StackFrame {
           
           RuntimeArray array = allocator.allocateEmptyArray();
           
-          //We need to add array elements in reverse order from ArgVector
-          //As ArgVector adds positional arguments by adding them at the front.
-          for(int i = args.getPositionals().size() - 1; i >= 0; i--) {
+          for(int i = 0; i < args.getPositionals().size(); i++) {
+            System.out.println("=== ADDING: "+args.getPositional(i));
             array.addValue(args.getPositional(i));
           }
           

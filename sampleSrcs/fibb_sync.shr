@@ -1,14 +1,3 @@
-/*
-var yo := fibSlow(10);
-
-const a := 1589;
-const b := 4245;
-var start := system.now();
-1589+4245;
-var end := system.now();
-system.println("*** add Time: "+(end - start));
-*/
-
 use system;
 
 func fibSlow(n){
@@ -28,6 +17,7 @@ func fibSlow(n){
 
 func fib(n){
   const arr := [0,1,1];
+  system.println("init ARR "+arr);
  
   if(n <= 2){
     return arr[n];
@@ -35,17 +25,17 @@ func fib(n){
   else {
     var index := 3;
     while(index <= n){
+      system.println(" ==> cycle: "+index+" | "+(index - 1)+" | "+(index - 2)+" | ARR: "+arr);
     	arr.add(arr[index - 1] + arr[index - 2]);
     	index += 1;
     }
     
+    system.println("ARR: "+arr);
     return arr[n];
   }
 }
 
-const start := system.now();
 const value := fib(28);
-const end := system.now();
-system.println("*** fib(28) Time: "+(end - start));
-system.println("Result: "+value);
+const valueSlow := fibSlow(28);
+system.println("Result: "+value+" | slow "+valueSlow+" | "+(value = valueSlow));
 

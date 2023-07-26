@@ -452,7 +452,7 @@ public class ModuleFinder implements Markable {
     modules.put(preparedModule.getName(), preparedModule);
   }
   
-  private RuntimeModule prepareModule(ObjectFile compiledFile) {
+  private RuntimeModule prepareModule(ObjectFile compiledFile) {    
     HashMap<Integer, RuntimeInstance> constantMap = new HashMap<>();
     
     LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getPool());    
