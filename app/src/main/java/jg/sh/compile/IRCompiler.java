@@ -1190,128 +1190,91 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       assignExpr.accept(this, parentContext).pipeErr(exceptions).pipeInstr(instrs);
     }
     else if(op == Op.BOOL_AND) {
-      //OPTIMIZATION: If the values are literal, just compute them here.
+      final String operandFalse = genLabelName("sc_op_false");
+      final String endBranch =  genLabelName("sc_done");
+
+      /*
+      * If the left operand is false, jump to operandFalse
+      */
+      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (left.hasExceptions()) {
+        exceptions.addAll(left.getExceptions());
+      }
+      else {
+        instrs.addAll(left.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
+      }
 
       /**
-       * TODO: This will only handle the very simple case of: a * b
-       *       where "a" and "b" are literals and * is an operator on them.
-       * 
-       * TODO: must implement more intricate constant folding algo.
+       * At this point, the left operand must have evaulated to true.
+       * Given that, let's evaluate the right operand. If that evaluates to false,
+       * jump to operandFalse
        */
-      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
-      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
-      if (leftLiteral instanceof Bool && rightLiteral instanceof Bool) {        
-        final Bool leftBool = (Bool) leftLiteral;
-        final Bool rightBool = (Bool) rightLiteral;
-
-        final BoolConstant result = pool.addBoolean(leftBool.getValue() && rightBool.getValue());
-        instrs.add(result.linkInstr(new LoadInstr(binaryOpExpr.start, 
-                                                  binaryOpExpr.end, 
-                                                  LOADC, 
-                                                  result.getExactIndex())));
+      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+      if (right.hasExceptions()) {
+        exceptions.addAll(right.getExceptions());
       }
       else {
-        final String operandFalse = genLabelName("sc_op_false");
-        final String endBranch =  genLabelName("sc_done");
-
-        /*
-        * If the left operand is false, jump to operandFalse
-        */
-        final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
-        if (left.hasExceptions()) {
-          exceptions.addAll(left.getExceptions());
-        }
-        else {
-          instrs.addAll(left.getInstructions());
-          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
-        }
-
-        /**
-         * At this point, the left operand must have evaulated to true.
-         * Given that, let's evaluate the right operand. If that evaluates to false,
-         * jump to operandFalse
-         */
-        final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
-        if (right.hasExceptions()) {
-          exceptions.addAll(right.getExceptions());
-        }
-        else {
-          instrs.addAll(right.getInstructions());
-          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
-        }
-
-        /*
-        * At this point, both operands are true. Jump to endBranch
-        */
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
-
-        //operandFalse label start
-        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
-
-        final BoolConstant falseConstant = pool.addBoolean(false);
-        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
-
-        //endBranch label end
-        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
+        instrs.addAll(right.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPF, operandFalse));
       }
+
+      /*
+      * At this point, both operands are true. Jump to endBranch
+      */
+      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+      //operandFalse label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
+
+      final BoolConstant falseConstant = pool.addBoolean(false);
+      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
+
+      //endBranch label end
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
     }
     else if(op == Op.BOOL_OR) {
-      //OPTIMIZATION: If the values are literal, just compute them here.
-      final Node leftLiteral = unwrap(binaryOpExpr.getLeft());
-      final Node rightLiteral = unwrap(binaryOpExpr.getRight());
-      if (leftLiteral instanceof Bool && rightLiteral instanceof Bool) {
-        final Bool leftBool = (Bool) leftLiteral;
-        final Bool rightBool = (Bool) rightLiteral;
+      final String operandTrue = genLabelName("sc_op_true");
+      final String endBranch =  genLabelName("sc_done");
 
-        final BoolConstant result = pool.addBoolean(leftBool.getValue() || rightBool.getValue());
-        instrs.add(result.linkInstr(new LoadInstr(binaryOpExpr.start, 
-                                                  binaryOpExpr.end, 
-                                                  LOADC, 
-                                                  result.getExactIndex())));
+      /*
+      * If the left operand is true, jump to operandTrue
+      */
+      final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
+      if (left.hasExceptions()) {
+        exceptions.addAll(left.getExceptions());
       }
       else {
-        final String operandTrue = genLabelName("sc_op_true");
-        final String endBranch =  genLabelName("sc_done");
-
-        /*
-        * If the left operand is true, jump to operandTrue
-        */
-        final NodeResult left = binaryOpExpr.getLeft().accept(this, parentContext);
-        if (left.hasExceptions()) {
-          exceptions.addAll(left.getExceptions());
-        }
-        else {
-          instrs.addAll(left.getInstructions());
-          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
-        }
-
-        /**
-         * At this point, the left operand must have evaulated to false.
-         * Given that, let's evaluate the right operand. If that evaluates to true,
-         * jump to operandTrue
-         */
-        final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
-        if (right.hasExceptions()) {
-          exceptions.addAll(right.getExceptions());
-        }
-        else {
-          instrs.addAll(right.getInstructions());
-          instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
-        }
-
-        //At this point, neither operand is true. Push true and jump to endBranch
-        final BoolConstant falseConstant = pool.addBoolean(false);
-        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
-        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
-
-        //operandTrue label start
-        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
-        final BoolConstant trueConstant = pool.addBoolean(true);
-        instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
-
-        //endBranch label start
-        instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
+        instrs.addAll(left.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
       }
+
+      /**
+       * At this point, the left operand must have evaulated to false.
+       * Given that, let's evaluate the right operand. If that evaluates to true,
+       * jump to operandTrue
+       */
+      final NodeResult right = binaryOpExpr.getRight().accept(this, parentContext);
+      if (right.hasExceptions()) {
+        exceptions.addAll(right.getExceptions());
+      }
+      else {
+        instrs.addAll(right.getInstructions());
+        instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMPT, operandTrue));
+      }
+
+      //At this point, neither operand is true. Push true and jump to endBranch
+      final BoolConstant falseConstant = pool.addBoolean(false);
+      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
+      instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
+
+      //operandTrue label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
+      final BoolConstant trueConstant = pool.addBoolean(true);
+      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
+
+      //endBranch label start
+      instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
     }
     else if(op == Op.ARROW) {
       /**
