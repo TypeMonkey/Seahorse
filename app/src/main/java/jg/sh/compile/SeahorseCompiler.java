@@ -86,9 +86,6 @@ public class SeahorseCompiler {
         exceptionMap.put(module.getName(), result.getValidationExceptions());
       }
       
-      //Squash ObjectFile ConstantPool to delete unused entries
-      result.getObjectFile().getPool().squash();
-      
       moduleResults.add(result.getObjectFile());
     }
 

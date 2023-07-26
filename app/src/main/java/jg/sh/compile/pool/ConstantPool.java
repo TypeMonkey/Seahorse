@@ -168,22 +168,6 @@ public class ConstantPool {
     component.setIndex(new MutableIndex(currentIndex++));
     return component;
   }
-
-  public void removeComponent(int index) {
-    allComponents.set(index, null);
-  }
-
-  public void squash() {
-    for (int i = allComponents.size() - 1; i >= 0; i--) {
-      if (allComponents.get(i) == null) {
-        allComponents.remove(i);
-
-        for (int t = allComponents.size() - 1; t >= i; t--) {
-          allComponents.get(t).getIndex().decrement();
-        }
-      }
-    }
-  }
   
   public PoolComponent getComponent(int index) {
     return allComponents.get(index);

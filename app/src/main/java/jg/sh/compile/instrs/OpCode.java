@@ -397,7 +397,8 @@ public enum OpCode {
    */
   PASS;
   
-  private static final Set<OpCode> ARG_INSTRS;  //Instructions that require an argument
+  private static final Set<OpCode> ARG_INSTRS;  //Instructions that require an argument (Includes non-ArgInstr OpCodes, like JumpInstrs)
+  private static final Set<OpCode> POOL_INSTRS; //Instructions whose arguments rely on the constant pool
   
   static {
     OpCode [] options = {STORE, LOAD, STOREATTR, LOADATTR, 
@@ -407,21 +408,33 @@ public enum OpCode {
                          CONSTMV, EXPORTMV, HAS_KARG};
     
     ARG_INSTRS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(options)));
+
+    options = new OpCode[]
+                        {STOREATTR, LOADATTR, 
+                         LOADC,LOADMV, STOREMV, 
+                         ARG, LOADMOD, MAKECONST,
+                         CONSTMV, EXPORTMV, HAS_KARG};
+    
+    POOL_INSTRS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(options)));
   }
     
-  static boolean isArithmetic(OpCode opCode) {
+  public static boolean isArithmetic(OpCode opCode) {
     return opCode.ordinal() >= ADD.ordinal() && opCode.ordinal() <= NEG.ordinal();
   }
   
-  static boolean isBitwiseOperator(OpCode opCode) {
+  public static boolean isBitwiseOperator(OpCode opCode) {
     return opCode.ordinal() >= BAND.ordinal() && opCode.ordinal() <= BOR.ordinal();
   }
   
-  static boolean isJumpInstr(OpCode opCode) {
+  public static boolean isJumpInstr(OpCode opCode) {
     return opCode.ordinal() >= JUMP.ordinal() && opCode.ordinal() <= RET.ordinal();
   }
   
-  static boolean isANoArgInstr(OpCode opCode) {
+  public static boolean isANoArgInstr(OpCode opCode) {
     return !ARG_INSTRS.contains(opCode);
+  }
+
+  public static boolean reliesOnConstantPool(OpCode opCode) {
+    return POOL_INSTRS.contains(opCode);
   }
 }

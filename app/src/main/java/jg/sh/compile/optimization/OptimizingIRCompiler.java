@@ -4,16 +4,23 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import jg.sh.compile.CompContext;
+import jg.sh.compile.CompilerResult;
 import jg.sh.compile.IRCompiler;
+import jg.sh.compile.ObjectFile;
+import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LoadInstr;
+import jg.sh.compile.instrs.StoreInstr;
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
+import jg.sh.compile.pool.component.CodeObject;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.results.ConstantResult;
 import jg.sh.compile.results.NodeResult;
+import jg.sh.parsing.Module;
 import jg.sh.parsing.nodes.BinaryOpExpr;
 import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Operator.Op;
@@ -23,11 +30,65 @@ import jg.sh.parsing.nodes.values.Int;
 
 import static jg.sh.compile.results.NodeResult.*;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static jg.sh.compile.instrs.OpCode.*;
 
 public class OptimizingIRCompiler extends IRCompiler {
 
   private static final Logger LOG = LogManager.getLogger(OptimizingIRCompiler.class);
+
+  @Override
+  public CompilerResult compileModule(Module module) {
+    CompilerResult result = super.compileModule(module);
+    if (result.isSuccessful()) {
+      //Shrink/squash the constant pool
+      final ObjectFile obj = result.getObjectFile();
+      final ConstantPool pool = obj.getPool();
+
+      LOG.info("Success: "+obj);
+
+      final List<Instruction> masterListInstrs = new ArrayList<>();
+      masterListInstrs.addAll(obj.getModuleInstrs());
+      masterListInstrs.addAll(pool.getMembers().stream()
+                                               .filter(x -> x instanceof CodeObject)
+                                               .map(x -> ((CodeObject) x).getInstrs())
+                                               .flatMap(Collection::stream).collect(Collectors.toList()));
+
+      LOG.info("ALL instrs: "+masterListInstrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));      
+
+      int newListIndex = 0;
+      final ArrayList<PoolComponent> newPoolList = new ArrayList<>();
+      final HashSet<Integer> oldIndices = new HashSet<>();
+
+      for (Instruction instruction : masterListInstrs) {
+        if (OpCode.reliesOnConstantPool(instruction.getOpCode())) {
+          final int poolIndex = instruction instanceof LoadInstr ? 
+                                  ((LoadInstr) instruction).getIndex() : 
+                                  (instruction instanceof StoreInstr ? 
+                                    ((StoreInstr) instruction).getIndex() : 
+                                    ((ArgInstr) instruction).getArgument());
+          System.out.println(" ===> INDICES: "+poolIndex+" || "+oldIndices+" || "+newListIndex);
+          if (poolIndex >= 0 && !oldIndices.contains(poolIndex)) {
+            final PoolComponent oldComponent = pool.getComponent(poolIndex);
+            
+            newPoolList.add(oldComponent);
+            oldComponent.getIndex().setIndex(newListIndex++);
+            oldIndices.add(poolIndex);
+          }
+        }
+      }
+
+      pool.getMembers().clear();
+      pool.getMembers().addAll(newPoolList);
+    }
+    return result;
+  }
+
   
   @Override
   public ConstantResult visitInt(CompContext parentContext, Int integer) {
@@ -60,7 +121,7 @@ public class OptimizingIRCompiler extends IRCompiler {
         final BoolConstant targetBool = (BoolConstant) target.getComponent();
         if (op.getOp() == Op.BANG) {
           final BoolConstant negated = pool.addBoolean(!targetBool.getValue());
-          pool.removeComponent(targetBool.getExactIndex());
+          //pool.removeComponent(targetBool.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
           final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
@@ -71,7 +132,7 @@ public class OptimizingIRCompiler extends IRCompiler {
         final IntegerConstant targetInt = (IntegerConstant) target.getComponent();
         if (op.getOp() == Op.MINUS) {
           final IntegerConstant negated = pool.addInt(-targetInt.getValue());
-          pool.removeComponent(targetInt.getExactIndex());
+          //pool.removeComponent(targetInt.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
           final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
@@ -172,8 +233,8 @@ public class OptimizingIRCompiler extends IRCompiler {
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
-        pool.removeComponent(leftInt.getExactIndex());
-        pool.removeComponent(rightInt.getExactIndex());
+        //pool.removeComponent(leftInt.getExactIndex());
+        //pool.removeComponent(rightInt.getExactIndex());
 
         return valid(loadC).setTarget(new OptimizableTarget(component));
       }
@@ -239,8 +300,8 @@ public class OptimizingIRCompiler extends IRCompiler {
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
-        pool.removeComponent(leftInt.getExactIndex());
-        pool.removeComponent(rightFloat.getExactIndex());
+        //pool.removeComponent(leftInt.getExactIndex());
+        //pool.removeComponent(rightFloat.getExactIndex());
 
         return valid(loadC).setTarget(new OptimizableTarget(component));
       }
@@ -306,8 +367,8 @@ public class OptimizingIRCompiler extends IRCompiler {
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
-        pool.removeComponent(leftFloat.getExactIndex());
-        pool.removeComponent(rightInt.getExactIndex());
+        //pool.removeComponent(leftFloat.getExactIndex());
+        //pool.removeComponent(rightInt.getExactIndex());
 
         return valid(loadC).setTarget(new OptimizableTarget(component));
       }
@@ -373,8 +434,8 @@ public class OptimizingIRCompiler extends IRCompiler {
         final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
         component.linkInstr(loadC);
 
-        pool.removeComponent(leftFloat.getExactIndex());
-        pool.removeComponent(rightFloat.getExactIndex());
+        //pool.removeComponent(leftFloat.getExactIndex());
+        //pool.removeComponent(rightFloat.getExactIndex());
 
         return valid(loadC).setTarget(new OptimizableTarget(component));
       }

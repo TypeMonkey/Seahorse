@@ -116,7 +116,7 @@ public class FunctionFrame extends StackFrame {
       final Instruction instr = current.getInstr();
       final OpCode op = instr.getOpCode();
       
-      //System.out.println(instr+" | "+instr.getStart());
+      System.out.println(instr+" | "+instr.getStart());
       
       switch (op) {
         //Ineffectual instructions. They just fall through

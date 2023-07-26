@@ -1,4 +1,5 @@
 use system;
 
-const test := (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
+const someVar := 50;
+const test := someVar + (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
 system.println(test);

@@ -1660,7 +1660,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       * (only module/top-level variable can be exported)
       */
       if (!parentContext.isWithinContext(ContextType.FUNCTION)) {
-        instrs.add(new ArgInstr(varDeclr.getName().start, 
+        instrs.add(new LoadInstr(varDeclr.getName().start, 
                               varDeclr.getName().end, 
                               CONSTMV, 
                               varLoadStore.store.getIndex()));
