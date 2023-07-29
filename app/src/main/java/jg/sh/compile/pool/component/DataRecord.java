@@ -3,7 +3,7 @@ package jg.sh.compile.pool.component;
 import java.util.LinkedHashMap;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
+import jg.sh.compile.instrs.MutableIndex;
 
 public class DataRecord extends PoolComponent {
 

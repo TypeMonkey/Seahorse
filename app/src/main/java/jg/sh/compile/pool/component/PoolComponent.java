@@ -1,7 +1,7 @@
 package jg.sh.compile.pool.component;
 
+import jg.sh.compile.instrs.MutableIndex;
 import jg.sh.compile.instrs.MutableInstr;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
 
 public abstract class PoolComponent {
   
@@ -37,10 +37,6 @@ public abstract class PoolComponent {
 
   public ComponentType getType() {
     return type;
-  }
-
-  public <T extends MutableInstr> T linkInstr(T instr) {
-    return index.linkInstr(instr);
   }
   
   @Override

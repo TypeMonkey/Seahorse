@@ -2,7 +2,6 @@ package jg.sh.runtime.loading;
 
 import java.io.File;
 import java.lang.invoke.CallSite;
-import java.lang.invoke.LambdaConversionException;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -21,7 +20,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,6 +37,7 @@ import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeCodeObject;
@@ -61,6 +60,7 @@ import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
+import jg.sh.util.RuntimeUtils;
 import jg.sh.util.StringUtils;
 
 public class ModuleFinder implements Markable {
@@ -605,7 +605,7 @@ public class ModuleFinder implements Markable {
         }
       }
       
-      final ContextualInstr [] contextualInstrs = new ContextualInstr[codeObject.getInstrs().size()];
+      final RuntimeInstruction [] contextualInstrs = new RuntimeInstruction[codeObject.getInstrs().size()];
       
       for(int i = startIndex; i <= endIndex; i++) {
         TempContextInstr instr = tempContextInstrs.get(i);
@@ -622,7 +622,7 @@ public class ModuleFinder implements Markable {
         }
         
         if (instr.instr instanceof JumpInstr) {
-          JumpInstr jumpInstr = (JumpInstr) instr.instr;
+          final JumpInstr jumpInstr = (JumpInstr) instr.instr;
           if (codeObjectJumps.containsKey(jumpInstr.getTargetLabel())) {
             instr.instr = new IndexedJumpInstr(jumpInstr, codeObjectJumps.get(jumpInstr.getTargetLabel()));
           }
@@ -631,7 +631,7 @@ public class ModuleFinder implements Markable {
           }
         }
         
-        contextualInstrs[i - startIndex] = new ContextualInstr(instr.instr, errorJumpIndex);
+        contextualInstrs[i - startIndex] = RuntimeUtils.translate(instr.instr, errorJumpIndex);
       }
       
       RuntimeCodeObject runtimeCodeObject = allocator.allocateCodeObject(codeObject.getBoundName(), 

@@ -857,6 +857,10 @@ public class Parser {
     Node firstLeft = or();
 
     if (match(EQ_ADD, EQ_MIN, EQ_MULT, EQ_DIV, EQ_MOD, EQ_EXPO, ASSIGNMENT)) {
+      if (!firstLeft.isLValue()) {
+        throw new ParseException("Cannot assign to expression "+firstLeft.repr(), firstLeft.start, firstLeft.end, moduleName);
+      }
+
       final Token op = prev();
       final Operator actualOp = new Operator(op);
       final Node rightOperand = or();

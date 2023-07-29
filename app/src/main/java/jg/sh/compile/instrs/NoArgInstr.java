@@ -13,7 +13,7 @@ import jg.sh.common.Location;
  * @author Jose
  *
  */
-public class NoArgInstr extends Instruction{
+public class NoArgInstr extends Instruction {
 
   public NoArgInstr(Location start, Location end, OpCode opCode) {
     super(start, end, opCode);

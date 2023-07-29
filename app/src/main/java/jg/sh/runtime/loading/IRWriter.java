@@ -18,6 +18,9 @@ import jg.sh.compile.instrs.LabelInstr;
 import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.StoreInstr;
+import jg.sh.runtime.instrs.ArgInstruction;
+import jg.sh.runtime.instrs.CommentInstruction;
+import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeInstance;
@@ -93,7 +96,7 @@ public final class IRWriter {
       ds.writeLong(SeaHorseInterpreter.VERSION);
       ds.write(encodeConstantPool(module.getConstantMap()));
       ds.writeInt(module.getModuleCodeObject().getInstrs().length);
-      for (ContextualInstr instr : module.getModuleCodeObject().getInstrs()) {
+      for (RuntimeInstruction instr : module.getModuleCodeObject().getInstrs()) {
         ds.write(encodeInstr(instr));
       }
     } catch (IOException e) {
@@ -277,9 +280,9 @@ public final class IRWriter {
       ds.write(sigEncoding);
 
       //Place instructions
-      final ContextualInstr [] instrs = codeObject.getInstrs();
+      final RuntimeInstruction [] instrs = codeObject.getInstrs();
       ds.writeInt(instrs.length);
-      for (ContextualInstr contextualInstr : instrs) {
+      for (RuntimeInstruction contextualInstr : instrs) {
         ds.write(encodeInstr(contextualInstr));
       }
 
@@ -323,9 +326,7 @@ public final class IRWriter {
     return outputStream.toByteArray();
   }
 
-  public static byte [] encodeInstr(ContextualInstr contextualInstr) {
-    final Instruction ogInstr = contextualInstr.getInstr();
-
+  public static byte [] encodeInstr(RuntimeInstruction instr) {
     /*
      * Instruction encoding (for non-comment, parameterized and jump instructions):
        <byte (OpCode ordinal value)>
@@ -370,41 +371,20 @@ public final class IRWriter {
 
     try {
       //Write out ordinal
-      ds.writeByte(ogInstr.getOpCode().ordinal());
+      ds.writeByte(instr.getOpCode().ordinal());
 
-      if (ogInstr instanceof ArgInstr) {
-        ArgInstr instr = (ArgInstr) ogInstr;
-        ds.writeInt(instr.getArgument());
+      if (instr instanceof ArgInstruction) {
+        final ArgInstruction aInstr = (ArgInstruction) instr;
+        ds.writeInt(aInstr.getArgument());
       }
-      else if (ogInstr instanceof CommentInstr) {
-        CommentInstr instr = (CommentInstr) ogInstr;
-        final byte [] commentBytes = instr.getContent().getBytes(StandardCharsets.UTF_8);
+      else if (instr instanceof CommentInstruction) {
+        CommentInstruction cInstr = (CommentInstruction) instr;
+        final byte [] commentBytes = cInstr.getComment().getBytes(StandardCharsets.UTF_8);
         ds.writeInt(commentBytes.length);
         ds.write(commentBytes);
       }
-      else if (ogInstr instanceof IndexedJumpInstr) {
-        IndexedJumpInstr instr = (IndexedJumpInstr) ogInstr;
-        ds.writeInt(instr.getJumpIndex());
-      }
-      else if (ogInstr instanceof LabelInstr) {
-        LabelInstr instr = (LabelInstr) ogInstr;
-        final byte [] labelBytes = instr.getName().getBytes(StandardCharsets.UTF_8);
-        ds.writeInt(labelBytes.length);
-        ds.write(labelBytes);
-      }
-      else if (ogInstr instanceof LoadInstr) {
-        LoadInstr instr = (LoadInstr) ogInstr;
-        ds.writeInt(instr.getIndex());
-      }
-      else if (ogInstr instanceof NoArgInstr) {
-        //do nothing. There's no argument
-      }
-      else if (ogInstr instanceof StoreInstr) {
-        StoreInstr instr = (StoreInstr) ogInstr;
-        ds.writeInt(instr.getIndex());
-      }
       else {
-        throw new IllegalArgumentException(ogInstr.getClass()+" is not an encodable instruction.");
+        throw new IllegalArgumentException(instr.getClass()+" is not an encodable instruction.");
       }
 
       /*
@@ -415,11 +395,11 @@ public final class IRWriter {
        * - end line
        * - enc column
        */
-      ds.writeInt(contextualInstr.getExceptionJumpIndex());
-      ds.writeInt(ogInstr.getStart().line);
-      ds.writeInt(ogInstr.getStart().column);
-      ds.writeInt(ogInstr.getEnd().line);
-      ds.writeInt(ogInstr.getEnd().column);
+      ds.writeInt(instr.getExceptionJumpIndex());
+      ds.writeInt(instr.getStart().line);
+      ds.writeInt(instr.getStart().column);
+      ds.writeInt(instr.getEnd().line);
+      ds.writeInt(instr.getEnd().column);
     } catch (IOException e) {
       //Should never happen.
       throw new IllegalStateException(e);

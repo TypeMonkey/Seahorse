@@ -5,11 +5,7 @@ import java.util.Map.Entry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import jg.sh.compile.instrs.ArgInstr;
-import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.OpCode;
-import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
@@ -17,8 +13,8 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.exceptions.OperationException;
-import jg.sh.runtime.loading.ContextualInstr;
-import jg.sh.runtime.loading.IndexedJumpInstr;
+import jg.sh.runtime.instrs.ArgInstruction;
+import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
@@ -37,10 +33,12 @@ import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.util.RuntimeUtils;
 
+import static jg.sh.compile.instrs.OpCode.*;
+
 /**
  * Represents a StackFrame for a RuntimeCallable.
  * 
- * This stack frame tracks the current instruction index in the execution
+ * This stack frame tracks the instr instruction index in the execution
  * of a RuntimeCallable.
  * 
  * @author Jose
@@ -53,7 +51,7 @@ public class FunctionFrame extends StackFrame {
   static volatile int frameMarker = 0;
 
   private final RuntimeCallable callable;
-  private final ContextualInstr [] instrs;
+  private final RuntimeInstruction [] instrs;
 
   private int instrIndex;
 
@@ -112,8 +110,7 @@ public class FunctionFrame extends StackFrame {
     
     while (hasInstrLeft()) {
       
-      final ContextualInstr current = getCurrInstr();
-      final Instruction instr = current.getInstr();
+      final RuntimeInstruction instr = getCurrInstr();
       final OpCode op = instr.getOpCode();
       
       System.out.println(instr+" | "+instr.getStart());
@@ -167,8 +164,8 @@ public class FunctionFrame extends StackFrame {
               } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
                 returnError(error);
-                if (current.getExceptionJumpIndex() >= 0) {
-                  setInstrIndex(current.getExceptionJumpIndex());
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
                 }
                 else {
                   returnError(error); 
@@ -358,8 +355,8 @@ public class FunctionFrame extends StackFrame {
                 //System.out.println("--- caught error!!! "+e.getClass()+" | "+e.getMessage());
                 RuntimeError error = allocator.allocateError(e.getMessage());
                 returnError(error);
-                if (current.getExceptionJumpIndex() >= 0) {
-                  setInstrIndex(current.getExceptionJumpIndex());
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
                 }
                 else {
                   returnError(error); 
@@ -370,8 +367,8 @@ public class FunctionFrame extends StackFrame {
             else {
               RuntimeError error = allocator.allocateError(coupling.getOpCode().name().toLowerCase()+" isn't a callable");
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error); 
@@ -385,12 +382,12 @@ public class FunctionFrame extends StackFrame {
                                                          coupling.getOpCode().name().toLowerCase()+
                                                          " on "+left.getClass());
             
-            //System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(current.getExceptionJumpIndex() >= 0)+" | "+left);
+            //System.out.println("---- err: "+instr+" | "+error.getAttr("msg")+" | "+(instr.getExceptionJumpIndex() >= 0)+" | "+left);
             //System.out.println(instr.getStart());
 
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -442,8 +439,8 @@ public class FunctionFrame extends StackFrame {
               } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
                 returnError(error);
-                if (current.getExceptionJumpIndex() >= 0) {
-                  setInstrIndex(current.getExceptionJumpIndex());
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
                 }
                 else {
                   returnError(error); 
@@ -454,8 +451,8 @@ public class FunctionFrame extends StackFrame {
             else {
               RuntimeError error = allocator.allocateError("Object isn't callable!");
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error); 
@@ -467,8 +464,8 @@ public class FunctionFrame extends StackFrame {
             //unsupported operation          
             RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -518,8 +515,8 @@ public class FunctionFrame extends StackFrame {
               LOG.debug(e);
               RuntimeError error = allocator.allocateError(e.getMessage());
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error);
@@ -553,8 +550,8 @@ public class FunctionFrame extends StackFrame {
             } catch (CallSiteException | InvocationException e) {
               RuntimeError error = allocator.allocateError(e.getMessage());
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error);
@@ -566,8 +563,8 @@ public class FunctionFrame extends StackFrame {
             //unsupported operation
             RuntimeError error = allocator.allocateError("Target isn't callable "+callable);
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error);
@@ -582,13 +579,13 @@ public class FunctionFrame extends StackFrame {
         * Jump opcodes
         */
         case JUMP: {
-          IndexedJumpInstr jumpInstr = (IndexedJumpInstr) instr;
-          setInstrIndex(jumpInstr.getJumpIndex());
+          final ArgInstruction jumpInstr = (ArgInstruction) instr;
+          setInstrIndex(jumpInstr.getArgument());
           decrmntInstrIndex();
           break;
         }
         case JUMPT: {
-          IndexedJumpInstr jumpInstr = (IndexedJumpInstr) instr;
+          final ArgInstruction jumpInstr = (ArgInstruction) instr;
 
           RuntimeInstance boolValue = popOperand();
           
@@ -601,13 +598,13 @@ public class FunctionFrame extends StackFrame {
           * Should we do the same?
           */
           if ((boolValue instanceof RuntimeBool) && ((RuntimeBool) boolValue).getValue()) {
-            setInstrIndex(jumpInstr.getJumpIndex());
+            setInstrIndex(jumpInstr.getArgument());
             decrmntInstrIndex();
           }
           break;
         }
         case JUMPF: {
-          IndexedJumpInstr jumpInstr = (IndexedJumpInstr) instr;
+          final ArgInstruction jumpInstr = (ArgInstruction) instr;
 
           RuntimeInstance boolValue = popOperand();
           
@@ -620,7 +617,7 @@ public class FunctionFrame extends StackFrame {
           * Should we do the same?
           */
           if ((boolValue instanceof RuntimeBool) && !((RuntimeBool) boolValue).getValue()) {
-            setInstrIndex(jumpInstr.getJumpIndex());
+            setInstrIndex(jumpInstr.getArgument());
             decrmntInstrIndex();
           }
           break;
@@ -683,9 +680,9 @@ public class FunctionFrame extends StackFrame {
             }
           }
           
-          if (current.getExceptionJumpIndex() >= 0) {
+          if (instr.getExceptionJumpIndex() >= 0) {
             returnError(error);
-            setInstrIndex(current.getExceptionJumpIndex());
+            setInstrIndex(instr.getExceptionJumpIndex());
           }
           else {
             returnError(error);
@@ -702,7 +699,7 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case ARG: {
-          LoadInstr argInstr = (LoadInstr) instr;          
+          final ArgInstruction argInstr = (ArgInstruction) instr;          
           //Pop the actual argument
           final RuntimeInstance argValue = popOperand();
           
@@ -710,8 +707,8 @@ public class FunctionFrame extends StackFrame {
 
           //System.out.println(" ===> arg instr!");
           
-          if (argInstr.getIndex() >= 0) {
-            String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getIndex())).getValue();
+          if (argInstr.getArgument() >= 0) {
+            String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getArgument())).getValue();
             argVector.setKeywordArg(argName, argValue);
 
             //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
@@ -729,29 +726,29 @@ public class FunctionFrame extends StackFrame {
         * Load/store instructions 
         */
         case LOADC: {
-          LoadInstr loadcInstr = (LoadInstr) instr;
-          RuntimeInstance constant = getHostModule().getConstantMap().get(loadcInstr.getIndex());
+          final ArgInstruction loadcInstr = (ArgInstruction) instr;
+          RuntimeInstance constant = getHostModule().getConstantMap().get(loadcInstr.getArgument());
           pushOperand(constant);
-          LOG.info(" ==> LOADC "+loadcInstr.getIndex()+" || "+constant);
+          LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
           break;
         }
         case LOAD: {          
-          LoadInstr loadInstr = (LoadInstr) instr;
+          final ArgInstruction loadInstr = (ArgInstruction) instr;
           
           //System.out.println(" ------- LOAD: LOCAL VARS: "+getLocalVars().length+", "+loadInstr.getIndex()+" | AT: "+hashCode());
-          pushOperand(getLocalVar(loadInstr.getIndex()));
+          pushOperand(getLocalVar(loadInstr.getArgument()));
           break;
         }
         case STORE: {
-          StoreInstr storeInstr = (StoreInstr) instr;
+          final ArgInstruction storeInstr = (ArgInstruction) instr;
           RuntimeInstance value = popOperand();
-          storeLocalVar(storeInstr.getIndex(), value);
+          storeLocalVar(storeInstr.getArgument(), value);
           //System.out.println(" ==== STORE: "+instr+" | "+instr.getStart()+" | AT: "+hashCode());
           break;
         }
         case LOADATTR: {
-          LoadInstr loadInstr = (LoadInstr) instr;
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
+          final ArgInstruction loadInstr = (ArgInstruction) instr;
+          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
           RuntimeInstance object = popOperand();
           
           //System.out.println("====> object attr: "+object.attrs());
@@ -764,8 +761,8 @@ public class FunctionFrame extends StackFrame {
             
             RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on object.");
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -777,8 +774,8 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case STOREATTR: {
-          StoreInstr storeInstr = (StoreInstr) instr;
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
+          final ArgInstruction storeInstr = (ArgInstruction) instr;
+          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
           RuntimeInstance object = popOperand();
           RuntimeInstance value = popOperand();
 
@@ -790,8 +787,8 @@ public class FunctionFrame extends StackFrame {
           } catch (OperationException e) {
             RuntimeError error = allocator.allocateError(e.getMessage());
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -806,19 +803,19 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case LOAD_CL: {
-          LoadInstr loadInstr = (LoadInstr) instr;
-          pushOperand(getCapture(loadInstr.getIndex()));
+          final ArgInstruction loadInstr = (ArgInstruction) instr;
+          pushOperand(getCapture(loadInstr.getArgument()));
           break;
         }
         case STORE_CL: {
-          StoreInstr storeInstr = (StoreInstr) instr;
-          RuntimeInstance value = popOperand();
-          setCapture(storeInstr.getIndex(), value);
+          final ArgInstruction storeInstr = (ArgInstruction) instr;
+          final RuntimeInstance value = popOperand();
+          setCapture(storeInstr.getArgument(), value);
           break;
         }
         case LOADMV: {
-          LoadInstr loadInstr = (LoadInstr) instr;
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
+          final ArgInstruction loadInstr = (ArgInstruction) instr;
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
           
           RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
@@ -830,8 +827,8 @@ public class FunctionFrame extends StackFrame {
             
             RuntimeError error = allocator.allocateError("'"+attrName+"' is unfound on module.");
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -843,14 +840,10 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case STOREMV: {
-          StoreInstr storeInstr = (StoreInstr) instr;      
-          RuntimeInstance newValue = popOperand();
-                    
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getIndex())).getValue();
-
+          final ArgInstruction storeInstr = (ArgInstruction) instr;      
+          final RuntimeInstance newValue = popOperand();
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
           //System.out.println(">>>> STOREMV: "+attrName+" | "+storeInstr.getIndex());
-
-          
           RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
           try {
@@ -858,8 +851,8 @@ public class FunctionFrame extends StackFrame {
           } catch (OperationException e) {
             RuntimeError error = allocator.allocateError(e.getMessage());
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -886,8 +879,8 @@ public class FunctionFrame extends StackFrame {
               } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
                 returnError(error);
-                if (current.getExceptionJumpIndex() >= 0) {
-                  setInstrIndex(current.getExceptionJumpIndex());
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
                 }
                 else {
                   returnError(error); 
@@ -898,8 +891,8 @@ public class FunctionFrame extends StackFrame {
             else {
               RuntimeError error = allocator.allocateError("The target isn't indexible");
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error); 
@@ -910,8 +903,8 @@ public class FunctionFrame extends StackFrame {
           else {
             RuntimeError error = allocator.allocateError("The target isn't indexible");
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -941,8 +934,8 @@ public class FunctionFrame extends StackFrame {
               } catch (CallSiteException e) {
                 RuntimeError error = allocator.allocateError(e.getMessage());
                 returnError(error);
-                if (current.getExceptionJumpIndex() >= 0) {
-                  setInstrIndex(current.getExceptionJumpIndex());
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
                 }
                 else {
                   returnError(error);
@@ -953,8 +946,8 @@ public class FunctionFrame extends StackFrame {
             else {
               RuntimeError error = allocator.allocateError("The target isn't indexible");
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error); 
@@ -965,8 +958,8 @@ public class FunctionFrame extends StackFrame {
           else {
             RuntimeError error = allocator.allocateError("The target isn't indexible");
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -977,17 +970,15 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case LOADMOD: {
-          LoadInstr loadInstr = (LoadInstr) instr;
+          final ArgInstruction loadInstr = (ArgInstruction) instr;
           
-          if(loadInstr.getIndex() < 0) {
-            //Load the current module
+          if(loadInstr.getArgument() < 0) {
+            //Load the instr module
             pushOperand(getHostModule().getModuleObject());
           }
           else {
-            String moduleName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getIndex())).getValue();
-            
-            
-            RuntimeModule module = thread.getFinder().load(moduleName);
+            final String moduleName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+            final RuntimeModule module = thread.getFinder().load(moduleName);
 
             if (module != null) {
               if(!module.isLoaded()) {
@@ -1005,8 +996,8 @@ public class FunctionFrame extends StackFrame {
                 } catch (CallSiteException e) {
                   RuntimeError error = allocator.allocateError(e.getMessage());
                   returnError(error);
-                  if (current.getExceptionJumpIndex() >= 0) {
-                    setInstrIndex(current.getExceptionJumpIndex());
+                  if (instr.getExceptionJumpIndex() >= 0) {
+                    setInstrIndex(instr.getExceptionJumpIndex());
                   }
                   else {
                     returnError(error); 
@@ -1022,8 +1013,8 @@ public class FunctionFrame extends StackFrame {
               //Unfound module. Throw an error
               RuntimeError error = allocator.allocateError("Couldn't find the module '"+moduleName+"'");
               returnError(error);
-              if (current.getExceptionJumpIndex() >= 0) {
-                setInstrIndex(current.getExceptionJumpIndex());
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
               }
               else {
                 returnError(error); 
@@ -1041,9 +1032,8 @@ public class FunctionFrame extends StackFrame {
         * (in the future, these may be extended to object attributes in general)
         */
         case EXPORTMV: {
-          ArgInstr exportInstr = (ArgInstr) instr;
-          String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
-
+          final ArgInstruction exportInstr = (ArgInstruction) instr;
+          final String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
           final RuntimeInstance moduleObject = getHostModule().getModuleObject();
 
           //System.out.println("===> making module variable "+varName+" export!");
@@ -1059,8 +1049,8 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case CONSTMV: {
-          ArgInstr exportInstr = (ArgInstr) instr;
-          String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
+          final ArgInstruction exportInstr = (ArgInstruction) instr;
+          final String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
 
           //System.out.println("===> making module variable "+varName+" constant!");
 
@@ -1076,12 +1066,12 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case ALLOCF: {
-          RuntimeInstance codeObject = popOperand();
+          final RuntimeInstance codeObject = popOperand();
           
           if (codeObject instanceof RuntimeCodeObject) {
             RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
             
-            //Capture local variables based on the current frame
+            //Capture local variables based on the instr frame
             CellReference [] capturedLocals = new CellReference[actualCodeObject.getCaptures().length];
             for(int dest = 0; dest < capturedLocals.length; dest++) {
               capturedLocals[dest] = getCaptureReference(actualCodeObject.getCaptures()[dest]);
@@ -1096,8 +1086,8 @@ public class FunctionFrame extends StackFrame {
           else {
             RuntimeError error = allocator.allocateError("Not a code object");
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -1117,9 +1107,8 @@ public class FunctionFrame extends StackFrame {
         }
         */
         case ALLOCA: {
-          ArgVector args = (ArgVector) popOperand();
-          
-          RuntimeArray array = allocator.allocateEmptyArray();
+          final ArgVector args = (ArgVector) popOperand();
+          final RuntimeArray array = allocator.allocateEmptyArray();
           
           for(int i = 0; i < args.getPositionals().size(); i++) {
             System.out.println("=== ADDING: "+args.getPositional(i));
@@ -1130,9 +1119,8 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case ALLOCO: {
-          final ArgInstr alloco = (ArgInstr) instr;
-
-          ArgVector args = (ArgVector) popOperand();
+          final ArgInstruction alloco = (ArgInstruction) instr;
+          final ArgVector args = (ArgVector) popOperand();
           
           RuntimeInstance object = allocator.allocateEmptyObject((ini, self) -> {
             for(Entry<String, RuntimeInstance> pair : args.getAttributes().entrySet()) { 
@@ -1155,18 +1143,18 @@ public class FunctionFrame extends StackFrame {
         }
         case BIND: {
           Callable func = (Callable) popOperand();
-          RuntimeInstance newSelf = popOperand();
+          final RuntimeInstance newSelf = popOperand();
 
           func = func.rebind(newSelf, allocator);
           pushOperand(func);
           break;
         }
         case MAKECONST: {
-          final LoadInstr hasInstr = (LoadInstr) instr;
+          final ArgInstruction hasInstr = (ArgInstruction) instr;
 
           final RuntimeInstance attrValue = popOperand();
           final RuntimeInstance targetObj = popOperand();
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getIndex())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
 
           try {
             targetObj.setAttribute(attrName, attrValue);
@@ -1175,8 +1163,8 @@ public class FunctionFrame extends StackFrame {
           } catch (OperationException e) {
             RuntimeError error = allocator.allocateError("Cannot make '"+attrName+"' constant: "+e.getMessage());
             returnError(error);
-            if (current.getExceptionJumpIndex() >= 0) {
-              setInstrIndex(current.getExceptionJumpIndex());
+            if (instr.getExceptionJumpIndex() >= 0) {
+              setInstrIndex(instr.getExceptionJumpIndex());
             }
             else {
               returnError(error); 
@@ -1192,8 +1180,8 @@ public class FunctionFrame extends StackFrame {
           break;
         }
         case HAS_KARG: {
-          final LoadInstr hasInstr = (LoadInstr) instr;
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getIndex())).getValue();
+          final ArgInstruction hasInstr = (ArgInstruction) instr;
+          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
           final RuntimeBool result = allocator.allocateBool(initialArgs.hasAttr(attrName));
           //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
           pushOperand(result);
@@ -1238,7 +1226,7 @@ public class FunctionFrame extends StackFrame {
     return instrIndex < instrs.length;
   }
   
-  public ContextualInstr getCurrInstr() {
+  public RuntimeInstruction getCurrInstr() {
     return instrs[instrIndex];
   }
   

@@ -32,13 +32,12 @@ import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.compile.pool.ConstantPool;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
+import jg.sh.compile.instrs.MutableIndex;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
 import jg.sh.compile.pool.component.DataRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
-import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.NodeVisitor;
@@ -70,7 +69,7 @@ import jg.sh.parsing.nodes.statements.blocks.IfBlock;
 import jg.sh.parsing.nodes.statements.blocks.TryCatch;
 import jg.sh.parsing.nodes.statements.blocks.WhileBlock;
 import jg.sh.parsing.nodes.FuncCall.Argument;
-import jg.sh.parsing.nodes.Operator.Op;
+import jg.sh.parsing.nodes.Op;
 import jg.sh.parsing.nodes.values.Bool;
 import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
@@ -104,8 +103,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      */
     final VarAllocator allocator = (name, start, end) -> {
       final StringConstant moduleVarName = constantPool.addString(name);
-      return new LoadStorePair(moduleVarName.linkInstr(new LoadInstr(start, end, LOADMV, moduleVarName.getIndex().getIndex())), 
-                               moduleVarName.linkInstr(new StoreInstr(start, end, STOREMV, moduleVarName.getIndex().getIndex())));
+      return new LoadStorePair(new LoadInstr(start, end, LOADMV, moduleVarName.getIndex()), 
+                               new StoreInstr(start, end, STOREMV, moduleVarName.getIndex()));
     };
     moduleContext.setContextValue(ContextKey.VAR_ALLOCATOR, allocator);
 
@@ -113,7 +112,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * Unbounded functions and toplevel statements, when referring to "self", means
      * they're referring to the module instance.
      */
-    final Instruction [] moduleLoadInstr = {new LoadInstr(Location.DUMMY, Location.DUMMY, LOADMOD, -1)};
+    final Instruction [] moduleLoadInstr = {new LoadInstr(Location.DUMMY, Location.DUMMY, LOADMOD, new MutableIndex(-1))};
     moduleContext.setContextValue(ContextKey.SELF_CODE, moduleLoadInstr);
 
     /*
@@ -302,7 +301,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(funcIdenInfo.getStoreInstr());
 
         if (func.toExport()) {
-          instrs.add(new ArgInstr(func.start, func.end, EXPORTMV, funcIdenInfo.getStoreInstr().getIndex()));
+          instrs.add(new ArgInstr(func.start, func.end, EXPORTMV, funcIdenInfo.getStoreInstr().getArgument()));
         }
       }
       else if(result.first instanceof VarDeclr) {
@@ -354,10 +353,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     //Allocate constant string for module name
     final StringConstant moduleNameConstant = constantPool.addString(moduleName.getIdentifier());
-    final LoadInstr moduleNameLoad = moduleNameConstant.linkInstr(new LoadInstr(moduleName.start, 
-                                                                                moduleName.end, 
-                                                                                LOADMOD, 
-                                                                                moduleNameConstant.getExactIndex()));    
+    final LoadInstr moduleNameLoad = new LoadInstr(moduleName.start, 
+                                                   moduleName.end, 
+                                                   LOADMOD, 
+                                                   moduleNameConstant.getIndex());    
     if(useStatement.getCompAliasMap().isEmpty()) {
       /*
        * If the useStatement isn't importing any components, then
@@ -410,10 +409,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
                                             compEntry.getKey();
 
         final StringConstant compNameConstant = constantPool.addString(compEntry.getKey().getIdentifier());
-        final LoadInstr compLoadInstr = compNameConstant.linkInstr(new LoadInstr(compEntry.getKey().start, 
-                                                                                 compEntry.getKey().end, 
-                                                                                 LOADATTR, 
-                                                                                 compNameConstant.getExactIndex()));
+        final LoadInstr compLoadInstr = new LoadInstr(compEntry.getKey().start, 
+                                                      compEntry.getKey().end, 
+                                                      LOADATTR, 
+                                                      compNameConstant.getIndex());
 
         //Load and store instructions for impoted module components
         final LoadStorePair loadStore = varAllocator.generate(moduleVarHandle.getIdentifier(), 
@@ -530,10 +529,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * to the constructor as its "self" object - engaging the usual function calling convention.
      */
 
-    instrs.add(dataRecord.linkInstr(new LoadInstr(dataDefinition.start, 
-                                                  dataDefinition.end, 
-                                                  LOADC, 
-                                                  dataRecord.getExactIndex())));
+    instrs.add(new LoadInstr(dataDefinition.start, 
+                             dataDefinition.end, 
+                             LOADC, 
+                             dataRecord.getIndex()));
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
@@ -839,7 +838,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitString(CompContext parentContext, Str str) {
     final ConstantPool pool = parentContext.getConstantPool();
     final StringConstant constant = pool.addString(str.getValue());
-    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(str.start, str.end, LOADC, constant.getExactIndex()));
+    final LoadInstr loadInstr = new LoadInstr(str.start, str.end, LOADC, constant.getIndex());
     return new ConstantResult(constant, loadInstr);
   }
 
@@ -847,7 +846,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitInt(CompContext parentContext, Int integer) {
     final ConstantPool pool = parentContext.getConstantPool();
     final IntegerConstant constant = pool.addInt(integer.getValue());
-    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(integer.start, integer.end, LOADC, constant.getExactIndex()));
+    final LoadInstr loadInstr = new LoadInstr(integer.start, integer.end, LOADC, constant.getIndex());
     return new ConstantResult(constant, loadInstr);  
   }
 
@@ -855,7 +854,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitBoolean(CompContext parentContext, Bool bool) {
     final ConstantPool pool = parentContext.getConstantPool();
     final BoolConstant constant = pool.addBoolean(bool.getValue());
-    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(bool.start, bool.end, LOADC, constant.getExactIndex()));
+    final LoadInstr loadInstr = new LoadInstr(bool.start, bool.end, LOADC, constant.getIndex());
     return new ConstantResult(constant, loadInstr);
   }
 
@@ -863,7 +862,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
     final ConstantPool pool = parentContext.getConstantPool();
     final FloatConstant constant = pool.addFloat(floatingPoint.getValue());
-    final LoadInstr loadInstr = constant.linkInstr(new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getExactIndex()));
+    final LoadInstr loadInstr = new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getIndex());
     return new ConstantResult(constant, loadInstr);
   }
 
@@ -929,7 +928,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         return valid(new JumpInstr(keyword.start, keyword.end, JUMP, targetLabel));
       }
       case MODULE: {
-        return valid(new LoadInstr(keyword.start, keyword.end, LOADMOD, -1));
+        return valid(new LoadInstr(keyword.start, keyword.end, LOADMOD, new MutableIndex(-1)));
       }
       case SELF: {
         final Instruction [] selfLoad = (Instruction[]) parentContext.getValue(ContextKey.SELF_CODE);
@@ -974,8 +973,8 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, 0);
     final VarAllocator localVarAlloc = (name, start, end) -> {
       final int varIndex = (int) funcContext.getValue(ContextKey.LOCAL_VAR_INDEX);
-      final LoadStorePair LS = new LoadStorePair(new LoadInstr(start, end, LOAD, varIndex), 
-                                                 new StoreInstr(start, end, STORE, varIndex));
+      final LoadStorePair LS = new LoadStorePair(new LoadInstr(start, end, LOAD, new MutableIndex(varIndex)), 
+                                                 new StoreInstr(start, end, STORE, new MutableIndex(varIndex)));
       funcContext.setContextValue(ContextKey.LOCAL_VAR_INDEX, varIndex + 1);
       return LS;
     };
@@ -1012,16 +1011,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
           capLoadStore.store.setOpCode(STORE_CL);
 
           final int closureIndex = (int) capturedInfo.getContext().getValue(ContextKey.CL_VAR_INDEX);
-          capLoadStore.load.setIndex(closureIndex);
-          capLoadStore.store.setIndex(closureIndex);
+          capLoadStore.load.setArgument(closureIndex);
+          capLoadStore.store.setArgument(closureIndex);
           capturedInfo.getContext().setContextValue(ContextKey.CL_VAR_INDEX, closureIndex + 1);
         }
 
-        final LoadStorePair loadStore = new LoadStorePair(new LoadInstr(capture.start, capture.end, LOAD_CL, captureIndex), 
-                                                          new StoreInstr(capture.start, capture.end, STORE_CL, captureIndex));
+        final LoadStorePair loadStore = new LoadStorePair(new LoadInstr(capture.start, capture.end, LOAD_CL, new MutableIndex(captureIndex)), 
+                                                          new StoreInstr(capture.start, capture.end, STORE_CL, new MutableIndex(captureIndex)));
 
         funcContext.addVariable(capture.getIdentifier(), loadStore);
-        captures[captureIndex] = capturedInfo.getLoadInstr().getIndex();
+        captures[captureIndex] = capturedInfo.getLoadInstr().getArgument().getIndex();
         captureIndex++;
       }
     }
@@ -1087,10 +1086,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
         final String keywordCheckDone = genLabelName(paramName.getIdentifier()+"_exists_checkDone");
 
-        instrs.add(keywordNameConstant.linkInstr(new LoadInstr(parameter.start, 
-                                                               parameter.end, 
-                                                               HAS_KARG, 
-                                                               keywordNameConstant.getExactIndex())));
+        instrs.add(new LoadInstr(parameter.start, 
+                                 parameter.end, 
+                                 HAS_KARG, 
+                                 keywordNameConstant.getIndex()));
         instrs.add(new JumpInstr(initValue.start, initValue.end, JUMPT, keywordCheckDone));
 
         initValue.accept(this, funcContext).pipeErr(exceptions).pipeInstr(instrs);
@@ -1098,13 +1097,13 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
         instrs.add(new LabelInstr(initValue.start, initValue.end, keywordCheckDone));
 
-        keywordParamToIndexMap.put(paramName.getIdentifier(), paramLS.load.getIndex());
+        keywordParamToIndexMap.put(paramName.getIdentifier(), paramLS.load.getArgument().getIndex());
       }
       else if(parameter.isVarying()) {
-        varArgIndex = paramLS.load.getIndex();
+        varArgIndex = paramLS.load.getArgument().getIndex();
       }
       else if(parameter.isVarArgsKeyword()) {
-        keywordVarArgsIndex = paramLS.load.getIndex();
+        keywordVarArgsIndex = paramLS.load.getArgument().getIndex();
       }
 
 
@@ -1133,7 +1132,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
     funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));
-    funcLoadingInstrs.add(funcCodeObj.linkInstr(new LoadInstr(funcDef.end, funcDef.end, LOADC, funcCodeObj.getExactIndex())));
+    funcLoadingInstrs.add(new LoadInstr(funcDef.end, funcDef.end, LOADC, funcCodeObj.getIndex()));
     funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
 
     return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObj.getIndex());
@@ -1169,7 +1168,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     }
     else if(Op.mutatesLeft(op)) {
       /*
-       * Expand expression, from a += b to a = a * b
+       * Expand expression, from a *= b to a = a * b
        * where * is any operator
        */
 
@@ -1228,7 +1227,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandFalse));
 
       final BoolConstant falseConstant = pool.addBoolean(false);
-      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
+      instrs.add(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getIndex()));
 
       //endBranch label end
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
@@ -1265,13 +1264,13 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
       //At this point, neither operand is true. Push true and jump to endBranch
       final BoolConstant falseConstant = pool.addBoolean(false);
-      instrs.add(falseConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getExactIndex())));
+      instrs.add(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, falseConstant.getIndex()));
       instrs.add(new JumpInstr(binaryOpExpr.start, binaryOpExpr.end, JUMP, endBranch));
 
       //operandTrue label start
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, operandTrue));
       final BoolConstant trueConstant = pool.addBoolean(true);
-      instrs.add(trueConstant.linkInstr(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getExactIndex())));
+      instrs.add(new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, trueConstant.getIndex()));
 
       //endBranch label start
       instrs.add(new LabelInstr(binaryOpExpr.start, binaryOpExpr.end, endBranch));
@@ -1293,7 +1292,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instrs.addAll(leftResult.getInstructions());
-        instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, ARG, -1));
+        instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, ARG, new MutableIndex(-1)));
       }
             
       /**
@@ -1305,7 +1304,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instrs.addAll(rightResult.getInstructions());
-        instrs.add(new LoadInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, -1));
+        instrs.add(new LoadInstr(binaryOpExpr.getRight().start, binaryOpExpr.getRight().end, ARG, new MutableIndex(-1)));
       }
 
       //Add bind instruction
@@ -1341,7 +1340,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
 
-  private static OpCode opToCode(Op op) {
+  protected static OpCode opToCode(Op op) {
     switch (op) {
       case PLUS: return ADD;
       case MINUS: return SUB;
@@ -1397,25 +1396,25 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instructions.addAll(valueRes.getInstructions());
-        instructions.add(attrName.linkInstr(new LoadInstr(attrParam.start, attrParam.end, ARG, attrName.getExactIndex())));
+        instructions.add(new LoadInstr(attrParam.start, attrParam.end, ARG, attrName.getIndex()));
       }
 
       if (attr.getValue().hasDescriptor(TokenType.CONST)) {
         final IntegerConstant descriptor = constantPool.addInt(1);
-        constInstrs.add(descriptor.linkInstr(new LoadInstr(attr.getValue().getName().start, 
-                                                          attr.getValue().getName().end, 
-                                                          LOADC, 
-                                                          descriptor.getExactIndex())));
-        constInstrs.add(attrName.linkInstr(new LoadInstr(attr.getValue().getName().start, 
-                                                         attr.getValue().getName().end, 
-                                                         MAKECONST, 
-                                                         attrName.getExactIndex())));
+        constInstrs.add(new LoadInstr(attr.getValue().getName().start, 
+                                      attr.getValue().getName().end, 
+                                      LOADC, 
+                                      descriptor.getIndex()));
+        constInstrs.add(new LoadInstr(attr.getValue().getName().start, 
+                                      attr.getValue().getName().end, 
+                                      MAKECONST, 
+                                      attrName.getIndex()));
       }
     }
 
     final int isSealed = objectLiteral.isSealed() ? 1 : 0;
 
-    instructions.add(new ArgInstr(objectLiteral.start, objectLiteral.end, ALLOCO, isSealed));
+    instructions.add(new ArgInstr(objectLiteral.start, objectLiteral.end, ALLOCO, new MutableIndex(isSealed)));
     instructions.addAll(constInstrs);
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
@@ -1442,16 +1441,16 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
        */
       if (arg.hasName()) {
         final StringConstant argName = constantPool.addString(arg.getParamName().getIdentifier());
-        instructions.add(argName.linkInstr(new LoadInstr(arg.getParamName().start, 
-                                                         arg.getArgument().end, 
-                                                         ARG, 
-                                                         argName.getExactIndex())));
+        instructions.add(new LoadInstr(arg.getParamName().start, 
+                                       arg.getArgument().end, 
+                                       ARG, 
+                                       argName.getIndex()));
       }
       else {
         instructions.add(new LoadInstr(arg.getArgument().start, 
                                       arg.getArgument().end, 
                                       ARG, 
-                                      -1));
+                                      new MutableIndex(-1)));
       }
     }
 
@@ -1484,10 +1483,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      */
     final StringConstant attrName = constantPool.addString(attrAccess.getAttrName().getIdentifier());
     if (parentContext.hasContextValue(ContextKey.NEED_STORAGE) && (boolean) parentContext.getValue(ContextKey.NEED_STORAGE)) {
-      instructions.add(attrName.linkInstr(new StoreInstr(attrAccess.start, attrAccess.end, STOREATTR, attrName.getExactIndex())));
+      instructions.add(new StoreInstr(attrAccess.start, attrAccess.end, STOREATTR, attrName.getIndex()));
     }
     else {
-      instructions.add(attrName.linkInstr(new LoadInstr(attrAccess.start, attrAccess.end, LOADATTR, attrName.getExactIndex())));
+      instructions.add(new LoadInstr(attrAccess.start, attrAccess.end, LOADATTR, attrName.getIndex()));
     }
 
     return exceptions.isEmpty() ? valid(instructions) : invalid(exceptions);
@@ -1513,7 +1512,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
       else {
         instructions.addAll(valueResult.getInstructions());
-        instructions.add(new LoadInstr(value.start, value.end, ARG, -1));
+        instructions.add(new LoadInstr(value.start, value.end, ARG, new MutableIndex(-1)));
       }
     }
 
@@ -1543,10 +1542,10 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     //Allocate int for modifier
     final IntegerConstant constCode = pool.addInt(1);
-    instrs.add(constCode.linkInstr(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, LOADC, constCode.getExactIndex())));
+    instrs.add(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, LOADC, constCode.getIndex()));
 
     //Use the MAKECONST instr
-    instrs.add(attrName.linkInstr(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, MAKECONST, attrName.getExactIndex())));
+    instrs.add(new LoadInstr(constAttrDeclr.start, constAttrDeclr.end, MAKECONST, attrName.getIndex()));
 
     return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions);
   }
@@ -1648,7 +1647,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(new ArgInstr(varDeclr.getName().start, 
                                 varDeclr.getName().end, 
                                 EXPORTMV, 
-                                varLoadStore.store.getIndex()));
+                                varLoadStore.store.getArgument()));
       }
     }
     if (varDeclr.isConst()) {
@@ -1663,7 +1662,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
         instrs.add(new LoadInstr(varDeclr.getName().start, 
                               varDeclr.getName().end, 
                               CONSTMV, 
-                              varLoadStore.store.getIndex()));
+                              varLoadStore.store.getArgument()));
       }
     }
   

@@ -1,15 +1,23 @@
 package jg.sh.util;
 
 import java.util.Set;
-import java.util.function.BiFunction;
 
 import com.google.common.collect.Sets;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile.instrs.OpCode;
+import jg.sh.compile.instrs.ArgInstr;
+import jg.sh.compile.instrs.CommentInstr;
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.instrs.ArgInstruction;
+import jg.sh.runtime.instrs.CommentInstruction;
+import jg.sh.runtime.instrs.NoArgInstruction;
+import jg.sh.runtime.instrs.RuntimeInstruction;
+import jg.sh.runtime.loading.IndexedJumpInstr;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.Callable;
@@ -345,4 +353,34 @@ public final class RuntimeUtils {
   public static boolean isNumerical(RuntimeInstance instance) {
     return instance instanceof RuntimeInteger || instance instanceof RuntimeFloat;
   }
+
+  public static RuntimeInstruction translate(Instruction instruction, int exceptionJumpIndex) {
+    if (instruction instanceof CommentInstr || instruction instanceof LabelInstr) {
+      final String content = instruction instanceof CommentInstr ? 
+                                ((CommentInstr) instruction).getContent() : 
+                                ((LabelInstr) instruction).getName();
+      return new CommentInstruction(exceptionJumpIndex, content)
+                   .setStart(instruction.getStart())
+                   .setEnd(instruction.getEnd());
+    }
+    else if(instruction instanceof ArgInstr) {
+      final ArgInstr argInstr = (ArgInstr) instruction;
+      return new ArgInstruction(argInstr.getOpCode(), argInstr.getArgument().getIndex(), exceptionJumpIndex)
+                   .setStart(instruction.getStart())
+                   .setEnd(instruction.getEnd());
+    }
+    else if(instruction instanceof NoArgInstr) {
+      final NoArgInstr noArgInstr = (NoArgInstr) instruction;
+      return new NoArgInstruction(noArgInstr.getOpCode(), exceptionJumpIndex)
+                   .setStart(instruction.getStart())
+                   .setEnd(instruction.getEnd());
+    }
+    else if(instruction instanceof IndexedJumpInstr) {
+      final IndexedJumpInstr jumpInstr = (IndexedJumpInstr) instruction;
+      return new ArgInstruction(jumpInstr.getOpCode(), jumpInstr.getJumpIndex(), exceptionJumpIndex)
+                   .setStart(instruction.getStart())
+                   .setEnd(instruction.getEnd());
+    }
+    throw new IllegalArgumentException("Can't translate instruction: "+instruction);
+  } 
 }

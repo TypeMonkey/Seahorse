@@ -119,12 +119,12 @@ public class SeaHorseInterpreter {
 
       LOG.info(compiledModules.stream().map(ObjectFile::toString).collect(Collectors.joining(System.lineSeparator())));
     } catch (ParseException e) {
+      System.err.println("Parsing exception! "+e.getMessage()+" at "+e.getModule()+".sh");
       LOG.debug("Parse exception: ", e);
-      System.err.println("Parsing exception! "+e.getMessage()+" at "+e.getModule());
       return;
     } catch (IOException e) {
-      LOG.error("IO Error: ", e);
       System.err.println("IO error has occured: "+e.getMessage());
+      LOG.error("IO Error: ", e);
       return;
     } catch (InvalidModulesException e) {
       /*

@@ -4,13 +4,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import jg.sh.compile.CompContext;
+import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompilerResult;
 import jg.sh.compile.IRCompiler;
 import jg.sh.compile.ObjectFile;
+import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.ArgInstr;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LoadInstr;
-import jg.sh.compile.instrs.StoreInstr;
+import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
@@ -23,7 +25,7 @@ import jg.sh.compile.results.NodeResult;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.nodes.BinaryOpExpr;
 import jg.sh.parsing.nodes.Operator;
-import jg.sh.parsing.nodes.Operator.Op;
+import jg.sh.parsing.nodes.Op;
 import jg.sh.parsing.nodes.UnaryExpr;
 import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
@@ -67,11 +69,8 @@ public class OptimizingIRCompiler extends IRCompiler {
 
       for (Instruction instruction : masterListInstrs) {
         if (OpCode.reliesOnConstantPool(instruction.getOpCode())) {
-          final int poolIndex = instruction instanceof LoadInstr ? 
-                                  ((LoadInstr) instruction).getIndex() : 
-                                  (instruction instanceof StoreInstr ? 
-                                    ((StoreInstr) instruction).getIndex() : 
-                                    ((ArgInstr) instruction).getArgument());
+          final ArgInstr argInstr = (ArgInstr) instruction;
+          final int poolIndex = argInstr.getArgument().getIndex();
           System.out.println(" ===> INDICES: "+poolIndex+" || "+oldIndices+" || "+newListIndex);
           if (poolIndex >= 0 && !oldIndices.contains(poolIndex)) {
             final PoolComponent oldComponent = pool.getComponent(poolIndex);
@@ -124,8 +123,8 @@ public class OptimizingIRCompiler extends IRCompiler {
           //pool.removeComponent(targetBool.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
-          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
-          return valid(negated.linkInstr(loadConstant)).setTarget(new OptimizableTarget(negated));
+          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getIndex());
+          return valid(loadConstant).setTarget(new OptimizableTarget(negated));
         }
       }
       else if (target.getComponent() instanceof IntegerConstant) {
@@ -135,8 +134,8 @@ public class OptimizingIRCompiler extends IRCompiler {
           //pool.removeComponent(targetInt.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
-          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getExactIndex());
-          return valid(negated.linkInstr(loadConstant)).setTarget(new OptimizableTarget(negated));
+          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getIndex());
+          return valid(loadConstant).setTarget(new OptimizableTarget(negated));
         }
       }
       else {
@@ -152,12 +151,103 @@ public class OptimizingIRCompiler extends IRCompiler {
   public NodeResult visitBinaryExpr(CompContext parentContext, BinaryOpExpr binaryOpExpr) {
     LOG.info(" => BINOP Optimize visit: "+binaryOpExpr);
 
-    final ConstantPool pool = parentContext.getConstantPool();
     final Op op = binaryOpExpr.getOperator().getOp();
+
+    /*
+     * Expand expression, from a *= b to a = a * b
+     * where * is any operator
+     */
+    if (Op.mutatesLeft(op) && op != Op.ASSIGNMENT) {
+      final BinaryOpExpr valueExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
+                                                      binaryOpExpr.getRight(), 
+                                                      new Operator(Op.getMutatorOperator(op), 
+                                                                   binaryOpExpr.getOperator().start, 
+                                                                   binaryOpExpr.getOperator().end));
+      final BinaryOpExpr assignExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
+                                                       valueExpr, 
+                                                       new Operator(Op.ASSIGNMENT, 
+                                                                    binaryOpExpr.getOperator().start, 
+                                                                    binaryOpExpr.getOperator().end));
+      return visitBinaryExpr(parentContext, assignExpr);
+    }
+
+    final ConstantPool pool = parentContext.getConstantPool();
     final NodeResult leftResult = binaryOpExpr.getLeft().accept(this, parentContext);
     final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
 
-    if (leftResult.isOptimizable() && rightResult.isOptimizable()) {
+    final List<Instruction> instrs = new ArrayList<>();
+    final List<ValidationException> exceptions = new ArrayList<>();
+
+    if (leftResult.isOptimizable() && !rightResult.isOptimizable()) {
+      if (op == Op.ASSIGNMENT) {
+        LOG.warn("Left value of assignment is optimizable, which shouldn't be possible: "+
+                 binaryOpExpr.getLeft().repr()+" "+
+                 leftResult.getOptimizableTarget().getComponent());
+      }
+      else {
+        instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, 
+                                 binaryOpExpr.getLeft().end, 
+                                 LOADC, 
+                                 leftResult.getOptimizableTarget().getComponent().getIndex()));
+              
+        /**
+         * Compile the right operand next
+         */
+        rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
+
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
+
+        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+      }
+    }
+    else if(!leftResult.isOptimizable() && rightResult.isOptimizable()) {
+      if (op == Op.ASSIGNMENT) {
+        instrs.add(new LoadInstr(binaryOpExpr.getRight().start, 
+                                 binaryOpExpr.getRight().end, 
+                                 LOADC, 
+                                 rightResult.getOptimizableTarget().getComponent().getIndex()));
+
+        final CompContext leftContext = new CompContext(parentContext, parentContext.getCurrentContext());
+        leftContext.setContextValue(ContextKey.NEED_STORAGE, true);
+
+        /*
+        * Compile assignee next.
+        */
+        leftResult.pipeErr(exceptions).pipeInstr(instrs);
+
+        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+      }
+      else {
+        leftResult.pipeErr(exceptions).pipeInstr(instrs);
+
+        instrs.add(new LoadInstr(binaryOpExpr.getOperator().start, 
+                                 binaryOpExpr.getRight().end, 
+                                 LOADC, 
+                                 rightResult.getOptimizableTarget().getComponent().getIndex()));
+
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
+
+        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+      }
+    }
+    else if (leftResult.isOptimizable() && rightResult.isOptimizable()) {
       final OptimizableTarget leftTarget = leftResult.getOptimizableTarget();
       final OptimizableTarget rightTarget = rightResult.getOptimizableTarget();
 
@@ -230,8 +320,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (II):  "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
-        component.linkInstr(loadC);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
 
         //pool.removeComponent(leftInt.getExactIndex());
         //pool.removeComponent(rightInt.getExactIndex());
@@ -297,8 +386,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (IF): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
-        component.linkInstr(loadC);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
 
         //pool.removeComponent(leftInt.getExactIndex());
         //pool.removeComponent(rightFloat.getExactIndex());
@@ -364,8 +452,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (FI): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
-        component.linkInstr(loadC);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
 
         //pool.removeComponent(leftFloat.getExactIndex());
         //pool.removeComponent(rightInt.getExactIndex());
@@ -431,8 +518,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (FF): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
-        component.linkInstr(loadC);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
 
         //pool.removeComponent(leftFloat.getExactIndex());
         //pool.removeComponent(rightFloat.getExactIndex());
@@ -470,8 +556,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (BB): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getExactIndex());
-        component.linkInstr(loadC);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
 
         /*
         No need to remove PoolComponents for booleans.

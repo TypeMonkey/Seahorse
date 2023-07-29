@@ -5,7 +5,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import jg.sh.common.FunctionSignature;
-import jg.sh.runtime.loading.ContextualInstr;
+import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
@@ -141,7 +141,7 @@ public class HeapAllocator {
                                               Map<String, Integer> keywordIndexes, 
                                               int varArgIndex,
                                               int keywordVarArgIndex,
-                                              ContextualInstr [] instrs, 
+                                              RuntimeInstruction [] instrs, 
                                               int [] captures) {
     //perform garbage collection prior to allocation
     if (heapPointer >= storageLimit) {

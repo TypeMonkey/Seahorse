@@ -4,7 +4,7 @@ import java.util.List;
 
 import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.pool.ConstantPool.MutableIndex;
+import jg.sh.compile.instrs.MutableIndex;
 
 public class FuncResult extends NodeResult {
 

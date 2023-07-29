@@ -8,6 +8,7 @@ import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.MutableIndex;
 import jg.sh.compile.instrs.MutableInstr;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
@@ -19,48 +20,6 @@ import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
 
 public class ConstantPool {
-
-  public static class MutableIndex {
-
-    private final List<MutableInstr> linkedLoads;
-    private int index;
-
-    public MutableIndex(int initialIndex) {
-      this.linkedLoads = new ArrayList<>();
-      this.index = initialIndex;
-    }
-
-    public MutableIndex() {
-      this(-1);
-    }
-
-    public <T extends MutableInstr> T linkInstr(T mutableInstr) {
-      mutableInstr.setIndex(index);
-      linkedLoads.add(mutableInstr);
-      return mutableInstr;
-    }
-
-    public void increment() {
-      setIndex(index + 1);
-    }
-
-    public void decrement() {
-      setIndex(index - 1);
-    }
-
-    public void setIndex(int index) {
-      this.index = index;
-
-      for (MutableInstr instr : linkedLoads) {
-        instr.setIndex(index);
-      }
-    }
-
-    public int getIndex() {
-      return index;
-    }
-  }
-  
   private final Map<String, StringConstant> stringConstants;
   private final Map<Long, IntegerConstant> integerConstants;
   private final Map<Double, FloatConstant> floatConstants;
