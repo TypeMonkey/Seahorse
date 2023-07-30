@@ -164,7 +164,10 @@ public class OptimizingIRCompiler extends IRCompiler {
      * Expand expression, from a *= b to a = a * b
      * where * is any operator
      */
-    if (Op.mutatesLeft(op) && op != Op.ASSIGNMENT) {
+    if (op == Op.ASSIGNMENT) {
+      return super.visitBinaryExpr(parentContext, binaryOpExpr);
+    }
+    else if (Op.mutatesLeft(op) && op != Op.ASSIGNMENT) {
       final BinaryOpExpr valueExpr = new BinaryOpExpr(binaryOpExpr.getLeft(), 
                                                       binaryOpExpr.getRight(), 
                                                       new Operator(Op.getMutatorOperator(op), 
@@ -186,73 +189,115 @@ public class OptimizingIRCompiler extends IRCompiler {
     final List<ValidationException> exceptions = new ArrayList<>();
 
     if (leftResult.isOptimizable() && !rightResult.isOptimizable()) {
-      if (op == Op.ASSIGNMENT) {
-        LOG.warn("Left value of assignment is optimizable, which shouldn't be possible: "+
-                 binaryOpExpr.getLeft().repr()+" "+
-                 leftResult.getOptimizableTarget().getComponent());
+      if(op == Op.PLUS) {
+        if ((leftResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
+            ((IntegerConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
+            (leftResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
+            ((FloatConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+        {
+          /**
+           * Compile the right operand next
+           */
+          rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
+          instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, INC));
+
+          return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        }
+      }
+      else if(op == Op.MINUS) {
+        if ((leftResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
+            ((IntegerConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
+            (leftResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
+            ((FloatConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1.0))
+        {
+          /**
+           * Compile the right operand next
+           */
+          rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
+          instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, DEC));
+
+          return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        } 
+      }
+
+      instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, 
+                                binaryOpExpr.getLeft().end, 
+                                LOADC, 
+                                leftResult.getOptimizableTarget().getComponent().getIndex()));
+            
+      /**
+       * Compile the right operand next
+       */
+      rightResult.pipeErr(exceptions).pipeInstr(instrs);
+
+
+      final OpCode opCode = opToCode(op);
+      if (opCode == null) {
+        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                              binaryOpExpr.getOperator().start, 
+                                              binaryOpExpr.getOperator().end));
       }
       else {
-        instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, 
-                                 binaryOpExpr.getLeft().end, 
-                                 LOADC, 
-                                 leftResult.getOptimizableTarget().getComponent().getIndex()));
-              
-        /**
-         * Compile the right operand next
-         */
-        rightResult.pipeErr(exceptions).pipeInstr(instrs);
-
-
-        final OpCode opCode = opToCode(op);
-        if (opCode == null) {
-          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                                binaryOpExpr.getOperator().start, 
-                                                binaryOpExpr.getOperator().end));
-        }
-        else {
-          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
-        }
-
-        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
       }
+
+      return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+      
     }
     else if(!leftResult.isOptimizable() && rightResult.isOptimizable()) {
-      if (op == Op.ASSIGNMENT) {
-        instrs.add(new LoadInstr(binaryOpExpr.getRight().start, 
-                                 binaryOpExpr.getRight().end, 
-                                 LOADC, 
-                                 rightResult.getOptimizableTarget().getComponent().getIndex()));
+      if(op == Op.PLUS ) {
+          if ((rightResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
+              ((IntegerConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
+              (rightResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
+              ((FloatConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+          {
+            /**
+             * Compile the right operand next
+             */
+            leftResult.pipeErr(exceptions).pipeInstr(instrs);
 
-        final CompContext leftContext = new CompContext(parentContext, parentContext.getCurrentContext());
-        leftContext.setContextValue(ContextKey.NEED_STORAGE, true);
+            instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, INC));
 
-        /*
-        * Compile assignee next.
-        */
-        leftResult.pipeErr(exceptions).pipeInstr(instrs);
+            return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+          }
+      }
+      else if(op == Op.MINUS) {
+        if ((rightResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
+              ((IntegerConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
+              (rightResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
+              ((FloatConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+        {
+          /**
+           * Compile the right operand next
+           */
+          leftResult.pipeErr(exceptions).pipeInstr(instrs);
 
-        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+          instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, DEC));
+
+          return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        }
+      }
+      
+      leftResult.pipeErr(exceptions).pipeInstr(instrs);
+
+      instrs.add(new LoadInstr(binaryOpExpr.getOperator().start, 
+                                binaryOpExpr.getRight().end, 
+                                LOADC, 
+                                rightResult.getOptimizableTarget().getComponent().getIndex()));
+
+      final OpCode opCode = opToCode(op);
+      if (opCode == null) {
+        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                              binaryOpExpr.getOperator().start, 
+                                              binaryOpExpr.getOperator().end));
       }
       else {
-        leftResult.pipeErr(exceptions).pipeInstr(instrs);
-
-        instrs.add(new LoadInstr(binaryOpExpr.getOperator().start, 
-                                 binaryOpExpr.getRight().end, 
-                                 LOADC, 
-                                 rightResult.getOptimizableTarget().getComponent().getIndex()));
-
-        final OpCode opCode = opToCode(op);
-        if (opCode == null) {
-          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                                binaryOpExpr.getOperator().start, 
-                                                binaryOpExpr.getOperator().end));
-        }
-        else {
-          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
-        }
-
-        return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
       }
+
+      return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
     }
     else if (leftResult.isOptimizable() && rightResult.isOptimizable()) {
       final OptimizableTarget leftTarget = leftResult.getOptimizableTarget();

@@ -1,4 +1,4 @@
-use system;
+use system:println, now;
 
 func fibSlow(n){
   if(n < 0){
@@ -17,7 +17,7 @@ func fibSlow(n){
 
 func fib(n){
   const arr := [0,1,1];
-  system.println("init ARR "+arr);
+  //system.println("init ARR "+arr);
  
   if(n <= 2){
     return arr[n];
@@ -25,17 +25,23 @@ func fib(n){
   else {
     var index := 3;
     while(index <= n){
-      system.println(" ==> cycle: "+index+" | "+(index - 1)+" | "+(index - 2)+" | ARR: "+arr);
+      //system.println(" ==> cycle: "+index+" | "+(index - 1)+" | "+(index - 2)+" | ARR: "+arr);
     	arr.add(arr[index - 1] + arr[index - 2]);
     	index += 1;
     }
     
-    system.println("ARR: "+arr);
+    //system.println("ARR: "+arr);
     return arr[n];
   }
 }
 
+var start := now();
 const value := fib(28);
+const fastElasped := now() - start;
+
+start := now();
 const valueSlow := fibSlow(28);
-system.println("Result: "+value+" | slow "+valueSlow+" | "+(value = valueSlow));
+const slowElasped := now() - start;
+
+println("Result: "+value+" @ "+fastElasped+" ns | slow "+valueSlow+" @ "+slowElasped+" ns | "+(value = valueSlow));
 

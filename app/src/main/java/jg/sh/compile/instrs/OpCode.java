@@ -65,6 +65,16 @@ public enum OpCode {
    */
   BAND,
   BOR,
+
+  /*
+   * Increments an integer by 1, or a float by 1
+   */
+  INC,
+
+  /**
+   * Decrements an integer by 1, or a float by 1
+   */
+  DEC,
   
   /*
    * Instruction jumps and function calls
@@ -402,7 +412,7 @@ public enum OpCode {
   
   static {
     OpCode [] options = {STORE, LOAD, STOREATTR, LOADATTR, 
-                         LOADC, JUMP, COMMENT, LABEL, 
+                         LOADC, JUMP, JUMPF, JUMPT, COMMENT, LABEL, 
                          LOADMV, STOREMV, LOAD_CL, STORE_CL, 
                          ARG, ALLOCO, LOADMOD, MAKECONST,
                          CONSTMV, EXPORTMV, HAS_KARG};

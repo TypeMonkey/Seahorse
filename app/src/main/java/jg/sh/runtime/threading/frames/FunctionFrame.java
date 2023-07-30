@@ -28,6 +28,7 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
+import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
@@ -319,7 +320,7 @@ public class FunctionFrame extends StackFrame {
           }
 
           //If the result is still null after using the numXXX() methods, then pass it down!
-        }         
+        }   
         case MOD: {
           RuntimeInstance right = popOperand();
           RuntimeInstance left = popOperand();
@@ -397,8 +398,146 @@ public class FunctionFrame extends StackFrame {
           
           break;
         }
+
+        //Increment and decrement
+        case INC: {
+          RuntimeInstance target = popOperand();
+
+          if(target instanceof RuntimeInteger){
+            RuntimeInteger integer = (RuntimeInteger) target;
+            integer = allocator.allocateInt(integer.getValue() + 1);
+            pushOperand(integer); 
+          }
+          else if(target instanceof RuntimeFloat) {
+            RuntimeFloat floatingPoint = (RuntimeFloat) target;
+            floatingPoint = allocator.allocateFloat(floatingPoint.getValue() + 1.0);
+            pushOperand(floatingPoint); 
+          }
+          else {
+            FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.ADD);
+            final String opFuncName = coupling.getFuncName();
+            
+            if (target.hasAttr(opFuncName)) {
+              final RuntimeInstance func = target.getAttr(opFuncName);
+
+              if (func instanceof Callable) {         
+                Callable actualCallable = (Callable) func;
+                ArgVector args = new ArgVector(allocator.allocateInt(1));
+                
+                try {
+                  StackFrame newFrame = makeFrame(actualCallable, args, allocator);
+                  incrmntInstrIndex();
+                  return newFrame;
+                } catch (CallSiteException e) {
+                  RuntimeError error = allocator.allocateError(e.getMessage());
+                  returnError(error);
+                  if (instr.getExceptionJumpIndex() >= 0) {
+                    setInstrIndex(instr.getExceptionJumpIndex());
+                  }
+                  else {
+                    returnError(error); 
+                    return null;
+                  }
+                }
+              }
+              else {
+                RuntimeError error = allocator.allocateError("Object isn't callable!");
+                returnError(error);
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
+                }
+                else {
+                  returnError(error); 
+                  return null;
+                }
+              }
+            }
+            else {
+              //unsupported operation          
+              RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
+              returnError(error);
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
+              }
+              else {
+                returnError(error); 
+                return null;
+              }
+            }
+          }
+
+          break;
+        }
+        case DEC: {
+          RuntimeInstance target = popOperand();
+
+          if(target instanceof RuntimeInteger){
+            RuntimeInteger integer = (RuntimeInteger) target;
+            integer = allocator.allocateInt(integer.getValue() - 1);
+            pushOperand(integer); 
+          }
+          else if(target instanceof RuntimeFloat) {
+            RuntimeFloat floatingPoint = (RuntimeFloat) target;
+            floatingPoint = allocator.allocateFloat(floatingPoint.getValue() - 1.0);
+            pushOperand(floatingPoint); 
+          }
+          else {
+            FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.SUB);
+            final String opFuncName = coupling.getFuncName();
+            
+            if (target.hasAttr(opFuncName)) {
+              final RuntimeInstance func = target.getAttr(opFuncName);
+
+              if (func instanceof Callable) {         
+                Callable actualCallable = (Callable) func;
+                ArgVector args = new ArgVector(allocator.allocateInt(1));
+                
+                try {
+                  StackFrame newFrame = makeFrame(actualCallable, args, allocator);
+                  incrmntInstrIndex();
+                  return newFrame;
+                } catch (CallSiteException e) {
+                  RuntimeError error = allocator.allocateError(e.getMessage());
+                  returnError(error);
+                  if (instr.getExceptionJumpIndex() >= 0) {
+                    setInstrIndex(instr.getExceptionJumpIndex());
+                  }
+                  else {
+                    returnError(error); 
+                    return null;
+                  }
+                }
+              }
+              else {
+                RuntimeError error = allocator.allocateError("Object isn't callable!");
+                returnError(error);
+                if (instr.getExceptionJumpIndex() >= 0) {
+                  setInstrIndex(instr.getExceptionJumpIndex());
+                }
+                else {
+                  returnError(error); 
+                  return null;
+                }
+              }
+            }
+            else {
+              //unsupported operation          
+              RuntimeError error = allocator.allocateError("Unsupported operation for "+coupling.getOpCode().name().toLowerCase());
+              returnError(error);
+              if (instr.getExceptionJumpIndex() >= 0) {
+                setInstrIndex(instr.getExceptionJumpIndex());
+              }
+              else {
+                returnError(error); 
+                return null;
+              }
+            }
+          }
+
+          break;
+        }
         
-        //unary operator
+        //unary operators
         case NOT: {
           RuntimeInstance operand = popOperand();
 
@@ -409,7 +548,6 @@ public class FunctionFrame extends StackFrame {
           }
 
           //If the result is still null after using the negate(), then pass it down!
-
         }
         case NEG: {
           RuntimeInstance operand = popOperand();
@@ -422,7 +560,8 @@ public class FunctionFrame extends StackFrame {
 
           //If the result is still null after using the negate(), then pass it down!
           
-          FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(op);
+          final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(op);
+          System.out.println(" === coupling? "+coupling);
           final String opFuncName = coupling.getFuncName();
           
           if (operand.hasAttr(opFuncName)) {
@@ -1111,7 +1250,7 @@ public class FunctionFrame extends StackFrame {
           final RuntimeArray array = allocator.allocateEmptyArray();
           
           for(int i = 0; i < args.getPositionals().size(); i++) {
-            System.out.println("=== ADDING: "+args.getPositional(i));
+            //System.out.println("=== ADDING: "+args.getPositional(i));
             array.addValue(args.getPositional(i));
           }
           
