@@ -3,6 +3,7 @@ package jg.sh.compile.optimization;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javafx.util.Pair;
 import jg.sh.compile.CompContext;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompilerResult;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static jg.sh.compile.instrs.OpCode.*;
@@ -50,40 +52,45 @@ public class OptimizingIRCompiler extends IRCompiler {
     if (result.isSuccessful()) {
       //Shrink/squash the constant pool
       final ObjectFile obj = result.getObjectFile();
-      final ConstantPool pool = obj.getPool();
+      final List<PoolComponent> pool = obj.getConstants();
 
       LOG.info("Success: "+obj);
 
       final List<Instruction> masterListInstrs = new ArrayList<>();
       masterListInstrs.addAll(obj.getModuleInstrs());
-      masterListInstrs.addAll(pool.getMembers().stream()
-                                               .filter(x -> x instanceof CodeObject)
-                                               .map(x -> ((CodeObject) x).getInstrs())
-                                               .flatMap(Collection::stream).collect(Collectors.toList()));
+      masterListInstrs.addAll(pool.stream()
+                                  .filter(x -> x instanceof CodeObject)
+                                  .map(x -> ((CodeObject) x).getInstrs())
+                                  .flatMap(Collection::stream).collect(Collectors.toList()));
 
       LOG.info("ALL instrs: "+masterListInstrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));      
 
       int newListIndex = 0;
-      final ArrayList<PoolComponent> newPoolList = new ArrayList<>();
+      final ArrayList<Pair<PoolComponent, Integer>> newPoolList = new ArrayList<>();
       final HashSet<Integer> oldIndices = new HashSet<>();
 
       for (Instruction instruction : masterListInstrs) {
         if (OpCode.reliesOnConstantPool(instruction.getOpCode())) {
           final ArgInstr argInstr = (ArgInstr) instruction;
           final int poolIndex = argInstr.getArgument().getIndex();
-          System.out.println(" ===> INDICES: "+poolIndex+" || "+oldIndices+" || "+newListIndex);
+          //System.out.println(" ===> INDICES: "+poolIndex+" || "+oldIndices+" || "+newListIndex);
           if (poolIndex >= 0 && !oldIndices.contains(poolIndex)) {
-            final PoolComponent oldComponent = pool.getComponent(poolIndex);
+            final PoolComponent oldComponent = pool.get(poolIndex);
+            //System.out.println("   ==> ADDED!!! "+poolIndex+" || "+oldComponent+" || "+instruction);
             
-            newPoolList.add(oldComponent);
-            oldComponent.getIndex().setIndex(newListIndex++);
+            newPoolList.add(new Pair<>(oldComponent, newListIndex++));
             oldIndices.add(poolIndex);
           }
         }
       }
 
-      pool.getMembers().clear();
-      pool.getMembers().addAll(newPoolList);
+      //Clear pool of its
+      pool.clear();
+      pool.addAll(
+        newPoolList.stream().map(pair -> {
+          pair.getKey().getIndex().setIndex(pair.getValue());
+          return pair.getKey();
+        }).collect(Collectors.toList()));
     }
     return result;
   }

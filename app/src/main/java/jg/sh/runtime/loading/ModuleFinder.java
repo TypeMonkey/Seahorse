@@ -455,7 +455,7 @@ public class ModuleFinder implements Markable {
   private RuntimeModule prepareModule(ObjectFile compiledFile) {    
     HashMap<Integer, RuntimeInstance> constantMap = new HashMap<>();
     
-    LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getPool());    
+    LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getConstants());    
     
     final CodeObject moduleCodeObject = new CodeObject(
         new FunctionSignature(0, Collections.emptySet()), 
@@ -489,7 +489,7 @@ public class ModuleFinder implements Markable {
     
     //System.out.println("-----------------------------");
     
-    List<RuntimeCodeObject> runtimeCodeObjects = contextualize(compiledFile.getPool(), 
+    List<RuntimeCodeObject> runtimeCodeObjects = contextualize(compiledFile.getConstants(), 
                                                                constantMap,
                                                                allInstructions, 
                                                                codeObjectIndices, 
@@ -514,11 +514,11 @@ public class ModuleFinder implements Markable {
    * Allocates non-code object constants
    * @param pool
    */
-  private LinkedHashMap<Integer, CodeObject> allocateConstants(Map<Integer, RuntimeInstance> constantMap,  ConstantPool pool) {  
+  private LinkedHashMap<Integer, CodeObject> allocateConstants(Map<Integer, RuntimeInstance> constantMap, List<PoolComponent> pool) {  
     LinkedHashMap<Integer, CodeObject> codeObjects = new LinkedHashMap<>();
     
-    for (int i = 0; i < pool.getPoolSize(); i++) {
-      PoolComponent component = pool.getComponent(i);
+    for (int i = 0; i < pool.size(); i++) {
+      PoolComponent component = pool.get(i);
       if (component instanceof BoolConstant) {
         constantMap.put(i, allocator.allocateBool(((BoolConstant) component).getValue()));
       }
@@ -540,7 +540,7 @@ public class ModuleFinder implements Markable {
     return codeObjects;
   }
   
-  private List<RuntimeCodeObject> contextualize(ConstantPool pool, 
+  private List<RuntimeCodeObject> contextualize(List<PoolComponent> pool, 
                                               Map<Integer, RuntimeInstance> constantMap,
                                               List<Instruction> rawInstrs, 
                                               int [][] codeObjectIndices, 
@@ -571,18 +571,19 @@ public class ModuleFinder implements Markable {
     }
     
     //Set error jump labels
-    for(ErrorHandlingRecord record : pool.getErrorHandlingRecords()) {
-      int startInstr = labelMap.get(record.getStartTryCatch());
-      int endInstr = labelMap.get(record.getEndTryCatch());
-      
-      //System.out.println(" ============== "+startInstr+" <-> "+endInstr);
-
-      
-      for( ;startInstr <= endInstr; startInstr++) {
-        tempContextInstrs.set(startInstr, 
-            new TempContextInstr(record.getCatchLabel(), rawInstrs.get(startInstr)));
-      }
-    }
+    pool.stream()
+        .filter(c -> c instanceof ErrorHandlingRecord)
+        .map(c -> (ErrorHandlingRecord) c)
+        .forEach(record -> {
+          int startInstr = labelMap.get(record.getStartTryCatch());
+          int endInstr = labelMap.get(record.getEndTryCatch());
+          //System.out.println(" ============== "+startInstr+" <-> "+endInstr);
+          
+          for( ;startInstr <= endInstr; startInstr++) {
+            tempContextInstrs.set(startInstr, 
+                new TempContextInstr(record.getCatchLabel(), rawInstrs.get(startInstr)));
+          }
+        });
     
     ArrayList<RuntimeCodeObject> runtimeCodeObjects = new ArrayList<>();
     

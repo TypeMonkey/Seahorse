@@ -322,7 +322,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       }
     }
 
-    final ObjectFile objectFile = new ObjectFile(module.getName(), moduleStart.getName(), constantPool, instrs);
+    final ObjectFile objectFile = new ObjectFile(module.getName(), moduleStart.getName(), constantPool.getMembers(), instrs);
     return exceptions.isEmpty() ? new CompilerResult(objectFile) : new CompilerResult(exceptions);
   }
 

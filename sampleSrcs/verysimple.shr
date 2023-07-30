@@ -1,3 +1,7 @@
+use system:now, println;
+
 const someVar := 50;
+const start := now();
 const test := someVar + (10 - 90 + (-5366 + 5.5)) + (50 * 95 / (5.5));
-//50 := 10;
+const end := now();
+println("----end----"+(end-start));

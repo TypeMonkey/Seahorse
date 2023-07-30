@@ -22,17 +22,14 @@ import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.parsing.nodes.BinaryOpExpr;
 import jg.sh.parsing.nodes.FuncCall;
 import jg.sh.parsing.nodes.FuncDef;
-import jg.sh.parsing.nodes.IndexAccess;
 import jg.sh.parsing.nodes.Parameter;
-import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.FuncCall.Argument;
-import jg.sh.parsing.nodes.Operator.Op;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.VarDeclr;
 import jg.sh.parsing.nodes.values.Str;
 
 import static jg.sh.parsing.utils.ParseTestUtils.*;
-import static jg.sh.parsing.nodes.Operator.Op.*;
+import static jg.sh.parsing.nodes.Op.*;
 
 public class ParserTest {
 

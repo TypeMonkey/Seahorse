@@ -20,14 +20,14 @@ public class InterpreterOptions {
     COMP_TO_BYTE,
     
     /**
-     * Whether modules should be executed without compilation to bytecode.
+     * Whether modules should be compiled without any optimization.
      * 
      * Value of this option should be a boolean. Default is false
      * 
      * It's NOT recommended to set this option to be true unless for instrumentation purposes.
-     * Bytecode compilation and execution provided significant, performance critical improvements.
+     * Optimized bytecode compilation and execution provides significant, performance critical improvements.
      */
-    //INTERPRET_ONLY,  
+    INTERPRET_ONLY,  
     
     /**
      * Whether a module's bytecode transformation should be loaded and favored over the source text.
@@ -127,9 +127,7 @@ public class InterpreterOptions {
     DEFAULTS.put(IOption.MEASURE, false);
     DEFAULTS.put(IOption.POOL_SIZE, 1);
     DEFAULTS.put(IOption.LOG_LEVEL, "OFF");
-
-    //DEFAULTS.put(IOption.INTERPRET_ONLY, false);
-    //DEFAULTS.put(Option.MAX_HEAP_SIZE, 100000);
+    DEFAULTS.put(IOption.INTERPRET_ONLY, false);
   }
   
   private InterpreterOptions() {}

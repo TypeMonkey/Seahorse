@@ -30,9 +30,21 @@ public class SeahorseCompiler {
   private final Parser parser;
   private final IRCompiler irCompiler;
 
+  /**
+   * Constructs a SeahorseCompiler, using the 
+   * OptimizingIRCompiler by default
+   */
   public SeahorseCompiler() {
+    this(true);
+  }
+
+  /**
+   * Constructs a SeahorseCompiler
+   * @param optimize - whether to use the OptimizingIRCompiler or just the IRCompiler
+   */
+  public SeahorseCompiler(boolean optimize) {
     this.parser = new Parser(Collections.emptyList(), null);
-    this.irCompiler = new OptimizingIRCompiler();
+    this.irCompiler = optimize ? new OptimizingIRCompiler() : new IRCompiler();
   }
 
   public List<Module> compile(List<String> sourceFiles) throws IllegalArgumentException, ParseException, IOException {
@@ -66,6 +78,7 @@ public class SeahorseCompiler {
       //close reader
       sourceReader.close();
       
+      //Add module to module list
       modules.add(module);
     }
 

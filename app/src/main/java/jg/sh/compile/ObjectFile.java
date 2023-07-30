@@ -5,6 +5,7 @@ import java.util.List;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.pool.ConstantPool;
+import jg.sh.compile.pool.component.PoolComponent;
 
 /**
  * A compiled Seahorse module containing its 
@@ -14,13 +15,13 @@ public class ObjectFile {
 
   private final String name;
   private final String moduleLabelStart;
-  private final ConstantPool pool;
+  private final List<PoolComponent> constants;
   private final List<Instruction> moduleInstrs;
 
-  public ObjectFile(String name, String moduleLabelStart, ConstantPool pool, List<Instruction> moduleInstrs) {
+  public ObjectFile(String name, String moduleLabelStart, List<PoolComponent> constants, List<Instruction> moduleInstrs) {
     this.name = name;
     this.moduleLabelStart = moduleLabelStart;
-    this.pool = pool;
+    this.constants = constants;
     this.moduleInstrs = moduleInstrs;
   }
   
@@ -28,8 +29,8 @@ public class ObjectFile {
     return moduleInstrs;
   }
   
-  public ConstantPool getPool() {
-    return pool;
+  public List<PoolComponent> getConstants() {
+    return constants;
   }
   
   public String getModuleLabelStart() {
@@ -45,8 +46,8 @@ public class ObjectFile {
     String x = "Compiled module '"+name+"'"+System.lineSeparator();
     
     x += "-------CONSTANT POOL-------"+System.lineSeparator();
-    for(int i = 0; i < pool.getPoolSize(); i++) {
-      x += "  "+i+" : "+pool.getComponent(i)+System.lineSeparator();
+    for(int i = 0; i < constants.size(); i++) {
+      x += "  "+i+" : "+constants.get(i)+System.lineSeparator();
     }
     x += "-------CONSTANT POOL-------"+System.lineSeparator();
     

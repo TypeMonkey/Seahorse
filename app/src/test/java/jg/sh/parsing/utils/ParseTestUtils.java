@@ -26,7 +26,7 @@ import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.Parenthesized;
 import jg.sh.parsing.nodes.UnaryExpr;
 import jg.sh.parsing.nodes.FuncCall.Argument;
-import jg.sh.parsing.nodes.Operator.Op;
+import jg.sh.parsing.nodes.Op;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.statements.VarDeclr;
