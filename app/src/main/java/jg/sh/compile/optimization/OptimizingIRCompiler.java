@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javafx.util.Pair;
+import jg.sh.common.Location;
 import jg.sh.compile.CompContext;
 import jg.sh.compile.CompContext.ContextKey;
 import jg.sh.compile.CompilerResult;
@@ -15,32 +16,40 @@ import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.NoArgInstr;
 import jg.sh.compile.instrs.OpCode;
+import jg.sh.compile.optimization.targets.BooleanTarget;
+import jg.sh.compile.optimization.targets.FloatTarget;
+import jg.sh.compile.optimization.targets.IntegerTarget;
+import jg.sh.compile.optimization.targets.OptimizableTarget;
+import jg.sh.compile.optimization.targets.StringTarget;
 import jg.sh.compile.pool.ConstantPool;
-import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
-import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.PoolComponent;
+import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.compile.results.ConstantResult;
 import jg.sh.compile.results.NodeResult;
+import jg.sh.compile.results.VarResult;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.nodes.BinaryOpExpr;
+import jg.sh.parsing.nodes.Identifier;
 import jg.sh.parsing.nodes.Operator;
 import jg.sh.parsing.nodes.Op;
 import jg.sh.parsing.nodes.UnaryExpr;
+import jg.sh.parsing.nodes.statements.VarDeclr;
+import jg.sh.parsing.nodes.values.Bool;
 import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
-
-import static jg.sh.compile.results.NodeResult.*;
+import jg.sh.parsing.nodes.values.Str;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static jg.sh.compile.instrs.OpCode.*;
+import static jg.sh.compile.results.NodeResult.*;
+import static jg.sh.compile.optimization.OptimizationUtils.*;
 
 public class OptimizingIRCompiler extends IRCompiler {
 
@@ -94,19 +103,32 @@ public class OptimizingIRCompiler extends IRCompiler {
     }
     return result;
   }
-
   
   @Override
   public ConstantResult visitInt(CompContext parentContext, Int integer) {
     final ConstantResult result = super.visitInt(parentContext, integer);
-    result.setTarget(new OptimizableTarget(result.getConstant()));
+    result.setTarget(new IntegerTarget(integer.getValue()));
     return result;
   }
 
   @Override
-  public ConstantResult visitFloat(CompContext parentContext, FloatingPoint integer) {
-    final ConstantResult result = super.visitFloat(parentContext, integer);
-    result.setTarget(new OptimizableTarget(result.getConstant()));
+  public ConstantResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
+    final ConstantResult result = super.visitFloat(parentContext, floatingPoint);
+    result.setTarget(new FloatTarget(floatingPoint.getValue()));
+    return result;
+  }
+
+  @Override
+  public ConstantResult visitBoolean(CompContext parentContext, Bool bool) {
+    final ConstantResult result = super.visitBoolean(parentContext, bool);
+    result.setTarget(new BooleanTarget(bool.getValue()));
+    return result;
+  }
+
+  @Override
+  public ConstantResult visitString(CompContext parentContext, Str str) {
+    final ConstantResult result = super.visitString(parentContext, str);
+    result.setTarget(new StringTarget(str.getValue()));
     return result;
   }
 
@@ -119,39 +141,64 @@ public class OptimizingIRCompiler extends IRCompiler {
       final Operator op = unaryExpr.getOperator();
       final ConstantPool pool = parentContext.getConstantPool();
 
-      final OptimizableTarget target = result.getOptimizableTarget();
+      final OptimizableTarget<?> target = result.getOptimizableTarget();
 
       LOG.info("UNARY IS OPTIMIZABLE: "+unaryExpr+" | "+target);
 
-      if (target.getComponent() instanceof BoolConstant) {
-        final BoolConstant targetBool = (BoolConstant) target.getComponent();
+      if (target.getValue() instanceof Boolean) {
+        final boolean targetBool = (Boolean) target.getValue();
         if (op.getOp() == Op.BANG) {
-          final BoolConstant negated = pool.addBoolean(!targetBool.getValue());
+          final BooleanTarget negated = new BooleanTarget(!targetBool);
           //pool.removeComponent(targetBool.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
-          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getIndex());
-          return valid(loadConstant).setTarget(new OptimizableTarget(negated));
+          final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getPoolComponent(pool).getIndex());
+          return valid(loadConstant).setTarget(new BooleanTarget(negated.getValue()));
         }
       }
-      else if (target.getComponent() instanceof IntegerConstant) {
-        final IntegerConstant targetInt = (IntegerConstant) target.getComponent();
+      else if (target.getValue() instanceof Long) {
+        final long targetInt = (Long) target.getValue();
         if (op.getOp() == Op.MINUS) {
-          final IntegerConstant negated = pool.addInt(-targetInt.getValue());
+          final IntegerConstant negated = pool.addInt(-targetInt);
           //pool.removeComponent(targetInt.getExactIndex());
 
           LOG.info(" ==> UNARY optimizable result: "+negated);
           final LoadInstr loadConstant = new LoadInstr(unaryExpr.start, unaryExpr.end, LOADC, negated.getIndex());
-          return valid(loadConstant).setTarget(new OptimizableTarget(negated));
+          return valid(loadConstant).setTarget(new IntegerTarget(negated.getValue()));
         }
       }
       else {
-        LOG.info("UNARY unknown OPTIMIZABLE type: "+target.getComponent().getClass());
+        LOG.info("UNARY unknown OPTIMIZABLE type: "+target.getValue().getClass());
       }
     }
 
     LOG.info(" =========== UNARY, NOT OPTIMIZABLE "+unaryExpr);
     return super.visitUnary(parentContext, unaryExpr);
+  }
+
+  @Override
+  public VarResult visitVarDeclr(CompContext parentContext, VarDeclr varDeclr) { 
+    if (varDeclr.isConst()) {
+      final NodeResult valueResult = varDeclr.getInitialValue().accept(this, parentContext);
+      if (valueResult.isOptimizable()) {
+        final OptimizableTarget<?> target = valueResult.getOptimizableTarget();
+        parentContext.setConstant(varDeclr.getName().getIdentifier(), target);
+      }
+    }
+
+    final VarResult result = super.visitVarDeclr(parentContext, varDeclr);
+    return result;
+  }
+
+  @Override
+  public NodeResult visitIdentifier(CompContext parentContext, Identifier identifier) {
+    final NodeResult result = super.visitIdentifier(parentContext, identifier);
+
+    if (parentContext.hasConstant(identifier.getIdentifier())) {
+      result.setTarget(parentContext.getConstant(identifier.getIdentifier()));
+    }
+
+    return result;
   }
 
   @Override
@@ -190,10 +237,7 @@ public class OptimizingIRCompiler extends IRCompiler {
 
     if (leftResult.isOptimizable() && !rightResult.isOptimizable()) {
       if(op == Op.PLUS) {
-        if ((leftResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
-            ((IntegerConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
-            (leftResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
-            ((FloatConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+        if (isTarget(leftResult.getOptimizableTarget(), 1) || isTarget(leftResult.getOptimizableTarget(), 1.0)) 
         {
           /**
            * Compile the right operand next
@@ -206,10 +250,7 @@ public class OptimizingIRCompiler extends IRCompiler {
         }
       }
       else if(op == Op.MINUS) {
-        if ((leftResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
-            ((IntegerConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
-            (leftResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
-            ((FloatConstant) leftResult.getOptimizableTarget().getComponent()).getValue() == 1.0))
+        if (isTarget(leftResult.getOptimizableTarget(), 1) || isTarget(leftResult.getOptimizableTarget(), 1.0))
         {
           /**
            * Compile the right operand next
@@ -225,7 +266,7 @@ public class OptimizingIRCompiler extends IRCompiler {
       instrs.add(new LoadInstr(binaryOpExpr.getLeft().start, 
                                 binaryOpExpr.getLeft().end, 
                                 LOADC, 
-                                leftResult.getOptimizableTarget().getComponent().getIndex()));
+                                leftResult.getOptimizableTarget().getPoolComponent(pool).getIndex()));
             
       /**
        * Compile the right operand next
@@ -248,10 +289,7 @@ public class OptimizingIRCompiler extends IRCompiler {
     }
     else if(!leftResult.isOptimizable() && rightResult.isOptimizable()) {
       if(op == Op.PLUS ) {
-          if ((rightResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
-              ((IntegerConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
-              (rightResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
-              ((FloatConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+          if (isTarget(rightResult.getOptimizableTarget(), 1) || isTarget(rightResult.getOptimizableTarget(), 1.0)) 
           {
             /**
              * Compile the right operand next
@@ -264,10 +302,7 @@ public class OptimizingIRCompiler extends IRCompiler {
           }
       }
       else if(op == Op.MINUS) {
-        if ((rightResult.getOptimizableTarget().getComponent() instanceof IntegerConstant && 
-              ((IntegerConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1) || 
-              (rightResult.getOptimizableTarget().getComponent() instanceof FloatConstant && 
-              ((FloatConstant) rightResult.getOptimizableTarget().getComponent()).getValue() == 1.0)) 
+        if (isTarget(rightResult.getOptimizableTarget(), 1) || isTarget(rightResult.getOptimizableTarget(), 1.0)) 
         {
           /**
            * Compile the right operand next
@@ -285,7 +320,7 @@ public class OptimizingIRCompiler extends IRCompiler {
       instrs.add(new LoadInstr(binaryOpExpr.getOperator().start, 
                                 binaryOpExpr.getRight().end, 
                                 LOADC, 
-                                rightResult.getOptimizableTarget().getComponent().getIndex()));
+                                rightResult.getOptimizableTarget().getPoolComponent(pool).getIndex()));
 
       final OpCode opCode = opToCode(op);
       if (opCode == null) {
@@ -300,68 +335,75 @@ public class OptimizingIRCompiler extends IRCompiler {
       return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
     }
     else if (leftResult.isOptimizable() && rightResult.isOptimizable()) {
-      final OptimizableTarget leftTarget = leftResult.getOptimizableTarget();
-      final OptimizableTarget rightTarget = rightResult.getOptimizableTarget();
+      final OptimizableTarget<?> leftTarget = leftResult.getOptimizableTarget();
+      final OptimizableTarget<?> rightTarget = rightResult.getOptimizableTarget();
 
-      LOG.info("IS OPTIMIZABLE!!! "+binaryOpExpr+" | "+leftTarget.getComponent()+" "+rightTarget.getComponent());
+      LOG.info("IS OPTIMIZABLE!!! "+binaryOpExpr+" | "+leftTarget+" "+rightTarget);
 
-      if (leftTarget.getComponent() instanceof IntegerConstant && rightTarget.getComponent() instanceof IntegerConstant) {
-        final IntegerConstant leftInt = (IntegerConstant) leftTarget.getComponent();
-        final IntegerConstant rightInt = (IntegerConstant) rightTarget.getComponent();
+      if (op == Op.PLUS && (leftTarget instanceof StringTarget || rightTarget instanceof StringTarget)) {
+        final StringTarget calcResult = new StringTarget(leftTarget.getValue().toString() + rightTarget.getValue().toString());
+        final StringConstant poolComponent = pool.addString(calcResult.getValue());
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        PoolComponent component = null;
+        return valid(loadC).setTarget(calcResult);
+      }
+      else if (leftTarget instanceof IntegerTarget && rightTarget instanceof IntegerTarget) {
+        final IntegerTarget leftInt = (IntegerTarget) leftTarget;
+        final IntegerTarget rightInt = (IntegerTarget) rightTarget;
+
+        OptimizableTarget<?> component = null;
 
         switch (op) {
           case PLUS: {
-            component = pool.addInt(leftInt.getValue() + rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() + rightInt.getValue());
             break;
           }
           case MINUS: {
-            component = pool.addInt(leftInt.getValue() - rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() - rightInt.getValue());
             break;
           }
           case MULT: {
-            component = pool.addInt(leftInt.getValue() * rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() * rightInt.getValue());
             break;
           }
           case DIV: {
-            component = pool.addInt(leftInt.getValue() / rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() / rightInt.getValue());
             break;
           }
           case MOD: {
-            component = pool.addInt(leftInt.getValue() % rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() % rightInt.getValue());
             break;
           }
           case LESS: {
-            component = pool.addBoolean(leftInt.getValue() < rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() < rightInt.getValue());
             break;
           }
           case GREAT: {
-            component = pool.addBoolean(leftInt.getValue() > rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() > rightInt.getValue());
             break;
           }
           case GR_EQ: {
-            component = pool.addBoolean(leftInt.getValue() >= rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() >= rightInt.getValue());
             break;
           }
           case LS_EQ: {
-            component = pool.addBoolean(leftInt.getValue() <= rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() <= rightInt.getValue());
             break;
           }
           case EQUAL: {
-            component = pool.addBoolean(leftInt.getValue() == rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() == rightInt.getValue());
             break;
           }
           case NOT_EQ: {
-            component = pool.addBoolean(leftInt.getValue() != rightInt.getValue());
+            component = new BooleanTarget(leftInt.getValue() != rightInt.getValue());
             break;
           }
           case AND: {
-            component = pool.addInt(leftInt.getValue() & rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() & rightInt.getValue());
             break;
           }
           case OR: {
-            component = pool.addInt(leftInt.getValue() | rightInt.getValue());
+            component = new IntegerTarget(leftInt.getValue() | rightInt.getValue());
             break;
           }
           default: {
@@ -372,62 +414,60 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (II):  "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
+        final PoolComponent poolComponent = component.getPoolComponent(pool);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        //pool.removeComponent(leftInt.getExactIndex());
-        //pool.removeComponent(rightInt.getExactIndex());
-
-        return valid(loadC).setTarget(new OptimizableTarget(component));
+        return valid(loadC).setTarget(component);
       }
-      else if (leftTarget.getComponent() instanceof IntegerConstant && rightTarget.getComponent() instanceof FloatConstant) {
-        final IntegerConstant leftInt = (IntegerConstant) leftTarget.getComponent();
-        final FloatConstant rightFloat = (FloatConstant) rightTarget.getComponent();
+      else if (leftTarget instanceof IntegerTarget && rightTarget instanceof FloatTarget) {
+        final IntegerTarget leftInt = (IntegerTarget) leftTarget;
+        final FloatTarget rightFloat = (FloatTarget) rightTarget;
 
-        PoolComponent component = null;
+        OptimizableTarget<?> component = null;
 
         switch (op) {
           case PLUS: {
-            component = pool.addFloat(leftInt.getValue() + rightFloat.getValue());
+            component = new FloatTarget(leftInt.getValue() + rightFloat.getValue());
             break;
           }
           case MINUS: {
-            component = pool.addFloat(leftInt.getValue() - rightFloat.getValue());
+            component = new FloatTarget(leftInt.getValue() - rightFloat.getValue());
             break;
           }
           case MULT: {
-            component = pool.addFloat(leftInt.getValue() * rightFloat.getValue());
+            component = new FloatTarget(leftInt.getValue() * rightFloat.getValue());
             break;
           }
           case DIV: {
-            component = pool.addFloat(leftInt.getValue() / rightFloat.getValue());
+            component = new FloatTarget(leftInt.getValue() / rightFloat.getValue());
             break;
           }
           case MOD: {
-            component = pool.addFloat(leftInt.getValue() % rightFloat.getValue());
+            component = new FloatTarget(leftInt.getValue() % rightFloat.getValue());
             break;
           }
           case LESS: {
-            component = pool.addBoolean(leftInt.getValue() < rightFloat.getValue());
+            component = new BooleanTarget(leftInt.getValue() < rightFloat.getValue());
             break;
           }
           case GREAT: {
-            component = pool.addBoolean(leftInt.getValue() > rightFloat.getValue());
+            component = new BooleanTarget(leftInt.getValue() > rightFloat.getValue());
             break;
           }
           case GR_EQ: {
-            component = pool.addBoolean(leftInt.getValue() >= rightFloat.getValue());
+            component = new BooleanTarget(leftInt.getValue() >= rightFloat.getValue());
             break;
           }
           case LS_EQ: {
-            component = pool.addBoolean(leftInt.getValue() <= rightFloat.getValue());
+            component = new BooleanTarget(leftInt.getValue() <= rightFloat.getValue());
             break;
           }
           case EQUAL: {
-            component = pool.addBoolean(((double) leftInt.getValue()) == rightFloat.getValue());
+            component = new BooleanTarget(((double) leftInt.getValue()) == rightFloat.getValue());
             break;
           }
           case NOT_EQ: {
-            component = pool.addBoolean(((double) leftInt.getValue()) != rightFloat.getValue());
+            component = new BooleanTarget(((double) leftInt.getValue()) != rightFloat.getValue());
             break;
           }
           default: {
@@ -438,62 +478,60 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (IF): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
+        final PoolComponent poolComponent = component.getPoolComponent(pool);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        //pool.removeComponent(leftInt.getExactIndex());
-        //pool.removeComponent(rightFloat.getExactIndex());
-
-        return valid(loadC).setTarget(new OptimizableTarget(component));
+        return valid(loadC).setTarget(component);
       }
-      else if (leftTarget.getComponent() instanceof FloatConstant && rightTarget.getComponent() instanceof IntegerConstant) {
-        final FloatConstant leftFloat = (FloatConstant) leftTarget.getComponent();
-        final IntegerConstant rightInt = (IntegerConstant) rightTarget.getComponent();
+      else if (leftTarget instanceof FloatTarget && rightTarget instanceof IntegerTarget) {
+        final FloatTarget leftFloat = (FloatTarget) leftTarget;
+        final IntegerTarget rightInt = (IntegerTarget) rightTarget;
 
-        PoolComponent component = null;
+        OptimizableTarget<?> component = null;
 
         switch (op) {
           case PLUS: {
-            component = pool.addFloat(leftFloat.getValue() + rightInt.getValue());
+            component = new FloatTarget(leftFloat.getValue() + rightInt.getValue());
             break;
           }
           case MINUS: {
-            component = pool.addFloat(leftFloat.getValue() - rightInt.getValue());
+            component = new FloatTarget(leftFloat.getValue() - rightInt.getValue());
             break;
           }
           case MULT: {
-            component = pool.addFloat(leftFloat.getValue() * rightInt.getValue());
+            component = new FloatTarget(leftFloat.getValue() * rightInt.getValue());
             break;
           }
           case DIV: {
-            component = pool.addFloat(leftFloat.getValue() / rightInt.getValue());
+            component = new FloatTarget(leftFloat.getValue() / rightInt.getValue());
             break;
           }
           case MOD: {
-            component = pool.addFloat(leftFloat.getValue() % rightInt.getValue());
+            component = new FloatTarget(leftFloat.getValue() % rightInt.getValue());
             break;
           }
           case LESS: {
-            component = pool.addBoolean(leftFloat.getValue() < rightInt.getValue());
+            component = new BooleanTarget(leftFloat.getValue() < rightInt.getValue());
             break;
           }
           case GREAT: {
-            component = pool.addBoolean(leftFloat.getValue() > rightInt.getValue());
+            component = new BooleanTarget(leftFloat.getValue() > rightInt.getValue());
             break;
           }
           case GR_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() >= rightInt.getValue());
+            component = new BooleanTarget(leftFloat.getValue() >= rightInt.getValue());
             break;
           }
           case LS_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() <= rightInt.getValue());
+            component = new BooleanTarget(leftFloat.getValue() <= rightInt.getValue());
             break;
           }
           case EQUAL: {
-            component = pool.addBoolean(leftFloat.getValue() == ((double) rightInt.getValue()));
+            component = new BooleanTarget(leftFloat.getValue() == ((double) rightInt.getValue()));
             break;
           }
           case NOT_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() != ((double) rightInt.getValue()));
+            component = new BooleanTarget(leftFloat.getValue() != ((double) rightInt.getValue()));
             break;
           }
           default: {
@@ -504,62 +542,60 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (FI): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
+        final PoolComponent poolComponent = component.getPoolComponent(pool);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        //pool.removeComponent(leftFloat.getExactIndex());
-        //pool.removeComponent(rightInt.getExactIndex());
-
-        return valid(loadC).setTarget(new OptimizableTarget(component));
+        return valid(loadC).setTarget(component);
       }
-      else if (leftTarget.getComponent() instanceof FloatConstant && rightTarget.getComponent() instanceof FloatConstant) {
-        final FloatConstant leftFloat = (FloatConstant) leftTarget.getComponent();
-        final FloatConstant rightFloat = (FloatConstant) rightTarget.getComponent();
+      else if (leftTarget instanceof FloatTarget && rightTarget instanceof FloatTarget) {
+        final FloatTarget leftFloat = (FloatTarget) leftTarget;
+        final FloatTarget rightFloat = (FloatTarget) rightTarget;
 
-        PoolComponent component = null;
+        OptimizableTarget<?> component = null;
 
         switch (op) {
           case PLUS: {
-            component = pool.addFloat(leftFloat.getValue() + rightFloat.getValue());
+            component = new FloatTarget(leftFloat.getValue() + rightFloat.getValue());
             break;
           }
           case MINUS: {
-            component = pool.addFloat(leftFloat.getValue() - rightFloat.getValue());
+            component = new FloatTarget(leftFloat.getValue() - rightFloat.getValue());
             break;
           }
           case MULT: {
-            component = pool.addFloat(leftFloat.getValue() * rightFloat.getValue());
+            component = new FloatTarget(leftFloat.getValue() * rightFloat.getValue());
             break;
           }
           case DIV: {
-            component = pool.addFloat(leftFloat.getValue() / rightFloat.getValue());
+            component = new FloatTarget(leftFloat.getValue() / rightFloat.getValue());
             break;
           }
           case MOD: {
-            component = pool.addFloat(leftFloat.getValue() % rightFloat.getValue());
+            component = new FloatTarget(leftFloat.getValue() % rightFloat.getValue());
             break;
           }
           case LESS: {
-            component = pool.addBoolean(leftFloat.getValue() < rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() < rightFloat.getValue());
             break;
           }
           case GREAT: {
-            component = pool.addBoolean(leftFloat.getValue() > rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() > rightFloat.getValue());
             break;
           }
           case GR_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() >= rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() >= rightFloat.getValue());
             break;
           }
           case LS_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() <= rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() <= rightFloat.getValue());
             break;
           }
           case EQUAL: {
-            component = pool.addBoolean(leftFloat.getValue() == rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() == rightFloat.getValue());
             break;
           }
           case NOT_EQ: {
-            component = pool.addBoolean(leftFloat.getValue() != rightFloat.getValue());
+            component = new BooleanTarget(leftFloat.getValue() != rightFloat.getValue());
             break;
           }
           default: {
@@ -570,34 +606,32 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (FF): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
+        final PoolComponent poolComponent = component.getPoolComponent(pool);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        //pool.removeComponent(leftFloat.getExactIndex());
-        //pool.removeComponent(rightFloat.getExactIndex());
-
-        return valid(loadC).setTarget(new OptimizableTarget(component));
+        return valid(loadC).setTarget(component);
       }
-      else if (leftTarget.getComponent() instanceof BoolConstant && rightTarget.getComponent() instanceof BoolConstant) {
-        final BoolConstant leftBool = (BoolConstant) leftTarget.getComponent();
-        final BoolConstant rightBool = (BoolConstant) rightTarget.getComponent();
+      else if (leftTarget instanceof BooleanTarget && rightTarget instanceof BooleanTarget) {
+        final BooleanTarget leftBool = (BooleanTarget) leftTarget;
+        final BooleanTarget rightBool = (BooleanTarget) rightTarget;
 
-        PoolComponent component = null;
+        OptimizableTarget<?> component = null;
 
         switch (op) {
           case BOOL_AND: {
-            component = pool.addBoolean(leftBool.getValue() && rightBool.getValue());
+            component = new BooleanTarget(leftBool.getValue() && rightBool.getValue());
             break;
           }
           case BOOL_OR: {
-            component = pool.addBoolean(leftBool.getValue() || rightBool.getValue());
+            component = new BooleanTarget(leftBool.getValue() || rightBool.getValue());
             break;
           }
           case OR: {
-            component = pool.addBoolean(leftBool.getValue() | rightBool.getValue());
+            component = new BooleanTarget(leftBool.getValue() | rightBool.getValue());
             break;
           }
           case AND: {
-            component = pool.addBoolean(leftBool.getValue() & rightBool.getValue());
+            component = new BooleanTarget(leftBool.getValue() & rightBool.getValue());
             break;
           }
           default: {
@@ -608,18 +642,13 @@ public class OptimizingIRCompiler extends IRCompiler {
 
         LOG.info(" ==> OPTIMIZABLE RESULT (BB): "+binaryOpExpr.repr()+" = "+component);
 
-        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, component.getIndex());
+        final PoolComponent poolComponent = component.getPoolComponent(pool);
+        final LoadInstr loadC = new LoadInstr(binaryOpExpr.start, binaryOpExpr.end, LOADC, poolComponent.getIndex());
 
-        /*
-        No need to remove PoolComponents for booleans.
-        pool.removeComponent(leftFloat.getExactIndex());
-        pool.removeComponent(rightFloat.getExactIndex());
-        */
-
-        return valid(loadC).setTarget(new OptimizableTarget(component));
+        return valid(loadC).setTarget(component);
       }
       else {
-        LOG.info("FAIL Optimization "+leftTarget.getComponent().getClass()+" || "+rightTarget.getComponent().getClass());
+        LOG.info("FAIL Optimization "+leftTarget.getClass()+" || "+rightTarget.getClass());
       }
     }
     

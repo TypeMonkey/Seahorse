@@ -1,5 +1,6 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
@@ -53,6 +54,7 @@ public class FunctionFrame extends StackFrame {
 
   private final RuntimeCallable callable;
   private final RuntimeInstruction [] instrs;
+  private final Map<Integer, RuntimeInstance> constantMap;
 
   private int instrIndex;
 
@@ -77,6 +79,7 @@ public class FunctionFrame extends StackFrame {
     super(hostModule, initialArgs);
     this.callable = callable;
     this.instrs = callable.getCodeObject().getInstrs();
+    this.constantMap = callable.getHostModule().getConstantMap();
     this.instrIndex = instrIndex;
   }  
 
@@ -866,7 +869,7 @@ public class FunctionFrame extends StackFrame {
         */
         case LOADC: {
           final ArgInstruction loadcInstr = (ArgInstruction) instr;
-          RuntimeInstance constant = getHostModule().getConstantMap().get(loadcInstr.getArgument());
+          RuntimeInstance constant = constantMap.get(loadcInstr.getArgument());
           pushOperand(constant);
           LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
           break;

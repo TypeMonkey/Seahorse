@@ -551,7 +551,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     return compileStatements(block.getStatements(), parentContext, block.start, block.end);
   }
 
-  private NodeResult compileStatements(List<Statement> stmts, CompContext parentContext, Location start, Location end) {
+  protected NodeResult compileStatements(List<Statement> stmts, CompContext parentContext, Location start, Location end) {
     LOG.info("--- compiling statements: "+stmts);
     final ArrayDeque<Statement> stmtDeque = new ArrayDeque<>(stmts);
 

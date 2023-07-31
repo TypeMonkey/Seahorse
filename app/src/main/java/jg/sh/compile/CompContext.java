@@ -9,7 +9,7 @@ import java.util.Set;
 import jg.sh.compile.instrs.LoadInstr;
 import jg.sh.compile.instrs.LoadStorePair;
 import jg.sh.compile.instrs.StoreInstr;
-import jg.sh.compile.optimization.OptimizableTarget;
+import jg.sh.compile.optimization.targets.OptimizableTarget;
 import jg.sh.compile.pool.ConstantPool;
 import jg.sh.parsing.Context;
 import jg.sh.parsing.nodes.Keyword;
@@ -157,7 +157,7 @@ public class CompContext extends Context<CompContext> {
   /**
    * Used by the OptimizingIRCompiler to track and use constants
    */
-  private final Map<String, OptimizableTarget> constantVarMap;
+  private final Map<String, OptimizableTarget<?>> constantVarMap;
 
   public CompContext(ContextType currentContext, ConstantPool constantPool) {
     this(null, currentContext, constantPool);
@@ -226,11 +226,11 @@ public class CompContext extends Context<CompContext> {
     contextMap.put(key, value);
   }
 
-  public void setConstant(String var, OptimizableTarget target) {
+  public void setConstant(String var, OptimizableTarget<?> target) {
     constantVarMap.put(var, target);
   }
 
-  public OptimizableTarget getConstant(String var) {
+  public OptimizableTarget<?> getConstant(String var) {
     final CompContext compContext = search(c -> c.constantVarMap.containsKey(var), true);
     return compContext != null ? compContext.constantVarMap.get(var) : null;
   }
@@ -239,7 +239,7 @@ public class CompContext extends Context<CompContext> {
     return constantVarMap.containsKey(var);
   }
 
-  public OptimizableTarget getImmediateConstant(String name) {
+  public OptimizableTarget<?> getImmediateConstant(String name) {
     return constantVarMap.get(name);
   }
 

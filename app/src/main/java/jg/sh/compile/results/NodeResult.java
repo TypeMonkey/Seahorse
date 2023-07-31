@@ -6,7 +6,7 @@ import java.util.List;
 
 import jg.sh.compile.exceptions.ValidationException;
 import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.optimization.OptimizableTarget;
+import jg.sh.compile.optimization.targets.OptimizableTarget;
 
 public class NodeResult {
   
