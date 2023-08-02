@@ -1,6 +1,6 @@
 package jg.sh.compile;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -8,14 +8,25 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.optimization.OptimizingIRCompiler;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;
 import jg.sh.parsing.Tokenizer;
 import jg.sh.parsing.exceptions.ParseException;
+import jg.sh.runtime.threading.frames.BytecodeDispatch;
 import jg.sh.util.StringUtils;
 
 public class IRCompileTest {
+
+  @Test
+  public void testBytecodeAlignment() {
+    assertEquals(OpCode.values().length, BytecodeDispatch.dispatch.length);
+    
+    for (int i = 0; i < OpCode.values().length; i++) {
+      assertEquals(OpCode.values()[i], BytecodeDispatch.dispatch[i].getOp());
+    }
+  }
   
   @Test
   public void testSimple() {

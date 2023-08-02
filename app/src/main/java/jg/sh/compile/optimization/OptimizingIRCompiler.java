@@ -273,15 +273,20 @@ public class OptimizingIRCompiler extends IRCompiler {
        */
       rightResult.pipeErr(exceptions).pipeInstr(instrs);
 
-
-      final OpCode opCode = opToCode(op);
-      if (opCode == null) {
-        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                              binaryOpExpr.getOperator().start, 
-                                              binaryOpExpr.getOperator().end));
+      if (op == Op.NOT_EQ) {
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, EQUAL));
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, NOT));
       }
       else {
-        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
       }
 
       return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
@@ -322,14 +327,20 @@ public class OptimizingIRCompiler extends IRCompiler {
                                 LOADC, 
                                 rightResult.getOptimizableTarget().getPoolComponent(pool).getIndex()));
 
-      final OpCode opCode = opToCode(op);
-      if (opCode == null) {
-        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                              binaryOpExpr.getOperator().start, 
-                                              binaryOpExpr.getOperator().end));
+      if (op == Op.NOT_EQ) {
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, EQUAL));
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, NOT));
       }
       else {
-        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
       }
 
       return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 

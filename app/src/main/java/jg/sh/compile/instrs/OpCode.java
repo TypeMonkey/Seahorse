@@ -109,16 +109,7 @@ public enum OpCode {
    * BOTTOM ->
    * 
    */
-  CALL,  //Will treat the object on top of the operand stack as a function
-  
-  /*
-   * Treats the object on top of the operand stack as a data definition
-   * and creates an empty object to pass to the constructor as "self"
-   * 
-   * This instruction also sets the instance functions of that empty object
-   */
-  @Deprecated
-  CALLA, 
+  CALL,  //Will treat the object on top of the operand stack as a function 
   
   
   RETE,  //Returns to caller, but with the exception flag to be true 
@@ -151,15 +142,6 @@ public enum OpCode {
    * If the index is a negative value, this instruction will load the current module
    */
   LOADMOD, 
-
-  /*
-   * Loads the "self" instance. 
-   * 
-   * If this instruction is used within a function not hosted within a class,
-   * it will load the current module or the object that the current function is binded to.
-   */
-  @Deprecated
-  LOADSELF,
   
   /*
    * Loads the attribute of the object currently on the operand stack.
@@ -267,16 +249,6 @@ public enum OpCode {
    */
   ALLOCF,
   
-  /*
-   * Sets a captured variable to an instance of a function (presumed to be at the top of the variable stack)
-   * 
-   * The instruction requires an index that corresponds to the index of this captured variable
-   * 
-   * This instruction re-pops the function instance at the top of the operand stack
-   */
-  @Deprecated
-  CAPTURE,
-  
   
   /*
    * Allocates an array and pushes it to the operand stack
@@ -300,18 +272,6 @@ public enum OpCode {
    * BOTTOM
    */
   ALLOCO,
-  
-  /*
-   * Adds a value to the end of an array
-   * 
-   * TOP    -> targetArray
-   *         | value
-   * BOTTOM ->
-   * 
-   * This instruction re-pops the targetArray after execution
-   */
-  @Deprecated
-  LADD,
   
   /*
    * Indexes an object with another object and loads the resulting value

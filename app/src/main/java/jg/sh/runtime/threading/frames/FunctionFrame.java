@@ -1364,12 +1364,6 @@ public class FunctionFrame extends StackFrame {
           pushOperand(result);
           break;
         }
-        case CALLA:
-        case CAPTURE:
-        case LADD:
-        case LOADSELF:
-          LOG.warn("Deprecated opcode: "+instr+" >>>>>>>>>>>>>>>");
-          break;
         default:
           LOG.warn("Unknown instruction: "+instr+" >>>>>>>>>>>>>>>>>");
       }

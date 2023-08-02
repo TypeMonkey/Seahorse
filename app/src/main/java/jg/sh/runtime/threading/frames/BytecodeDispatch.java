@@ -51,7 +51,7 @@ public final class BytecodeDispatch {
 
   }
   
-  public static final class Dispatch implements Comparable<Dispatch> {
+  public static final class Dispatch {
     final OpCode op;
     final Dispatcher dispatch;
 
@@ -60,86 +60,67 @@ public final class BytecodeDispatch {
       this.dispatch = dispatch;
     }
 
-    @Override
-    public int compareTo(Dispatch o) {
-      return op.ordinal() - o.op.ordinal();
+    public OpCode getOp() {
+      return op;
+    }
+
+    public Dispatcher getDispatch() {
+      return dispatch;
     }
   }
 
   public static final Dispatch [] dispatch = {
     new Dispatch(LABEL, null),
-    new Dispatch(PASS, null),
     new Dispatch(COMMENT, null),
-
-    new Dispatch(EQUAL, BytecodeDispatch::equality),
     new Dispatch(ADD, BytecodeDispatch::binAdd),
     new Dispatch(SUB, BytecodeDispatch::binMinus),
     new Dispatch(MUL, BytecodeDispatch::binMul),
     new Dispatch(DIV, BytecodeDispatch::binDiv),
-    new Dispatch(BAND, BytecodeDispatch::binBitwiseAnd),
-    new Dispatch(BOR, BytecodeDispatch::binBitwiseOr),
-
+    new Dispatch(MOD, BytecodeDispatch::binMod),
+    new Dispatch(NEG, BytecodeDispatch::negative),
     new Dispatch(LESS, BytecodeDispatch::binLess),
     new Dispatch(GREAT, BytecodeDispatch::binGreat),
     new Dispatch(LESSE, BytecodeDispatch::binLessEqual),
     new Dispatch(GREATE, BytecodeDispatch::binGreatEqual),
-    new Dispatch(MOD, BytecodeDispatch::binMod),
-
+    new Dispatch(EQUAL, BytecodeDispatch::equality),
+    new Dispatch(NOT, BytecodeDispatch::not),
+    new Dispatch(BAND, BytecodeDispatch::binBitwiseAnd),
+    new Dispatch(BOR, BytecodeDispatch::binBitwiseOr),
     new Dispatch(INC, BytecodeDispatch::inc),
     new Dispatch(DEC, BytecodeDispatch::dec),
-
-    new Dispatch(NOT, BytecodeDispatch::not),
-    new Dispatch(NEG, BytecodeDispatch::negative),
-
-    new Dispatch(CALL, BytecodeDispatch::call),
     new Dispatch(JUMP, BytecodeDispatch::jump),
     new Dispatch(JUMPT, BytecodeDispatch::jumpTrue),
     new Dispatch(JUMPF, BytecodeDispatch::jumpFalse),
-    new Dispatch(RET, BytecodeDispatch::returnFrame),
+    new Dispatch(CALL, BytecodeDispatch::call),
     new Dispatch(RETE, BytecodeDispatch::throwError),
-    new Dispatch(POPERR, BytecodeDispatch::popError),
-    new Dispatch(MAKEARGV, BytecodeDispatch::makeArgV),
-    new Dispatch(ARG, BytecodeDispatch::arg),
-
+    new Dispatch(RET, BytecodeDispatch::returnFrame),
     new Dispatch(LOADC, BytecodeDispatch::loadConstant),
-
     new Dispatch(LOAD, BytecodeDispatch::loadLocal),
     new Dispatch(STORE, BytecodeDispatch::storeLocal),
-
+    new Dispatch(POPERR, BytecodeDispatch::popError),
+    new Dispatch(LOADMOD, BytecodeDispatch::loadModule),
     new Dispatch(LOADATTR, BytecodeDispatch::loadAttr),
     new Dispatch(STOREATTR, BytecodeDispatch::storeAttr),
-
+    new Dispatch(MAKECONST, BytecodeDispatch::makeConstant),
     new Dispatch(LOADNULL, BytecodeDispatch::loadNull),
-
     new Dispatch(LOAD_CL, BytecodeDispatch::loadCapture),
     new Dispatch(STORE_CL, BytecodeDispatch::storeCaputure),
-
     new Dispatch(LOADMV, BytecodeDispatch::loadModuleVar),
     new Dispatch(STOREMV, BytecodeDispatch::storeModuleVar),
-    new Dispatch(LOADIN, BytecodeDispatch::loadIndex),
-    new Dispatch(STOREIN, BytecodeDispatch::storeIndex),
-    new Dispatch(LOADMOD, BytecodeDispatch::loadModule),
-
     new Dispatch(EXPORTMV, BytecodeDispatch::exportModuleVar),
     new Dispatch(CONSTMV, BytecodeDispatch::constantModuleVar),
-
+    new Dispatch(BIND, BytecodeDispatch::bind),
     new Dispatch(ALLOCF, BytecodeDispatch::allocateFunc),
     new Dispatch(ALLOCA, BytecodeDispatch::allocateArray),
     new Dispatch(ALLOCO, BytecodeDispatch::allocateObject),
-    new Dispatch(BIND, BytecodeDispatch::bind),
-    new Dispatch(MAKECONST, BytecodeDispatch::makeConstant),
-    new Dispatch(SEAL, BytecodeDispatch::sealObject),
+    new Dispatch(LOADIN, BytecodeDispatch::loadIndex),
+    new Dispatch(STOREIN, BytecodeDispatch::storeIndex),
+    new Dispatch(MAKEARGV, BytecodeDispatch::makeArgV),
     new Dispatch(HAS_KARG, BytecodeDispatch::hasKeywordArg),
-
-    new Dispatch(CALLA, null),
-    new Dispatch(CAPTURE, null),
-    new Dispatch(LADD, null),
-    new Dispatch(LOADSELF, null)
+    new Dispatch(ARG, BytecodeDispatch::arg),
+    new Dispatch(SEAL, BytecodeDispatch::sealObject),
+    new Dispatch(PASS, null)
   };
-
-  static {
-    Arrays.sort(dispatch);
-  }
 
   public static StackFrame binAdd(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
