@@ -81,8 +81,8 @@ public class FunctionFrame extends StackFrame {
     this.instrIndex = instrIndex;
   }  
 
-  @Override
-  public StackFrame run(HeapAllocator allocator, Fiber thread) {
+  //@Override
+  public StackFrame run_old(HeapAllocator allocator, Fiber thread) {
     /**
      * Use solely by CALL when doing data definition instantiation.
      * See comments for passOver
@@ -105,13 +105,7 @@ public class FunctionFrame extends StackFrame {
       final OpCode op = instr.getOpCode();
       final Dispatch dispatch = BytecodeDispatch.dispatch[op.ordinal()];
       
-      System.out.println("instr: "+instr);
-
-      if (dispatch.op != op) {
-        System.out.println(" ===> BAD ALIGNMENT: "+op+" "+dispatch.op);
-        System.out.println(" ==> "+BytecodeDispatch.dispatch.length+" "+OpCode.values().length);
-        System.exit(-1);
-      }
+      //System.out.println("instr: "+instr);
 
       if (dispatch.dispatch != null) {
         final StackFrame frame = dispatch.dispatch.dispatcher(instr, thread, this, allocator, getHostModule());
@@ -125,8 +119,8 @@ public class FunctionFrame extends StackFrame {
     return null;
   }
 
-  //@Override
-  public StackFrame run_old(HeapAllocator allocator, Fiber thread) {
+  @Override
+  public StackFrame run(HeapAllocator allocator, Fiber thread) {
 
     /**
      * Use solely by CALL when doing data definition instantiation.

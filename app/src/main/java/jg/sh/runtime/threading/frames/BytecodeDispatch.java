@@ -424,7 +424,7 @@ public final class BytecodeDispatch {
       return frame;
     }
 
-    final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(instr.getOpCode());
+    final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NEG);
     return checkAndCall(frame, 
                         allocator, 
                         instr, 
@@ -447,7 +447,7 @@ public final class BytecodeDispatch {
       return frame;
     }
 
-    final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(instr.getOpCode());
+    final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NOT);
     return checkAndCall(frame, 
                         allocator, 
                         instr, 
@@ -586,7 +586,7 @@ public final class BytecodeDispatch {
                                        HeapAllocator allocator, 
                                        RuntimeModule module) {
     frame.returnValue(frame.popOperand());
-    return frame;
+    return null;
   }
 
   public static StackFrame throwError(RuntimeInstruction instr, Fiber fiber,

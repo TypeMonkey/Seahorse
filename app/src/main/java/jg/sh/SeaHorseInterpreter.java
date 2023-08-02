@@ -19,7 +19,6 @@ import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.exceptions.InvalidModulesException;
 import jg.sh.compile.exceptions.ValidationException;
-import jg.sh.compile.instrs.OpCode;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.runtime.alloc.CompactMarkSweepCleaner;
@@ -30,7 +29,6 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.threading.ThreadManager;
-import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.util.StringUtils;
 
 public class SeaHorseInterpreter {
@@ -197,13 +195,11 @@ public class SeaHorseInterpreter {
     LOG.info(new File("").getAbsolutePath());
     String mainModule = "../sampleSrcs/fibb_sync.shr";
 
-    System.out.println(OpCode.values().length);
-    
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, false);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
-    options.put(IOption.LOG_LEVEL, "ALL");
+    options.put(IOption.LOG_LEVEL, "OFF");
     
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
     interpreter.init();
