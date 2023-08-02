@@ -1323,15 +1323,20 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       final NodeResult rightResult = binaryOpExpr.getRight().accept(this, parentContext);
       rightResult.pipeErr(exceptions).pipeInstr(instrs);
 
-
-      final OpCode opCode = opToCode(op);
-      if (opCode == null) {
-        exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
-                                              binaryOpExpr.getOperator().start, 
-                                              binaryOpExpr.getOperator().end));
+      if (op == Op.NOT_EQ) {
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, EQUAL));
+        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, NOT));
       }
       else {
-        instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        final OpCode opCode = opToCode(op);
+        if (opCode == null) {
+          exceptions.add(new ValidationException("'"+op.str+"' is an unknown operator.", 
+                                                binaryOpExpr.getOperator().start, 
+                                                binaryOpExpr.getOperator().end));
+        }
+        else {
+          instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, opCode));
+        }
       }
     }
 
@@ -1352,7 +1357,6 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       case GR_EQ: return GREATE;
       case LS_EQ: return LESSE;
       case EQUAL: return EQUAL;
-      case NOT_EQ: return NOTEQUAL;
       case AND: return BAND;
       case OR: return BOR;
       default: return null;

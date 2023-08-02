@@ -24,6 +24,7 @@ public class ThreadPool {
 
   /**
    * Constructs a ThreadPool
+   * @param reporter - a Consumer to call when a Fiber's status changes
    * @param poolSize - the amount of threads this ThreadPool is meant to manage
    */
   public ThreadPool(int poolSize, Consumer<Fiber> reporter) {
@@ -69,6 +70,11 @@ public class ThreadPool {
     }
   }
 
+  /**
+   * Stops the threads of this thread pool
+   * by clearing the Fiber queue and notifying all workers
+   * that they've been stopped.
+   */
   public void stop() {
     if (hasStarted && hasBeenInitialized) {
       fiberQueue.clear();
@@ -81,7 +87,11 @@ public class ThreadPool {
   }
 
   public ConcurrentLinkedQueue<Fiber> getTaskQueue() {
-      return fiberQueue;
+    return fiberQueue;
+  }
+
+  public boolean hasStarted() {
+    return hasStarted;
   }
 
   public boolean hasStopped() {

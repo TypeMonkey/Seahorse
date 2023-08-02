@@ -13,11 +13,9 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
-import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
-import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
@@ -27,7 +25,14 @@ import jg.sh.runtime.threading.pool.ThreadPool;
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 
 /**
- * Fibers frame-steppable threads of execution.
+ * Fibers are a frame-steppable thread of execution. To further clarify, 
+ * Fibers can be intermittently executed a frame a time without needing to executed
+ * continously until call stack exhaustion - like a typical Thread implementation.
+ * 
+ * While threads are the main implementation of a program's execution in many languages
+ * (such as in Java), Fibers are the default for Seahorse programs. Threds (isolated, concurrent
+ * and continuous lines of execution) can still be used by Seahorse programs through
+ * ({@link jg.sh.runtime.threading.thread.RuntimeThread})
  * 
  * A fiber is identified with a unique integer ID and two fibers
  * are deemed equal if they match IDs.
@@ -164,7 +169,7 @@ public class Fiber extends RuntimeInstance {
     this.status = FiberStatus.CREATED;
     this.fiberReporter = fiberReporter;
 
-    queue(initialFrame);
+    queueFrame(initialFrame);
   }
 
   /**
@@ -202,7 +207,7 @@ public class Fiber extends RuntimeInstance {
    * @param callable - the RuntimeCallable to initialized this Executor with.
    * @args args - the arguments meant to pass to this RuntimeCallable
    */
-  public void queue(StackFrame frame) {
+  public void queueFrame(StackFrame frame) {
     callStack.push(frame);
   }
 

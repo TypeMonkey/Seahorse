@@ -33,9 +33,8 @@ import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.runtime.threading.frames.BytecodeDispatch.Dispatch;
 import jg.sh.util.RuntimeUtils;
-
-import static jg.sh.compile.instrs.OpCode.*;
 
 /**
  * Represents a StackFrame for a RuntimeCallable.
@@ -48,7 +47,7 @@ import static jg.sh.compile.instrs.OpCode.*;
  */
 public class FunctionFrame extends StackFrame {
 
-  private static Logger LOG = LogManager.getLogger(FunctionFrame.class);
+  private static final Logger LOG = LogManager.getLogger(FunctionFrame.class);
 
   static volatile int frameMarker = 0;
 
@@ -68,7 +67,6 @@ public class FunctionFrame extends StackFrame {
    * 
    * With this place holder variable, we can signal to the next invocation of
    * run() that we need to push the value of "passOver" on the operand stack first.
-   * 
    */
   private RuntimeInstance passOver;
   
@@ -85,6 +83,50 @@ public class FunctionFrame extends StackFrame {
 
   @Override
   public StackFrame run(HeapAllocator allocator, Fiber thread) {
+    /**
+     * Use solely by CALL when doing data definition instantiation.
+     * See comments for passOver
+     */
+    if (passOver != null) {
+      pushOperand(passOver);
+    }
+
+    if (getError() != null) {
+      if (hasInstrLeft() && getCurrInstr().getExceptionJumpIndex() >= 0) {
+        setInstrIndex(getCurrInstr().getExceptionJumpIndex());
+      }
+      else {
+        return null;
+      }
+    }
+
+    while (hasInstrLeft()) {
+      final RuntimeInstruction instr = getCurrInstr();
+      final OpCode op = instr.getOpCode();
+      final Dispatch dispatch = BytecodeDispatch.dispatch[op.ordinal()];
+      
+      System.out.println("instr: "+instr);
+
+      if (dispatch.op != op) {
+        System.out.println(" ===> BAD ALIGNMENT: "+op+" "+dispatch.op);
+        System.out.println(" ==> "+BytecodeDispatch.dispatch.length+" "+OpCode.values().length);
+        System.exit(-1);
+      }
+
+      if (dispatch.dispatch != null) {
+        final StackFrame frame = dispatch.dispatch.dispatcher(instr, thread, this, allocator, getHostModule());
+        if (frame != this) {
+          return frame;
+        }
+      }
+      incrmntInstrIndex();
+    }
+
+    return null;
+  }
+
+  //@Override
+  public StackFrame run_old(HeapAllocator allocator, Fiber thread) {
 
     /**
      * Use solely by CALL when doing data definition instantiation.
@@ -125,7 +167,6 @@ public class FunctionFrame extends StackFrame {
         case PASS:
         case COMMENT:
           break;  
-        case NOTEQUAL:
         case EQUAL: {
           /**
            * EQUAL is a short circuit of:
@@ -144,7 +185,7 @@ public class FunctionFrame extends StackFrame {
             break;
           }
 
-          final RuntimeInstance result = RuntimeUtils.numEqual(left, right, allocator);
+          final RuntimeBool result = RuntimeUtils.numEqual(left, right, allocator);
           if (result != null) {
             pushOperand(result);
             break;
@@ -1385,7 +1426,19 @@ public class FunctionFrame extends StackFrame {
   public CellReference getCaptureReference(int varIndex) {
     return callable.getCaptures()[varIndex];
   }
+
+  public void setPassOver(RuntimeInstance passOver) {
+    this.passOver = passOver;
+  }
+
+  public boolean hasPassOver() {
+    return passOver != null;
+  }
   
+  public RuntimeInstance getPassOver() {
+    return passOver;
+  }
+
   @Override
   public RuntimeCallable getCallable() {
     return callable;

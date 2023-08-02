@@ -20,7 +20,7 @@ public enum FuncOperatorCoupling {
   LESSE("$lesse", OpCode.LESSE),
   GREATE("$greate", OpCode.GREATE),
   EQUAL("$equal", OpCode.EQUAL),
-  NOTEQUAL("$notequal", OpCode.NOTEQUAL),
+  //NOTEQUAL("$notequal", OpCode.NOTEQUAL),
   
   NOT("$not", OpCode.NOT),
   

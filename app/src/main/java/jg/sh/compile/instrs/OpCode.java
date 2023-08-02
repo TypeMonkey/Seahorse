@@ -46,7 +46,6 @@ public enum OpCode {
   LESSE,
   GREATE,
   EQUAL,  //Object equality
-  NOTEQUAL,
   
   /*
    * Boolean operators.

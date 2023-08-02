@@ -19,6 +19,7 @@ import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.exceptions.InvalidModulesException;
 import jg.sh.compile.exceptions.ValidationException;
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.runtime.alloc.CompactMarkSweepCleaner;
@@ -194,7 +195,9 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     LOG.info(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/verysimple.shr";
+    String mainModule = "../sampleSrcs/fibb_sync.shr";
+
+    System.out.println(OpCode.values().length);
     
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, false);
