@@ -4,6 +4,7 @@
 **/libs/
 !src/**/build/
 **/.mod_cache
+*.class
 
 # Ignore Gradle GUI config
 gradle-app.setting

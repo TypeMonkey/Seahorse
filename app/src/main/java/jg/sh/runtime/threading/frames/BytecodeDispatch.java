@@ -39,34 +39,6 @@ public final class BytecodeDispatch {
 
   private static Logger LOG = LogManager.getLogger(BytecodeDispatch.class);
 
-  @FunctionalInterface
-  public static interface Dispatcher {
-
-    public StackFrame dispatcher(RuntimeInstruction instr, Fiber fiber,
-                                 FunctionFrame frame, 
-                                 HeapAllocator allocator, 
-                                 RuntimeModule hostModule);
-
-  }
-  
-  public static final class Dispatch {
-    final OpCode op;
-    final Dispatcher dispatch;
-
-    private Dispatch(OpCode op, Dispatcher dispatch) {
-      this.op = op;
-      this.dispatch = dispatch;
-    }
-
-    public OpCode getOp() {
-      return op;
-    }
-
-    public Dispatcher getDispatch() {
-      return dispatch;
-    }
-  }
-
   private static final Dispatch [] dispatch = {
     new Dispatch(LABEL, null),
     new Dispatch(COMMENT, null),
@@ -119,6 +91,34 @@ public final class BytecodeDispatch {
     new Dispatch(SEAL, BytecodeDispatch::sealObject),
     new Dispatch(PASS, null)
   };
+
+  @FunctionalInterface
+  public static interface Dispatcher {
+
+    public StackFrame dispatcher(RuntimeInstruction instr, Fiber fiber,
+                                 FunctionFrame frame, 
+                                 HeapAllocator allocator, 
+                                 RuntimeModule hostModule);
+
+  }
+  
+  public static final class Dispatch {
+    final OpCode op;
+    final Dispatcher dispatch;
+
+    private Dispatch(OpCode op, Dispatcher dispatch) {
+      this.op = op;
+      this.dispatch = dispatch;
+    }
+
+    public OpCode getOp() {
+      return op;
+    }
+
+    public Dispatcher getDispatch() {
+      return dispatch;
+    }
+  }
 
   public static Dispatch get(OpCode op) {
     return dispatch[op.ordinal()];
