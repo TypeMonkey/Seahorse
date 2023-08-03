@@ -31,8 +31,9 @@ public enum FuncOperatorCoupling {
   
   static {
     HashMap<OpCode, FuncOperatorCoupling> temp = new HashMap<>();
-    
-    for(FuncOperatorCoupling coupling : FuncOperatorCoupling.values()) {
+
+    final FuncOperatorCoupling [] couplings = FuncOperatorCoupling.values();
+    for(FuncOperatorCoupling coupling : couplings) {
       temp.put(coupling.getOpCode(), coupling);
     }
     

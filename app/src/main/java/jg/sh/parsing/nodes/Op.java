@@ -90,7 +90,9 @@ public enum Op {
     )));
 
     stringToOp = new HashMap<>();
-    for (Op op : Op.values()) {
+    
+    final Op [] ops = Op.values();
+    for (Op op : ops) {
       stringToOp.put(op.str, op);
     }
   }

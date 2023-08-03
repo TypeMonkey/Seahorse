@@ -112,9 +112,10 @@ public enum TokenType {
 
   static {
     final HashSet<String> keyWordTemp = new HashSet<>();
+    final TokenType [] tokenTypes = TokenType.values();
 
     for(int i = TRUE.ordinal(); i <= ELSE.ordinal(); i++){
-      keyWordTemp.add(TokenType.values()[i].name());
+      keyWordTemp.add(tokenTypes[i].name());
     }
 
     keywords = Collections.unmodifiableSet(keyWordTemp);
@@ -122,7 +123,7 @@ public enum TokenType {
     final HashSet<TokenType> binOpsTemp = new HashSet<>();
 
     for(int i = NOT_EQ.ordinal(); i <= BOOL_OR.ordinal(); i++){
-      binOpsTemp.add(TokenType.values()[i]);
+      binOpsTemp.add(tokenTypes[i]);
     }
 
     binOps = Collections.unmodifiableSet(binOpsTemp);

@@ -21,10 +21,10 @@ public class IRCompileTest {
 
   @Test
   public void testBytecodeAlignment() {
-    assertEquals(OpCode.values().length, BytecodeDispatch.dispatch.length);
+    assertEquals(OpCode.values().length, BytecodeDispatch.getAll().length);
     
     for (int i = 0; i < OpCode.values().length; i++) {
-      assertEquals(OpCode.values()[i], BytecodeDispatch.dispatch[i].getOp());
+      assertEquals(OpCode.values()[i], BytecodeDispatch.getAll()[i].getOp());
     }
   }
   

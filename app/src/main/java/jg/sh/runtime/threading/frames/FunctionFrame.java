@@ -34,6 +34,7 @@ import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.frames.BytecodeDispatch.Dispatch;
+import jg.sh.runtime.threading.frames.BytecodeDispatch.Dispatcher;
 import jg.sh.util.RuntimeUtils;
 
 /**
@@ -103,12 +104,13 @@ public class FunctionFrame extends StackFrame {
     while (hasInstrLeft()) {
       final RuntimeInstruction instr = getCurrInstr();
       final OpCode op = instr.getOpCode();
-      final Dispatch dispatch = BytecodeDispatch.dispatch[op.ordinal()];
+      final Dispatch dispatch = BytecodeDispatch.get(op);
+      final Dispatcher dispatcher = dispatch.dispatch;
       
       //System.out.println("instr: "+instr);
 
-      if (dispatch.dispatch != null) {
-        final StackFrame frame = dispatch.dispatch.dispatcher(instr, thread, this, allocator, getHostModule());
+      if (dispatcher != null) {
+        final StackFrame frame = dispatcher.dispatcher(instr, thread, this, allocator, getHostModule());
         if (frame != this) {
           return frame;
         }

@@ -33,9 +33,7 @@ import jg.sh.util.RuntimeUtils;
 
 import static jg.sh.compile.instrs.OpCode.*;
 
-import java.util.Arrays;
 import java.util.Map.Entry;
-
 
 public final class BytecodeDispatch {
 
@@ -69,7 +67,7 @@ public final class BytecodeDispatch {
     }
   }
 
-  public static final Dispatch [] dispatch = {
+  private static final Dispatch [] dispatch = {
     new Dispatch(LABEL, null),
     new Dispatch(COMMENT, null),
     new Dispatch(ADD, BytecodeDispatch::binAdd),
@@ -121,6 +119,14 @@ public final class BytecodeDispatch {
     new Dispatch(SEAL, BytecodeDispatch::sealObject),
     new Dispatch(PASS, null)
   };
+
+  public static Dispatch get(OpCode op) {
+    return dispatch[op.ordinal()];
+  }
+
+  public static Dispatch[] getAll() {
+    return dispatch;
+  }
 
   public static StackFrame binAdd(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
