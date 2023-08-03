@@ -46,13 +46,15 @@ public class HeapAllocator {
   
   public RuntimeError allocateError(String msg) {    
     //perform garbage collection prior to allocation
+    /* 
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeError object = new RuntimeError(allocateString(msg));
     //storage.add(new WeakReference<>(object));
-    heapPointer++;
+    //heapPointer++;
     
     return object;
   }
@@ -63,26 +65,30 @@ public class HeapAllocator {
   
   public RuntimeInstance allocateEmptyObject(BiConsumer<Initializer, RuntimeInstance> initializer) {    
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeInstance object = new RuntimeInstance(initializer);
-    ///storage.add(new WeakReference<>(object));
-    heapPointer++;
+    //storage.add(new WeakReference<>(object));
+    //heapPointer++;
     
     return object;
   }
   
   public RuntimeArray allocateEmptyArray() {    
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeArray array = new RuntimeArray();
     //storage.add(new WeakReference<>(array));
-    heapPointer++;
+    //heapPointer++;
     
     return array;
   }
@@ -90,9 +96,11 @@ public class HeapAllocator {
   
   public RuntimeInteger allocateInt(long value) {
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     if (value >= 0 && value < SMALL_NUMS.length) {
       return SMALL_NUMS[(int) value];
@@ -100,7 +108,7 @@ public class HeapAllocator {
     
     final RuntimeInteger integer = new RuntimeInteger(value);
     //storage.add(new WeakReference<>(integer));
-    heapPointer++;
+    //heapPointer++;
     
     return integer;
   }
@@ -112,26 +120,30 @@ public class HeapAllocator {
 
   public RuntimeFloat allocateFloat(double value) {
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeFloat floatValue = new RuntimeFloat(value);
     //storage.add(new WeakReference<>(floatValue));
-    heapPointer++;
+    //heapPointer++;
     
     return floatValue;
   }
 
   public RuntimeString allocateString(String value) {
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeString str = new RuntimeString(value);
     //storage.add(new WeakReference<>(str));
-    heapPointer++;
+    //heapPointer++;
     
     return str;
   }
@@ -144,9 +156,11 @@ public class HeapAllocator {
                                               RuntimeInstruction [] instrs, 
                                               int [] captures) {
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeCodeObject codeObject = new RuntimeCodeObject(boundName, 
                                                                signature, 
@@ -156,7 +170,7 @@ public class HeapAllocator {
                                                                instrs, 
                                                                captures);
     //storage.add(new WeakReference<>(codeObject));
-    heapPointer++;
+    //heapPointer++;
     
     return codeObject;
   }
@@ -164,27 +178,31 @@ public class HeapAllocator {
   
   public RuntimeCallable allocateCallable(RuntimeModule hostModule, RuntimeInstance self, RuntimeCodeObject codeObject) {
     //perform garbage collection prior to allocation
+    /*
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     
     final RuntimeCallable callable = new RuntimeCallable(hostModule, self, codeObject);
     //storage.add(new WeakReference<>(callable));
-    heapPointer++;
+    //heapPointer++;
     
     return callable;
   }
   
   public RuntimeCallable allocateCallable(RuntimeModule hostModule, RuntimeInstance self, RuntimeCodeObject codeObject, CellReference [] captures) {
     //perform garbage collection prior to allocation
+    /* 
     if (heapPointer >= storageLimit) {
       throw new IllegalStateException("Out of memory when allocating integer!");
     }
+    */
     
     final RuntimeCallable callable = new RuntimeCallable(hostModule, self, codeObject, captures);
     //storage.add(new WeakReference<>(callable));
-    heapPointer++;
+    //heapPointer++;
     
     return callable;
   }

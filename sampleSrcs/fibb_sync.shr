@@ -39,15 +39,21 @@ func fib(n){
 var start := now();
 const value := fib(28);
 const fastElasped := now() - start;
-*/
+
 
 const start := now();
 const valueSlow := fibSlow(28);
 const slowElasped := now() - start;
 
-/*
+
 println("Result: "+value+" @ "+fastElasped+" ns | slow "+valueSlow+" @ "+slowElasped+" ns | "+(value = valueSlow));
 */
 
-println("Result: slow "+valueSlow+" @ "+slowElasped+" ns | ");
+//println("Result: slow "+valueSlow+" @ "+slowElasped+" ns | ");
+
+const start := now();
+const value := fibSlow(28);
+const end := now();
+println("*** fibSlow(28) Time: "+(end - start));
+println("Result: "+value);
 

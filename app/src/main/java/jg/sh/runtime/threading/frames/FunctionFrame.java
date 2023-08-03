@@ -82,8 +82,8 @@ public class FunctionFrame extends StackFrame {
     this.instrIndex = instrIndex;
   }  
 
-  //@Override
-  public StackFrame run_old(HeapAllocator allocator, Fiber thread) {
+  @Override
+  public StackFrame run(HeapAllocator allocator, Fiber thread) {
     /**
      * Use solely by CALL when doing data definition instantiation.
      * See comments for passOver
@@ -121,8 +121,8 @@ public class FunctionFrame extends StackFrame {
     return null;
   }
 
-  @Override
-  public StackFrame run(HeapAllocator allocator, Fiber thread) {
+  //@Override
+  public StackFrame run_old(HeapAllocator allocator, Fiber thread) {
 
     /**
      * Use solely by CALL when doing data definition instantiation.
