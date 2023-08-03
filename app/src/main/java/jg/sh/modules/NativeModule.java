@@ -42,7 +42,7 @@ public abstract class NativeModule {
   private final InternalFunction loadingFunction;
   
   protected NativeModule() {
-    this.runtimeModule = new RuntimeModule(getName(), null, Collections.emptyMap());
+    this.runtimeModule = new RuntimeModule(getName(), null, new RuntimeInstance[0]);
     
     this.loadingFunction = new InternalFunction(FunctionSignature.NO_ARG) {      
       @Override

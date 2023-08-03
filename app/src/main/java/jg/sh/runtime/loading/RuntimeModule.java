@@ -20,7 +20,7 @@ public class RuntimeModule implements Markable {
   
   private final String name;
   private final RuntimeCodeObject moduleCodeObject;
-  private final Map<Integer, RuntimeInstance> constantMap;
+  private final RuntimeInstance [] constants;
   
   private Callable moduleCallable;
   private RuntimeInstance moduleObject;
@@ -29,11 +29,11 @@ public class RuntimeModule implements Markable {
   private int gcMark;
   
   public RuntimeModule(String name, 
-      RuntimeCodeObject codeObject,
-      Map<Integer, RuntimeInstance> constantMap) {
+                       RuntimeCodeObject codeObject,
+                       RuntimeInstance [] constants) {
     this.name = name;
     this.moduleCodeObject = codeObject;
-    this.constantMap = constantMap;
+    this.constants = constants;
   }
   
   public void setLoadingComponents(RuntimeInstance moduleObject, Callable callable) {
@@ -48,9 +48,13 @@ public class RuntimeModule implements Markable {
   public boolean isLoaded() {
     return moduleObject != null && moduleCallable != null && isLoaded;
   }
+
+  public RuntimeInstance getConstant(int index) {
+    return constants[index];
+  }
   
-  public Map<Integer, RuntimeInstance> getConstantMap() {
-    return constantMap;
+  public RuntimeInstance [] getConstants() {
+    return constants;
   }
   
   public RuntimeInstance getModuleObject() {

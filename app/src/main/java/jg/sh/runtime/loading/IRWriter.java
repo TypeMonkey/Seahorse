@@ -94,7 +94,7 @@ public final class IRWriter {
     final DataOutputStream ds = new DataOutputStream(outputStream);
     try {
       ds.writeLong(SeaHorseInterpreter.VERSION);
-      ds.write(encodeConstantPool(module.getConstantMap()));
+      //ds.write(encodeConstantPool(module.getConstantMap()));
       ds.writeInt(module.getModuleCodeObject().getInstrs().length);
       for (RuntimeInstruction instr : module.getModuleCodeObject().getInstrs()) {
         ds.write(encodeInstr(instr));

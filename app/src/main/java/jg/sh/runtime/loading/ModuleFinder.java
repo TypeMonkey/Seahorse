@@ -52,7 +52,6 @@ import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
-import jg.sh.compile.pool.ConstantPool;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
 import jg.sh.compile.pool.component.ErrorHandlingRecord;
@@ -453,9 +452,9 @@ public class ModuleFinder implements Markable {
   }
   
   private RuntimeModule prepareModule(ObjectFile compiledFile) {    
-    HashMap<Integer, RuntimeInstance> constantMap = new HashMap<>();
+    final RuntimeInstance [] constants = new RuntimeInstance[compiledFile.getConstants().size()];
     
-    LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constantMap, compiledFile.getConstants());    
+    LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constants, compiledFile.getConstants());    
     
     final CodeObject moduleCodeObject = new CodeObject(
         new FunctionSignature(0, Collections.emptySet()), 
@@ -490,7 +489,7 @@ public class ModuleFinder implements Markable {
     //System.out.println("-----------------------------");
     
     List<RuntimeCodeObject> runtimeCodeObjects = contextualize(compiledFile.getConstants(), 
-                                                               constantMap,
+                                                               constants,
                                                                allInstructions, 
                                                                codeObjectIndices, 
                                                                codeObjects);
@@ -506,7 +505,7 @@ public class ModuleFinder implements Markable {
     */    
     RuntimeModule runtimeModule = new RuntimeModule(compiledFile.getName(), 
                                                     runtimeCodeObjects.get(runtimeCodeObjects.size() - 1), 
-                                                    constantMap);
+                                                    constants);
     return runtimeModule;
   }
   
@@ -514,22 +513,26 @@ public class ModuleFinder implements Markable {
    * Allocates non-code object constants
    * @param pool
    */
-  private LinkedHashMap<Integer, CodeObject> allocateConstants(Map<Integer, RuntimeInstance> constantMap, List<PoolComponent> pool) {  
+  private LinkedHashMap<Integer, CodeObject> allocateConstants(RuntimeInstance [] constantArray, List<PoolComponent> pool) {  
     LinkedHashMap<Integer, CodeObject> codeObjects = new LinkedHashMap<>();
     
     for (int i = 0; i < pool.size(); i++) {
       PoolComponent component = pool.get(i);
       if (component instanceof BoolConstant) {
-        constantMap.put(i, allocator.allocateBool(((BoolConstant) component).getValue()));
+        constantArray[i] = allocator.allocateBool(((BoolConstant) component).getValue());
+        //constantMap.put(i, allocator.allocateBool(((BoolConstant) component).getValue()));
       }
       else if (component instanceof FloatConstant) {
-        constantMap.put(i, allocator.allocateFloat(((FloatConstant) component).getValue()));
+        constantArray[i] = allocator.allocateFloat(((FloatConstant) component).getValue());
+        //constantMap.put(i, allocator.allocateFloat(((FloatConstant) component).getValue()));
       }
       else if (component instanceof IntegerConstant) {
-        constantMap.put(i, allocator.allocateInt(((IntegerConstant) component).getValue()));
+        constantArray[i] = allocator.allocateInt(((IntegerConstant) component).getValue());
+        //constantMap.put(i, allocator.allocateInt(((IntegerConstant) component).getValue()));
       }
       else if (component instanceof StringConstant) {
-        constantMap.put(i, allocator.allocateString(((StringConstant) component).getValue()));
+        constantArray[i] = allocator.allocateString(((StringConstant) component).getValue());
+        //constantMap.put(i, allocator.allocateString(((StringConstant) component).getValue()));
       }
       else if (component instanceof CodeObject) {
         CodeObject codeObject = (CodeObject) component;
@@ -541,12 +544,12 @@ public class ModuleFinder implements Markable {
   }
   
   private List<RuntimeCodeObject> contextualize(List<PoolComponent> pool, 
-                                              Map<Integer, RuntimeInstance> constantMap,
-                                              List<Instruction> rawInstrs, 
-                                              int [][] codeObjectIndices, 
-                                              LinkedHashMap<Integer, CodeObject> codeObjects){
+                                                RuntimeInstance [] constants,
+                                                List<Instruction> rawInstrs, 
+                                                int [][] codeObjectIndices, 
+                                                LinkedHashMap<Integer, CodeObject> codeObjects) {
         
-    //Temporary class for typing error label to instructions
+    //Temporary class for setting error label to instructions
     class TempContextInstr {
       private final String errorLabel;
       private Instruction instr;
@@ -642,7 +645,13 @@ public class ModuleFinder implements Markable {
                                                                          codeObject.getKeywordVarArgIndex(),
                                                                          contextualInstrs, 
                                                                          codeObject.getCaptures());
-      constantMap.put(coEntry.getKey(), runtimeCodeObject);
+      if (coEntry.getKey() > -1) {
+        /*
+         * The codeObject with index -1 is the module instructions, which we
+         * don't add in our contants array
+         */
+        constants[coEntry.getKey()] = runtimeCodeObject;
+      }
       runtimeCodeObjects.add(runtimeCodeObject);
       
       codeObjIndex++;

@@ -509,6 +509,8 @@ public final class BytecodeDispatch {
       final RuntimeInstance selfObject = allocator.allocateEmptyObject();
       final RuntimeCallable actualCallable = allocator.allocateCallable(frame.getHostModule(), selfObject, constructor);
 
+      frame.setPassOver(selfObject);
+
       return generalCall(frame, allocator, instr, actualCallable, args, "");
     }   
     else {
@@ -647,7 +649,7 @@ public final class BytecodeDispatch {
     //System.out.println(" ===> arg instr!");
     
     if (argInstr.getArgument() >= 0) {
-      String argName = ((RuntimeString) frame.getHostModule().getConstantMap().get(argInstr.getArgument())).getValue();
+      String argName = ((RuntimeString) module.getConstant(argInstr.getArgument())).getValue();
       argVector.setKeywordArg(argName, argValue);
 
       //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
@@ -660,12 +662,13 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadConstant(RuntimeInstruction instr, Fiber fiber,
+  public static StackFrame loadConstant(RuntimeInstruction instr, 
+                                        Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
                                         RuntimeModule module) {
     final ArgInstruction loadcInstr = (ArgInstruction) instr;
-    RuntimeInstance constant = frame.getHostModule().getConstantMap().get(loadcInstr.getArgument());
+    RuntimeInstance constant = module.getConstant(loadcInstr.getArgument());
     frame.pushOperand(constant);
     LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
     return frame;
@@ -700,7 +703,7 @@ public final class BytecodeDispatch {
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) frame.getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
     final RuntimeInstance object = frame.popOperand();
     
     //System.out.println("====> object attr: "+object.attrs());
@@ -721,7 +724,7 @@ public final class BytecodeDispatch {
                                      HeapAllocator allocator, 
                                      RuntimeModule module) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) frame.getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(storeInstr.getArgument())).getValue();
     final RuntimeInstance object = frame.popOperand();
     final RuntimeInstance value = frame.popOperand();
 
@@ -774,9 +777,9 @@ public final class BytecodeDispatch {
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) frame.getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
     
-    final RuntimeInstance moduleObject = frame.getHostModule().getModuleObject();
+    final RuntimeInstance moduleObject = module.getModuleObject();
     
     if(moduleObject.hasAttr(attrName)) {
       frame.pushOperand(moduleObject.getAttr(attrName));
@@ -794,9 +797,9 @@ public final class BytecodeDispatch {
                                           RuntimeModule module) { 
     final ArgInstruction storeInstr = (ArgInstruction) instr;      
     final RuntimeInstance newValue = frame.popOperand();
-    final String attrName = ((RuntimeString) frame.getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(storeInstr.getArgument())).getValue();
     //System.out.println(">>>> STOREMV: "+attrName+" | "+storeInstr.getIndex());
-    final RuntimeInstance moduleObject = frame.getHostModule().getModuleObject();
+    final RuntimeInstance moduleObject = module.getModuleObject();
     
     try {
       moduleObject.setAttribute(attrName, newValue);
@@ -853,7 +856,7 @@ public final class BytecodeDispatch {
       return frame;
     }              
     else {
-      final String moduleName = ((RuntimeString) module.getConstantMap().get(loadInstr.getArgument())).getValue();
+      final String moduleName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
       final RuntimeModule otherModule = fiber.getFinder().load(moduleName);
 
       if (otherModule != null) {
@@ -884,7 +887,7 @@ public final class BytecodeDispatch {
                                            HeapAllocator allocator, 
                                            RuntimeModule module) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
-    final String varName = ((RuntimeString) module.getConstantMap().get(exportInstr.getArgument())).getValue();
+    final String varName = ((RuntimeString) module.getConstant(exportInstr.getArgument())).getValue();
     final RuntimeInstance moduleObject = module.getModuleObject();
 
     //System.out.println("===> making module variable "+varName+" export!");
@@ -905,7 +908,7 @@ public final class BytecodeDispatch {
                                              HeapAllocator allocator, 
                                              RuntimeModule module) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
-    final String varName = ((RuntimeString) module.getConstantMap().get(exportInstr.getArgument())).getValue();
+    final String varName = ((RuntimeString) module.getConstant(exportInstr.getArgument())).getValue();
 
     //System.out.println("===> making module variable "+varName+" constant!");
 
@@ -1013,7 +1016,7 @@ public final class BytecodeDispatch {
 
     final RuntimeInstance attrValue = frame.popOperand();
     final RuntimeInstance targetObj = frame.popOperand();
-    final String attrName = ((RuntimeString) module.getConstantMap().get(hasInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(hasInstr.getArgument())).getValue();
 
     try {
       targetObj.setAttribute(attrName, attrValue);
@@ -1042,7 +1045,7 @@ public final class BytecodeDispatch {
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) module.getConstantMap().get(hasInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) module.getConstant(hasInstr.getArgument())).getValue();
     final RuntimeBool result = allocator.allocateBool(frame.initialArgs.hasAttr(attrName));
     //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
     frame.pushOperand(result);  

@@ -54,7 +54,7 @@ public class FunctionFrame extends StackFrame {
 
   private final RuntimeCallable callable;
   private final RuntimeInstruction [] instrs;
-  private final Map<Integer, RuntimeInstance> constantMap;
+  private final RuntimeInstance [] constantMap;
 
   private int instrIndex;
 
@@ -78,18 +78,19 @@ public class FunctionFrame extends StackFrame {
     super(hostModule, initialArgs);
     this.callable = callable;
     this.instrs = callable.getCodeObject().getInstrs();
-    this.constantMap = callable.getHostModule().getConstantMap();
+    this.constantMap = callable.getHostModule().getConstants();
     this.instrIndex = instrIndex;
   }  
 
   @Override
-  public StackFrame run(HeapAllocator allocator, Fiber thread) {
+  public StackFrame run(HeapAllocator allocator, Fiber fiber) {
     /**
      * Use solely by CALL when doing data definition instantiation.
      * See comments for passOver
      */
     if (passOver != null) {
       pushOperand(passOver);
+      passOver = null;
     }
 
     if (getError() != null) {
@@ -110,7 +111,7 @@ public class FunctionFrame extends StackFrame {
       //System.out.println("instr: "+instr);
 
       if (dispatcher != null) {
-        final StackFrame frame = dispatcher.dispatcher(instr, thread, this, allocator, getHostModule());
+        final StackFrame frame = dispatcher.dispatcher(instr, fiber, this, allocator, getHostModule());
         if (frame != this) {
           return frame;
         }
@@ -887,7 +888,7 @@ public class FunctionFrame extends StackFrame {
           //System.out.println(" ===> arg instr!");
           
           if (argInstr.getArgument() >= 0) {
-            String argName = ((RuntimeString) getHostModule().getConstantMap().get(argInstr.getArgument())).getValue();
+            String argName = ((RuntimeString) getHostModule().getConstant(argInstr.getArgument())).getValue();
             argVector.setKeywordArg(argName, argValue);
 
             //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
@@ -906,7 +907,7 @@ public class FunctionFrame extends StackFrame {
         */
         case LOADC: {
           final ArgInstruction loadcInstr = (ArgInstruction) instr;
-          RuntimeInstance constant = constantMap.get(loadcInstr.getArgument());
+          RuntimeInstance constant = constantMap[loadcInstr.getArgument()];
           pushOperand(constant);
           LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
           break;
@@ -927,7 +928,7 @@ public class FunctionFrame extends StackFrame {
         }
         case LOADATTR: {
           final ArgInstruction loadInstr = (ArgInstruction) instr;
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+          String attrName = ((RuntimeString) getHostModule().getConstant(loadInstr.getArgument())).getValue();
           RuntimeInstance object = popOperand();
           
           //System.out.println("====> object attr: "+object.attrs());
@@ -954,7 +955,7 @@ public class FunctionFrame extends StackFrame {
         }
         case STOREATTR: {
           final ArgInstruction storeInstr = (ArgInstruction) instr;
-          String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
+          String attrName = ((RuntimeString) getHostModule().getConstant(storeInstr.getArgument())).getValue();
           RuntimeInstance object = popOperand();
           RuntimeInstance value = popOperand();
 
@@ -994,7 +995,7 @@ public class FunctionFrame extends StackFrame {
         }
         case LOADMV: {
           final ArgInstruction loadInstr = (ArgInstruction) instr;
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstant(loadInstr.getArgument())).getValue();
           
           RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
@@ -1021,7 +1022,7 @@ public class FunctionFrame extends StackFrame {
         case STOREMV: {
           final ArgInstruction storeInstr = (ArgInstruction) instr;      
           final RuntimeInstance newValue = popOperand();
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(storeInstr.getArgument())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstant(storeInstr.getArgument())).getValue();
           //System.out.println(">>>> STOREMV: "+attrName+" | "+storeInstr.getIndex());
           RuntimeInstance moduleObject = getHostModule().getModuleObject();
           
@@ -1156,7 +1157,7 @@ public class FunctionFrame extends StackFrame {
             pushOperand(getHostModule().getModuleObject());
           }
           else {
-            final String moduleName = ((RuntimeString) getHostModule().getConstantMap().get(loadInstr.getArgument())).getValue();
+            final String moduleName = ((RuntimeString) getHostModule().getConstant(loadInstr.getArgument())).getValue();
             final RuntimeModule module = thread.getFinder().load(moduleName);
 
             if (module != null) {
@@ -1212,7 +1213,7 @@ public class FunctionFrame extends StackFrame {
         */
         case EXPORTMV: {
           final ArgInstruction exportInstr = (ArgInstruction) instr;
-          final String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
+          final String varName = ((RuntimeString) getHostModule().getConstant(exportInstr.getArgument())).getValue();
           final RuntimeInstance moduleObject = getHostModule().getModuleObject();
 
           //System.out.println("===> making module variable "+varName+" export!");
@@ -1229,7 +1230,7 @@ public class FunctionFrame extends StackFrame {
         }
         case CONSTMV: {
           final ArgInstruction exportInstr = (ArgInstruction) instr;
-          final String varName = ((RuntimeString) getHostModule().getConstantMap().get(exportInstr.getArgument())).getValue();
+          final String varName = ((RuntimeString) getHostModule().getConstant(exportInstr.getArgument())).getValue();
 
           //System.out.println("===> making module variable "+varName+" constant!");
 
@@ -1333,7 +1334,7 @@ public class FunctionFrame extends StackFrame {
 
           final RuntimeInstance attrValue = popOperand();
           final RuntimeInstance targetObj = popOperand();
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstant(hasInstr.getArgument())).getValue();
 
           try {
             targetObj.setAttribute(attrName, attrValue);
@@ -1360,7 +1361,7 @@ public class FunctionFrame extends StackFrame {
         }
         case HAS_KARG: {
           final ArgInstruction hasInstr = (ArgInstruction) instr;
-          final String attrName = ((RuntimeString) getHostModule().getConstantMap().get(hasInstr.getArgument())).getValue();
+          final String attrName = ((RuntimeString) getHostModule().getConstant(hasInstr.getArgument())).getValue();
           final RuntimeBool result = allocator.allocateBool(initialArgs.hasAttr(attrName));
           //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
           pushOperand(result);
