@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
 import jg.sh.runtime.alloc.Cleaner;
+import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
 
@@ -94,6 +95,18 @@ public class RuntimeInstance implements Markable {
       EnumSet<AttrModifier> curMods = attrModifiers.get(name);
       curMods.addAll(Arrays.asList(modifiers));
     }
+  }
+
+  public RuntimeInstance $add(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("+ is not defined for this object.");
+  }
+
+  public RuntimeInstance $inc(HeapAllocator alloc) throws OperationException {
+    throw new OperationException("+ is not defined for this object.");
+  }
+
+  public RuntimeInstance $dec(HeapAllocator alloc) throws OperationException {
+    throw new OperationException("+ is not defined for this object.");
   }
   
   public RuntimeInstance getAttr(String name) {

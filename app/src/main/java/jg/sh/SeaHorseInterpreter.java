@@ -193,7 +193,7 @@ public class SeaHorseInterpreter {
     args = args == null ? new String[0] : args;
     
     LOG.info(new File("").getAbsolutePath());
-    String mainModule = "../sampleSrcs/verysimple.shr";
+    String mainModule = "../sampleSrcs/fibb_sync.shr";
 
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, false);

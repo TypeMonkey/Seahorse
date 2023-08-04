@@ -128,37 +128,28 @@ public final class BytecodeDispatch {
     return dispatch;
   }
 
-  public static StackFrame binAdd(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binAdd(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
                                   HeapAllocator allocator, 
                                   RuntimeModule module) {
     final RuntimeInstance right = frame.popOperand();
     final RuntimeInstance left = frame.popOperand();
-    
-    /*
-     * Check if we're ADDing two objects - one operand being a String.
-     * If so, add both instance's toString() result
-     */
-    if (left instanceof RuntimeString || right instanceof RuntimeString) {
-      frame.pushOperand(allocator.allocateString(left.toString() + right.toString()));
-      return frame;
-    }
-    
-    final RuntimeInstance result = RuntimeUtils.numAdd(left, right, allocator);
-    if (result != null) {
+
+    try {
+      final RuntimeInstance result = left.$add(right, allocator);
       frame.pushOperand(result);
       return frame;
+    } catch (OperationException e) {
+      return binaryArithCall(frame, 
+                             allocator, 
+                             FuncOperatorCoupling.getCoupling(ADD), 
+                             instr, 
+                             left, 
+                             right);
     }
-
-    return binaryArithCall(frame, 
-                           allocator, 
-                           FuncOperatorCoupling.getCoupling(ADD), 
-                           instr, 
-                           left, 
-                           right);
   }
 
-  public static StackFrame binMinus(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binMinus(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -179,7 +170,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binMul(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binMul(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
                                   HeapAllocator allocator, 
                                   RuntimeModule module) {
@@ -200,7 +191,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binDiv(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binDiv(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
                                   HeapAllocator allocator, 
                                   RuntimeModule module) {
@@ -221,7 +212,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binBitwiseAnd(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binBitwiseAnd(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
@@ -243,7 +234,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binBitwiseOr(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binBitwiseOr(RuntimeInstruction instr, Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
                                         RuntimeModule module) {
@@ -265,7 +256,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binLess(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binLess(RuntimeInstruction instr, Fiber fiber,
                                    FunctionFrame frame, 
                                    HeapAllocator allocator, 
                                    RuntimeModule module) {
@@ -286,7 +277,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binGreat(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binGreat(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -307,7 +298,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binLessEqual(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binLessEqual(RuntimeInstruction instr, Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
                                         RuntimeModule module) {
@@ -328,7 +319,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binGreatEqual(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binGreatEqual(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
@@ -349,7 +340,7 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame binMod(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame binMod(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
                                   HeapAllocator allocator, 
                                   RuntimeModule module) {
@@ -370,36 +361,27 @@ public final class BytecodeDispatch {
                            right);
   }
 
-  public static StackFrame inc(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame inc(RuntimeInstruction instr, Fiber fiber,
                                FunctionFrame frame, 
                                HeapAllocator allocator, 
                                RuntimeModule module) {
     final RuntimeInstance target = frame.popOperand();
-    
-    if(target instanceof RuntimeInteger){
-      RuntimeInteger integer = (RuntimeInteger) target;
-      integer = allocator.allocateInt(integer.getValue() + 1);
-      frame.pushOperand(integer); 
+
+    try {
+      final RuntimeInstance result = target.$inc(allocator);
+      frame.pushOperand(result);
       return frame;
-    }
-    else if(target instanceof RuntimeFloat) {
-      RuntimeFloat floatingPoint = (RuntimeFloat) target;
-      floatingPoint = allocator.allocateFloat(floatingPoint.getValue() + 1.0);
-      frame.pushOperand(floatingPoint); 
-      return frame;
-    }
-    else {
-      final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.ADD);
+    } catch (OperationException e) {
       return binaryArithCall(frame, 
                              allocator, 
-                             coupling, 
+                             FuncOperatorCoupling.getCoupling(ADD), 
                              instr, 
                              target, 
                              allocator.allocateInt(1));
     }
   }
 
-  public static StackFrame negative(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame negative(RuntimeInstruction instr, Fiber fiber,
                                FunctionFrame frame, 
                                HeapAllocator allocator, 
                                RuntimeModule module) {
@@ -422,7 +404,7 @@ public final class BytecodeDispatch {
                         "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+target.getClass());
   }
 
-  public static StackFrame not(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame not(RuntimeInstruction instr, Fiber fiber,
                                FunctionFrame frame, 
                                HeapAllocator allocator, 
                                RuntimeModule module) {
@@ -445,36 +427,27 @@ public final class BytecodeDispatch {
                         "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+target.getClass());
   }
 
-  public static StackFrame dec(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame dec(RuntimeInstruction instr, Fiber fiber,
                                   FunctionFrame frame, 
                                   HeapAllocator allocator, 
                                   RuntimeModule module) {
     final RuntimeInstance target = frame.popOperand();
     
-    if(target instanceof RuntimeInteger){
-      RuntimeInteger integer = (RuntimeInteger) target;
-      integer = allocator.allocateInt(integer.getValue() - 1);
-      frame.pushOperand(integer); 
+    try {
+      final RuntimeInstance result = target.$dec(allocator);
+      frame.pushOperand(result);
       return frame;
-    }
-    else if(target instanceof RuntimeFloat) {
-      RuntimeFloat floatingPoint = (RuntimeFloat) target;
-      floatingPoint = allocator.allocateFloat(floatingPoint.getValue() - 1.0);
-      frame.pushOperand(floatingPoint); 
-      return frame;
-    }
-    else {
-      final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.SUB);
+    } catch (OperationException e) {
       return binaryArithCall(frame, 
                              allocator, 
-                             coupling, 
+                             FuncOperatorCoupling.getCoupling(SUB), 
                              instr, 
                              target, 
                              allocator.allocateInt(1));
     }
   }
 
-  public static StackFrame binaryArithCall(FunctionFrame caller, 
+  private static StackFrame binaryArithCall(FunctionFrame caller, 
                                            HeapAllocator allocator, 
                                            FuncOperatorCoupling opFuncName,
                                            RuntimeInstruction instruction, 
@@ -491,7 +464,7 @@ public final class BytecodeDispatch {
                         "Unsupported operation for "+opFuncName.getOpCode().name().toLowerCase()+" on "+left.getClass());
   }
 
-  public static StackFrame call(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame call(RuntimeInstruction instr, Fiber fiber,
                                 FunctionFrame frame, 
                                 HeapAllocator allocator, 
                                 RuntimeModule module) {
@@ -518,7 +491,7 @@ public final class BytecodeDispatch {
     }                         
   }
 
-  public static StackFrame jump(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame jump(RuntimeInstruction instr, Fiber fiber,
                                 FunctionFrame frame, 
                                 HeapAllocator allocator, 
                                 RuntimeModule module) {
@@ -528,7 +501,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame jumpTrue(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame jumpTrue(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -549,7 +522,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame jumpFalse(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame jumpFalse(RuntimeInstruction instr, Fiber fiber,
                                      FunctionFrame frame, 
                                      HeapAllocator allocator, 
                                      RuntimeModule module) {
@@ -570,7 +543,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame returnFrame(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame returnFrame(RuntimeInstruction instr, Fiber fiber,
                                        FunctionFrame frame, 
                                        HeapAllocator allocator, 
                                        RuntimeModule module) {
@@ -578,7 +551,7 @@ public final class BytecodeDispatch {
     return null;
   }
 
-  public static StackFrame throwError(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame throwError(RuntimeInstruction instr, Fiber fiber,
                                       FunctionFrame frame, 
                                       HeapAllocator allocator, 
                                       RuntimeModule module) {
@@ -619,7 +592,7 @@ public final class BytecodeDispatch {
     return prepareErrorJump(frame, instr, allocator, error.getMessage());
   }
 
-  public static StackFrame popError(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame popError(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -628,7 +601,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame makeArgV(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame makeArgV(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -636,7 +609,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame arg(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame arg(RuntimeInstruction instr, Fiber fiber,
                                FunctionFrame frame, 
                                HeapAllocator allocator, 
                                RuntimeModule module) {
@@ -662,7 +635,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadConstant(RuntimeInstruction instr, 
+  private static StackFrame loadConstant(RuntimeInstruction instr, 
                                         Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
@@ -674,7 +647,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadLocal(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadLocal(RuntimeInstruction instr, Fiber fiber,
                                      FunctionFrame frame, 
                                      HeapAllocator allocator, 
                                      RuntimeModule module) {
@@ -685,7 +658,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame storeLocal(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame storeLocal(RuntimeInstruction instr, Fiber fiber,
                                       FunctionFrame frame, 
                                       HeapAllocator allocator, 
                                       RuntimeModule module) {
@@ -698,7 +671,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadAttr(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadAttr(RuntimeInstruction instr, Fiber fiber,
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
@@ -719,7 +692,7 @@ public final class BytecodeDispatch {
     }
   }
 
-  public static StackFrame storeAttr(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame storeAttr(RuntimeInstruction instr, Fiber fiber,
                                      FunctionFrame frame, 
                                      HeapAllocator allocator, 
                                      RuntimeModule module) {
@@ -739,7 +712,7 @@ public final class BytecodeDispatch {
     }
   }
 
-  public static StackFrame loadNull(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadNull(RuntimeInstruction instr, Fiber fiber,
                                      FunctionFrame frame, 
                                      HeapAllocator allocator, 
                                      RuntimeModule module) {
@@ -748,7 +721,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadCapture(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadCapture(RuntimeInstruction instr, Fiber fiber,
                                        FunctionFrame frame, 
                                        HeapAllocator allocator, 
                                        RuntimeModule module) {
@@ -759,7 +732,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame storeCaputure(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame storeCaputure(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
@@ -772,7 +745,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame loadModuleVar(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadModuleVar(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
@@ -791,7 +764,7 @@ public final class BytecodeDispatch {
     }
   }
 
-  public static StackFrame storeModuleVar(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame storeModuleVar(RuntimeInstruction instr, Fiber fiber,
                                           FunctionFrame frame, 
                                           HeapAllocator allocator, 
                                           RuntimeModule module) { 
@@ -809,7 +782,7 @@ public final class BytecodeDispatch {
     }
   }
 
-  public static StackFrame loadIndex(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame loadIndex(RuntimeInstruction instr, Fiber fiber,
                                      FunctionFrame frame, 
                                      HeapAllocator allocator, 
                                      RuntimeModule module) { 
@@ -826,7 +799,7 @@ public final class BytecodeDispatch {
                         target.getClass()+" isn't indexible");                                 
   }
 
-  public static StackFrame storeIndex(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame storeIndex(RuntimeInstruction instr, Fiber fiber,
                                       FunctionFrame frame, 
                                       HeapAllocator allocator, 
                                       RuntimeModule module) { 
@@ -844,7 +817,7 @@ public final class BytecodeDispatch {
                         target.getClass()+" isn't indexible");                                 
   }
 
-  public static StackFrame loadModule(RuntimeInstruction instr,
+  private static StackFrame loadModule(RuntimeInstruction instr,
                                       Fiber fiber,
                                       FunctionFrame frame, 
                                       HeapAllocator allocator, 
@@ -882,7 +855,7 @@ public final class BytecodeDispatch {
     }
   }                                 
 
-  public static StackFrame exportModuleVar(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame exportModuleVar(RuntimeInstruction instr, Fiber fiber,
                                            FunctionFrame frame, 
                                            HeapAllocator allocator, 
                                            RuntimeModule module) { 
@@ -903,7 +876,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame constantModuleVar(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame constantModuleVar(RuntimeInstruction instr, Fiber fiber,
                                              FunctionFrame frame, 
                                              HeapAllocator allocator, 
                                              RuntimeModule module) { 
@@ -924,7 +897,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame allocateFunc(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame allocateFunc(RuntimeInstruction instr, Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
                                         RuntimeModule module) {
@@ -950,7 +923,7 @@ public final class BytecodeDispatch {
     }                                    
   }
 
-  public static StackFrame allocateArray(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame allocateArray(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
@@ -967,7 +940,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame allocateObject(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame allocateObject(RuntimeInstruction instr, Fiber fiber,
                                           FunctionFrame frame, 
                                           HeapAllocator allocator, 
                                           RuntimeModule module) {
@@ -995,7 +968,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame bind(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame bind(RuntimeInstruction instr, Fiber fiber,
                                 FunctionFrame frame, 
                                 HeapAllocator allocator, 
                                 RuntimeModule module) {
@@ -1008,7 +981,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame makeConstant(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame makeConstant(RuntimeInstruction instr, Fiber fiber,
                                         FunctionFrame frame, 
                                         HeapAllocator allocator, 
                                         RuntimeModule module) {
@@ -1029,7 +1002,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame sealObject(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame sealObject(RuntimeInstruction instr, Fiber fiber,
                                       FunctionFrame frame, 
                                       HeapAllocator allocator, 
                                       RuntimeModule module) {
@@ -1040,7 +1013,7 @@ public final class BytecodeDispatch {
     return frame;
   }
 
-  public static StackFrame hasKeywordArg(RuntimeInstruction instr, Fiber fiber,
+  private static StackFrame hasKeywordArg(RuntimeInstruction instr, Fiber fiber,
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
