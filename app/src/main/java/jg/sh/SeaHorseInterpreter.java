@@ -26,6 +26,7 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.threading.ThreadManager;
@@ -196,7 +197,7 @@ public class SeaHorseInterpreter {
     String mainModule = "../sampleSrcs/fibb_sync.shr";
 
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
-    options.put(IOption.MEASURE, false);
+    options.put(IOption.MEASURE, true);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
     options.put(IOption.LOG_LEVEL, "OFF");
@@ -204,5 +205,6 @@ public class SeaHorseInterpreter {
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
     interpreter.init();
     interpreter.executeModule(mainModule, args);
+    System.out.println(GeneralMetrics.statsAsStrings());
   }
 }

@@ -13,6 +13,8 @@ import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.instrs.ArgInstruction;
 import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.metrics.GeneralMetrics;
+import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
@@ -25,7 +27,6 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
-import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
@@ -675,14 +676,18 @@ public final class BytecodeDispatch {
                                     FunctionFrame frame, 
                                     HeapAllocator allocator, 
                                     RuntimeModule module) {
+    //final long start = System.nanoTime();
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
     final RuntimeInstance object = frame.popOperand();
     
     //System.out.println("====> object attr: "+object.attrs());
 
-    if(object.hasAttr(attrName)) {
-      frame.pushOperand(object.getAttr(attrName));
+    final RuntimeInstance attrValue = object.getAttr(attrName);
+    if(attrValue != null) {
+      frame.pushOperand(attrValue);
+      //final long end = System.nanoTime();
+      //GeneralMetrics.addTimes(Meaures.ATTR_LOOKUP_DIPATCH, end - start);
       return frame;
     }
     else {
@@ -749,13 +754,16 @@ public final class BytecodeDispatch {
                                          FunctionFrame frame, 
                                          HeapAllocator allocator, 
                                          RuntimeModule module) {
+    final long methodStart = System.nanoTime();
+
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
-    
     final RuntimeInstance moduleObject = module.getModuleObject();
+    final RuntimeInstance attrValue = moduleObject.getAttr(attrName);
     
-    if(moduleObject.hasAttr(attrName)) {
-      frame.pushOperand(moduleObject.getAttr(attrName));
+    if(attrValue != null) {
+      frame.pushOperand(attrValue);
+      GeneralMetrics.addTimes(Meaures.MOD_VAR_LOAD, System.nanoTime() - methodStart);
       return frame;
     }
     else {
@@ -903,7 +911,7 @@ public final class BytecodeDispatch {
                                         RuntimeModule module) {
     final RuntimeInstance codeObject = frame.popOperand();
     if (codeObject instanceof RuntimeCodeObject) {
-      RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
+      final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
       
       //Capture local variables based on the instr frame
       CellReference [] capturedLocals = new CellReference[actualCodeObject.getCaptures().length];
@@ -913,8 +921,8 @@ public final class BytecodeDispatch {
       
       //System.out.println(" ---> ALLOCF, CAPTURED LOCAL: "+capturedLocals.length+" "+Arrays.toString(actualCodeObject.getCaptures()));
       
-      RuntimeInstance self = frame.popOperand();
-      RuntimeCallable callable = allocator.allocateCallable(module, self, actualCodeObject, capturedLocals);
+      final RuntimeInstance self = frame.popOperand();
+      final RuntimeCallable callable = allocator.allocateCallable(module, self, actualCodeObject, capturedLocals);
       frame.pushOperand(callable);
       return frame;
     }

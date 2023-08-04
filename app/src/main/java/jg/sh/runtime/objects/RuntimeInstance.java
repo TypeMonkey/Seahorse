@@ -14,6 +14,8 @@ import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
+import jg.sh.runtime.metrics.GeneralMetrics;
+import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
 
 /**
  * Root type representing all runtime entities.
@@ -56,15 +58,16 @@ public class RuntimeInstance implements Markable {
   }
 
   public void setAttribute(String name, RuntimeInstance valueAddr, Collection<AttrModifier> modifiers) throws OperationException {
+    final EnumSet<AttrModifier> EMPTY_ATTRMODS = EnumSet.noneOf(AttrModifier.class);
     if (isSealed) {
       throw new OperationException("The object is sealed and immutable");
     }
-    else if(attrModifiers.getOrDefault(name, EnumSet.noneOf(AttrModifier.class)).contains(AttrModifier.CONSTANT)) {
+    else if(attrModifiers.getOrDefault(name, EMPTY_ATTRMODS).contains(AttrModifier.CONSTANT)) {
       throw new OperationException(name+" is constant and can't be re-assigned");
     }
     else {
       attributes.put(name, valueAddr);
-      attrModifiers.put(name, modifiers.size() == 0 ? EnumSet.noneOf(AttrModifier.class) : EnumSet.copyOf(modifiers));
+      attrModifiers.put(name, modifiers.size() == 0 ? EMPTY_ATTRMODS : EnumSet.copyOf(modifiers));
     }
   }
 
@@ -84,7 +87,7 @@ public class RuntimeInstance implements Markable {
     }
   }
 
-  public void appendAttrModifier(String name, AttrModifier ... modifiers) throws OperationException {
+  public void appendAttrModifier(String name, AttrModifier modifier) throws OperationException {
     if (isSealed) {
       throw new OperationException("The object is sealed and immutable");
     }
@@ -93,7 +96,7 @@ public class RuntimeInstance implements Markable {
     }
     else {
       EnumSet<AttrModifier> curMods = attrModifiers.get(name);
-      curMods.addAll(Arrays.asList(modifiers));
+      curMods.add(modifier);
     }
   }
 
@@ -110,7 +113,13 @@ public class RuntimeInstance implements Markable {
   }
   
   public RuntimeInstance getAttr(String name) {
-    return attributes.get(name);
+    long start = System.nanoTime();
+    final RuntimeInstance instance = attributes.get(name);
+    long end = System.nanoTime();
+
+    GeneralMetrics.addTimes(Meaures.ATTR_LOOKUP, end - start);
+
+    return instance;
   }
 
   public Set<AttrModifier> attrModifiers(String name) {

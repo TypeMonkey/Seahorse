@@ -17,6 +17,7 @@ import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.instrs.ArgInstruction;
 import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
@@ -111,11 +112,17 @@ public class FunctionFrame extends StackFrame {
       //System.out.println("instr: "+instr);
 
       if (dispatcher != null) {
+        final long start = System.nanoTime();
         final StackFrame frame = dispatcher.dispatcher(instr, fiber, this, allocator, getHostModule());
+        final long end = System.nanoTime();
+
+        GeneralMetrics.addTimes(op, end - start);
+
         if (frame != this) {
           return frame;
         }
       }
+
       incrmntInstrIndex();
     }
 
@@ -1416,6 +1423,10 @@ public class FunctionFrame extends StackFrame {
   
   public CellReference getCaptureReference(int varIndex) {
     return callable.getCaptures()[varIndex];
+  }
+
+  public CellReference[] getCaptureReferences() {
+    return callable.getCaptures();
   }
 
   public void setPassOver(RuntimeInstance passOver) {
