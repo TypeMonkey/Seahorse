@@ -12,6 +12,12 @@ import org.apache.commons.cli.ParseException;
 
 import jg.sh.InterpreterOptions.IOption;
 
+/**
+ * Entry point for invoking the Seahorse Interpreter
+ * in a stand-alone setting
+ * 
+ * @author Jose Guaro
+ */
 public class Main {
 
   public static void main(String[] args) {

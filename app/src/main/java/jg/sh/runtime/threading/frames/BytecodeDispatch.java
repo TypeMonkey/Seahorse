@@ -36,6 +36,7 @@ import static jg.sh.compile.instrs.OpCode.*;
 
 import java.util.Map.Entry;
 
+@Deprecated
 public final class BytecodeDispatch {
 
   private static Logger LOG = LogManager.getLogger(BytecodeDispatch.class);

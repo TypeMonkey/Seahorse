@@ -11,13 +11,6 @@ import java.util.Map.Entry;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
-import jg.sh.compile.instrs.ArgInstr;
-import jg.sh.compile.instrs.CommentInstr;
-import jg.sh.compile.instrs.Instruction;
-import jg.sh.compile.instrs.LabelInstr;
-import jg.sh.compile.instrs.LoadInstr;
-import jg.sh.compile.instrs.NoArgInstr;
-import jg.sh.compile.instrs.StoreInstr;
 import jg.sh.runtime.instrs.ArgInstruction;
 import jg.sh.runtime.instrs.CommentInstruction;
 import jg.sh.runtime.instrs.RuntimeInstruction;

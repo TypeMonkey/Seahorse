@@ -91,11 +91,11 @@ public class RuntimeInstance implements Markable {
     if (isSealed) {
       throw new OperationException("The object is sealed and immutable");
     }
-    else if(!attrModifiers.containsKey(name)) {
-      throw new OperationException(name+" doesn't exist on this object");
-    }
     else {
-      EnumSet<AttrModifier> curMods = attrModifiers.get(name);
+      final EnumSet<AttrModifier> curMods = attrModifiers.get(name);
+      if (curMods == null) {
+        throw new OperationException(name+" doesn't exist on this object");
+      }
       curMods.add(modifier);
     }
   }

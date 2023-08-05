@@ -52,8 +52,8 @@ println("Result: "+value+" @ "+fastElasped+" ns | slow "+valueSlow+" @ "+slowEla
 //println("Result: slow "+valueSlow+" @ "+slowElasped+" ns | ");
 
 const start := now();
-const value := fibSlow(28);
+const value := fib(28);
 const end := now();
-println("*** fibSlow(28) Time: "+(end - start));
+println("*** fib(28) Time: "+(end - start));
 println("Result: "+value);
 

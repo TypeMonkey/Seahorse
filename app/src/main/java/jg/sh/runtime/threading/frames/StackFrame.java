@@ -16,6 +16,8 @@ import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.metrics.GeneralMetrics;
+import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeError;
@@ -111,7 +113,10 @@ public abstract class StackFrame implements Markable {
   }
   
   public void pushOperand(RuntimeInstance value) {
+    long start = System.nanoTime();
     operandStack.push(value);
+    long end = System.nanoTime();
+    GeneralMetrics.addTimes(Meaures.PUSH_OPERAND, end - start);
   }
 
   public boolean isDone() {

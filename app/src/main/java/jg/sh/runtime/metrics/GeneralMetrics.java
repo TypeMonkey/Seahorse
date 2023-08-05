@@ -12,7 +12,16 @@ import jg.sh.compile.instrs.OpCode;
 public class GeneralMetrics {
 
   public static enum Meaures {
-    MOD_VAR_ATTR_LOOKUP, MOD_PUSH_OP, MOD_VAR_CASTING, MOD_VAR_LOAD, ATTR_LOOKUP, ATTR_LOOKUP_DIPATCH;
+    MOD_VAR_ATTR_LOOKUP, 
+    MOD_PUSH_OP, 
+    MOD_VAR_CASTING, 
+    MOD_VAR_LOAD, 
+    ATTR_LOOKUP, 
+    ATTR_LOOKUP_DIPATCH, 
+    PUSH_OPERAND, 
+    CONST_RETR, 
+    BYTECODE_FETCH, 
+    INSTR_RETR_TIME;
   }
 
   private final static Map<OpCode, List<Long>> opTimes = new EnumMap<>(OpCode.class);

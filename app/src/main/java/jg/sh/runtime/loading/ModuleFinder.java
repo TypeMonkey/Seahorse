@@ -128,17 +128,6 @@ public class ModuleFinder implements Markable {
       }      
     }
     
-    /*
-    if (module != null) {   
-      if (module.isLoaded()) {
-        return module;
-      }
-            
-      module.setAsLoaded(true);     
-      loadingThread.run(module.getModuleCallable());
-    }
-    */
-    
     return module;
   }
   

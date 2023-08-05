@@ -176,10 +176,10 @@ public class SeaHorseInterpreter {
       }
       
       if (options.containsKey(IOption.MEASURE) && ((boolean) options.get(IOption.MEASURE))) {
-        final long start = System.nanoTime();
+        final long start = System.currentTimeMillis();
         manager.start(true);
-        final long end = System.nanoTime();
-        System.out.println("Seahorse VM elasped time: "+(end - start)+" nanoseconds, or "+( (end-start) / 1000000)+" ms");
+        final long end = System.currentTimeMillis();
+        System.out.println("Seahorse VM elasped time: "+(end - start)+" ms");
       }
       else{
         manager.start(false);
@@ -202,9 +202,12 @@ public class SeaHorseInterpreter {
     options.put(IOption.POOL_SIZE, 2);
     options.put(IOption.LOG_LEVEL, "OFF");
     
+    final long wholeStart = System.currentTimeMillis();
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
     interpreter.init();
     interpreter.executeModule(mainModule, args);
+    final long wholeEnd = System.currentTimeMillis();
+    System.out.println(" ===> Total Seahorse Runtime: "+(wholeEnd - wholeStart)+" ms");
     System.out.println(GeneralMetrics.statsAsStrings());
   }
 }

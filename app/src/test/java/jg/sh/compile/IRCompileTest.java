@@ -14,11 +14,12 @@ import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;
 import jg.sh.parsing.Tokenizer;
 import jg.sh.parsing.exceptions.ParseException;
-import jg.sh.runtime.threading.frames.BytecodeDispatch;
+//import jg.sh.runtime.threading.frames.BytecodeDispatch;
 import jg.sh.util.StringUtils;
 
 public class IRCompileTest {
 
+  /*
   @Test
   public void testBytecodeAlignment() {
     assertEquals(OpCode.values().length, BytecodeDispatch.getAll().length);
@@ -27,6 +28,7 @@ public class IRCompileTest {
       assertEquals(OpCode.values()[i], BytecodeDispatch.getAll()[i].getOp());
     }
   }
+  */
   
   @Test
   public void testSimple() {
