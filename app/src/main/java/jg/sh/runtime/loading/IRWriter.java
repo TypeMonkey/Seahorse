@@ -23,6 +23,14 @@ import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 
 public final class IRWriter {
+
+  public static final byte BOOL_COMP_SIG = 0;
+  public static final byte INT_COMP_SIG = 1;
+  public static final byte FLOAT_COMP_SIG = 2;
+  public static final byte STR_COMP_SIG = 3;
+  public static final byte CODE_COMP_SIG = 4;
+  public static final byte DATA_COMP_SIG = 5;
+
   
   private IRWriter() {}
   
@@ -170,32 +178,30 @@ public final class IRWriter {
     try {
       if (instance instanceof RuntimeBool) {
         RuntimeBool comp = (RuntimeBool) instance;
-        ds.writeByte(0);
+        ds.writeByte(BOOL_COMP_SIG);
         ds.writeBoolean(comp.getValue());
       }
       else if (instance instanceof RuntimeInteger) {
         RuntimeInteger comp = (RuntimeInteger) instance;
-        ds.writeByte(1);
+        ds.writeByte(INT_COMP_SIG);
         ds.writeLong(comp.getValue());
       }
       else if (instance instanceof RuntimeFloat) {
         RuntimeFloat comp = (RuntimeFloat) instance;
-        ds.writeByte(2);
+        ds.writeByte(FLOAT_COMP_SIG);
         ds.writeDouble(comp.getValue());
       }
       else if (instance instanceof RuntimeString) {
         RuntimeString comp = (RuntimeString) instance;
         final byte [] bytes = comp.getValue().getBytes(StandardCharsets.UTF_8);
-        ds.writeByte(3);
+        ds.writeByte(STR_COMP_SIG);
         ds.writeInt(bytes.length);
         ds.write(bytes);
       }
       else if (instance instanceof RuntimeCodeObject) {
-        ds.writeByte(4);
         ds.write(encodeCodeObject((RuntimeCodeObject) instance));
       }
       else if (instance instanceof RuntimeDataRecord) {
-        ds.writeByte(5);
         ds.write(encodeDateDef((RuntimeDataRecord) instance));
       }
     } catch (IOException e) {
@@ -211,6 +217,9 @@ public final class IRWriter {
     final DataOutputStream ds = new DataOutputStream(outputStream);
 
     try {
+      //5 marks that this is a data record
+      ds.writeByte(DATA_COMP_SIG);
+
       //Write out datarecord name
       final byte [] bytes = dataRecord.getName().getBytes(StandardCharsets.UTF_8);
       ds.writeInt(bytes.length);
@@ -261,7 +270,7 @@ public final class IRWriter {
 
     try {
       //4 marks that this is a code object
-      ds.writeByte(4);
+      ds.writeByte(CODE_COMP_SIG);
 
       //Bound name encoding
       final byte [] nameEncoding = codeObject.getBoundName().getBytes(StandardCharsets.UTF_8);
