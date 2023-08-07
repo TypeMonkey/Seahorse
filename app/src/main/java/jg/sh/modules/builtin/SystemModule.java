@@ -3,11 +3,7 @@ package jg.sh.modules.builtin;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
-import jg.sh.common.FunctionSignature;
 import jg.sh.modules.NativeFunction;
 import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
@@ -23,14 +19,12 @@ import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
-import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimePrimitive;
 import jg.sh.runtime.objects.literals.RuntimeString;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.runtime.threading.frames.StackFrame;
 
-import static jg.sh.runtime.objects.callable.InternalFunction.create;
 import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
 
 /**

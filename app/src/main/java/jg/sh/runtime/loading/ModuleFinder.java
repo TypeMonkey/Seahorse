@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,7 +64,6 @@ import jg.sh.compile.pool.component.IntegerConstant;
 import jg.sh.compile.pool.component.PoolComponent;
 import jg.sh.compile.pool.component.StringConstant;
 import jg.sh.util.RuntimeUtils;
-import jg.sh.util.StringUtils;
 
 public class ModuleFinder implements Markable {
 
@@ -72,7 +72,7 @@ public class ModuleFinder implements Markable {
   public static final Function<String, String> MODULE_START_LABEL_GEN = (modName) -> "$module_"+modName+"_start";
 
   private final HeapAllocator allocator;
-  //private final Executor executor;
+  private final ByteBasedClassLoader classLoader;
   private final Map<IOption, Object> options;
   private final SeahorseCompiler compiler;
   private final Map<String, RuntimeModule> modules;
@@ -86,6 +86,8 @@ public class ModuleFinder implements Markable {
     this.options = options;
     this.modules = new HashMap<>();  
     this.compiler = compiler;
+    this.classLoader = new ByteBasedClassLoader();
+
     //Add "system" module
     modules.put(SystemModule.SYSTEM_NAME, prepareSystemModule());  
   }
@@ -324,13 +326,10 @@ public class ModuleFinder implements Markable {
   private NativeModule loadFromClassFile(File path){  
     try {
       //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
-                        
-      URL [] classFileURLArray = {path.getParentFile().toURI().toURL()};
+
+      final byte [] data = Files.readAllBytes(path.toPath());
       
-      //TODO: Need to be careful about making a class loader per class. Monitor memory consumption
-      URLClassLoader classLoader = new URLClassLoader(classFileURLArray);
-      
-      Class<?> targetClass = Class.forName(StringUtils.getBareFileName(path.getName()), true, classLoader);      
+      Class<?> targetClass = classLoader.loadClass(data);      
       
       return loadFromClass(targetClass);
     } catch (Exception e) {
