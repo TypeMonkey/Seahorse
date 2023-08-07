@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.IntStream;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
@@ -163,9 +164,9 @@ public final class IRWriter {
      *        - Bound Name: <4 bytes representing bound name length><bound name as UTF-8 bytes>
      *        - Function signature 
      *          -> Format: <positionalParamCount>
-     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
-     *                     <-1 byte to signify start of variatic arg>
-     *                     <true or false for variabdic arg support. as byte>
+                  <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
+                  <true or false for variabdic arg support. as byte>
+                  <true or false for variabdic keyword arg support. as byte>
      *        - Instruction count (4 bytes)
      *        - Instructions of this code object. (see instruction encoding below)
      *   Data Records: 5 (as a byte)
@@ -238,7 +239,6 @@ public final class IRWriter {
         final RuntimeCodeObject method = (RuntimeCodeObject) x;
         final byte [] encoding = encodeCodeObject(method);
         try {
-          ds.writeInt(encoding.length);
           ds.write(encoding);
         } catch (IOException e) {
           //Should never happen.
@@ -259,9 +259,15 @@ public final class IRWriter {
      *        - Bound Name: <4 bytes representing bound name length><bound name as UTF-8 bytes>
      *        - Function signature 
      *          -> Format: <positionalParamCount>
-     *                     <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
-     *                     <-1 byte to signify start of variatic arg>
-     *                     <true or false for variabdic arg support. as byte>
+     *                     <keywordAmount>
+                              <4 bytes as keyword param length> 
+                              <UTF-8 encoding of each keyword param>
+                              <param index>
+                          <var arg index (int, 4 bytes) - if -1, not supported>
+                          <variadic keyword arg index (int, 4 bytes) - if -1, not supported>
+              - Capture Index
+                 -> <amount>
+                 -> <4 bytes>
      *        - Instruction count (4 bytes)
      *        - Instructions of this code object. (see instruction encoding below)
      */
@@ -278,8 +284,22 @@ public final class IRWriter {
       ds.write(nameEncoding);
 
       //place signature next
-      final byte [] sigEncoding = encodeFuncSignature(codeObject.getSignature());
-      ds.write(sigEncoding);
+      final FunctionSignature signature = codeObject.getSignature();
+      ds.writeInt(signature.getPositionalParamCount());
+      ds.writeInt(signature.getKeywordParams().size());
+      for (Entry<String, Integer> keyIndexes : codeObject.getKeywordIndexes().entrySet()) {
+        ds.writeInt(keyIndexes.getKey().length());
+        ds.write(keyIndexes.getKey().getBytes(StandardCharsets.UTF_8));
+        ds.writeInt(keyIndexes.getValue());
+      }
+      ds.writeInt(signature.hasVariableParams() ? codeObject.getVarArgIndex() : -1);
+      ds.writeInt(signature.hasVarKeywordParams() ? codeObject.getKeywordVarArgIndex() : -1);
+
+      //Write capture indexes
+      ds.writeInt(codeObject.getCaptures().length);
+      for (int cap : codeObject.getCaptures()) {
+        ds.writeInt(cap);
+      }
 
       //Place instructions
       final RuntimeInstruction [] instrs = codeObject.getInstrs();
@@ -302,12 +322,13 @@ public final class IRWriter {
     /*
         -> Format: <positionalParamCount>
                   <4 bytes as keyword param length> <UTF-8 encoding of each keyword param>
-                  <-1 byte to signify start of variatic arg>
                   <true or false for variabdic arg support. as byte>
+                  <true or false for variabdic keyword arg support. as byte>
      */
 
     try {
       ds.writeInt(signature.getPositionalParamCount());
+      ds.writeInt(signature.getKeywordParams().size());
       signature.getKeywordParams().stream().forEach(x -> {
         final byte [] nameAsBytes = x.getBytes(StandardCharsets.UTF_8);
         try {
@@ -318,8 +339,8 @@ public final class IRWriter {
           throw new IllegalStateException(e);
         }
       });
-      ds.writeByte(-1);
       ds.writeBoolean(signature.hasVariableParams());
+      ds.writeBoolean(signature.hasVarKeywordParams());
     } catch (IOException e) {
       //Should never happen.
       throw new IllegalStateException(e);
@@ -347,20 +368,10 @@ public final class IRWriter {
        <4 bytes for end line>
        <4 bytes for end column>
 
-      Comment instruction encoding:
+      Comment/Label instruction encoding:
        <byte (OpCode ordinal value)>
        <4 bytes for comment length as UTF-8 byte count>
        <UTF 8 encoding of comment>
-       <4 bytes for exception jump>
-       <4 bytes for start Line>
-       <4 bytes for start column>
-       <4 bytes for end line>
-       <4 bytes for end column>
-
-      For label instructions:
-       <byte (OpCode ordinal value)>
-       <4 bytes for label length as UTF-8 byte count>
-       <UTF 8 encoding of label>
        <4 bytes for exception jump>
        <4 bytes for start Line>
        <4 bytes for start column>

@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,8 +53,10 @@ import jg.sh.compile.SeahorseCompiler;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
+import jg.sh.compile.instrs.MutableIndex;
 import jg.sh.compile.pool.component.BoolConstant;
 import jg.sh.compile.pool.component.CodeObject;
+import jg.sh.compile.pool.component.DataRecord;
 import jg.sh.compile.pool.component.ErrorHandlingRecord;
 import jg.sh.compile.pool.component.FloatConstant;
 import jg.sh.compile.pool.component.IntegerConstant;
@@ -66,6 +69,8 @@ public class ModuleFinder implements Markable {
 
   private static Logger LOG = LogManager.getLogger(ModuleFinder.class);
     
+  public static final Function<String, String> MODULE_START_LABEL_GEN = (modName) -> "$module_"+modName+"_start";
+
   private final HeapAllocator allocator;
   //private final Executor executor;
   private final Map<IOption, Object> options;
@@ -446,9 +451,9 @@ public class ModuleFinder implements Markable {
     LinkedHashMap<Integer, CodeObject> codeObjects = allocateConstants(constants, compiledFile.getConstants());    
     
     final CodeObject moduleCodeObject = new CodeObject(
-        new FunctionSignature(0, Collections.emptySet()), 
-        "$module_"+compiledFile.getName()+"_start",
-        new HashMap<>(), 
+        FunctionSignature.NO_ARG, 
+        MODULE_START_LABEL_GEN.apply(compiledFile.getName()),
+        Collections.emptyMap(), 
         -1,-1,
         compiledFile.getModuleInstrs(), 
         new int[0]);
@@ -477,11 +482,26 @@ public class ModuleFinder implements Markable {
     
     //System.out.println("-----------------------------");
     
-    List<RuntimeCodeObject> runtimeCodeObjects = contextualize(compiledFile.getConstants(), 
-                                                               constants,
-                                                               allInstructions, 
-                                                               codeObjectIndices, 
-                                                               codeObjects);
+    Map<Integer, RuntimeCodeObject> runtimeCodeObjects = contextualize(compiledFile.getConstants(), 
+                                                                       constants,
+                                                                       allInstructions, 
+                                                                       codeObjectIndices, 
+                                                                       codeObjects);
+
+    compiledFile.getConstants()
+                .stream()
+                .filter(x -> x instanceof DataRecord)
+                .map(x -> (DataRecord) x)
+                .forEach(d -> {
+                  final int index = d.getExactIndex();
+
+                  final HashMap<String, RuntimeCodeObject> methods = new HashMap<>();
+                  for (Entry<String, MutableIndex> mIndex : d.getMethods().entrySet()) {
+                    methods.put(mIndex.getKey(), runtimeCodeObjects.get(mIndex.getValue().getIndex()));
+                  }
+
+                  constants[index] = allocator.allocateDataRecord(d.getName(), methods, d.isSealed());
+                });
     
     /*
     for (int i = 0; i < runtimeCodeObjects.size(); i++) {
@@ -493,7 +513,7 @@ public class ModuleFinder implements Markable {
     }
     */    
     RuntimeModule runtimeModule = new RuntimeModule(compiledFile.getName(), 
-                                                    runtimeCodeObjects.get(runtimeCodeObjects.size() - 1), 
+                                                    runtimeCodeObjects.get(-1), 
                                                     constants);
     return runtimeModule;
   }
@@ -532,7 +552,7 @@ public class ModuleFinder implements Markable {
     return codeObjects;
   }
   
-  private List<RuntimeCodeObject> contextualize(List<PoolComponent> pool, 
+  private Map<Integer, RuntimeCodeObject> contextualize(List<PoolComponent> pool, 
                                                 RuntimeInstance [] constants,
                                                 List<Instruction> rawInstrs, 
                                                 int [][] codeObjectIndices, 
@@ -577,7 +597,7 @@ public class ModuleFinder implements Markable {
           }
         });
     
-    ArrayList<RuntimeCodeObject> runtimeCodeObjects = new ArrayList<>();
+    HashMap<Integer, RuntimeCodeObject> runtimeCodeObjects = new HashMap<>();
     
     //Now, set indices for jumps
     int codeObjIndex = 0;
@@ -641,7 +661,7 @@ public class ModuleFinder implements Markable {
          */
         constants[coEntry.getKey()] = runtimeCodeObject;
       }
-      runtimeCodeObjects.add(runtimeCodeObject);
+      runtimeCodeObjects.put(coEntry.getKey(),runtimeCodeObject);
       
       codeObjIndex++;
     }

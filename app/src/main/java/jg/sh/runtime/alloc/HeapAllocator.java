@@ -10,6 +10,7 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
+import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
@@ -173,6 +174,12 @@ public class HeapAllocator {
     //heapPointer++;
     
     return codeObject;
+  }
+
+
+  public RuntimeDataRecord allocateDataRecord(String name, Map<String, RuntimeCodeObject> methods, boolean isSealed) {
+    final RuntimeDataRecord dataRecord = new RuntimeDataRecord(name, methods, isSealed);
+    return dataRecord;
   }
   
   
