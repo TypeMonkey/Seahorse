@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.IntStream;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import jg.sh.SeaHorseInterpreter;
 import jg.sh.common.FunctionSignature;
@@ -25,13 +27,14 @@ import jg.sh.runtime.objects.literals.RuntimeString;
 
 public final class IRWriter {
 
+  private static Logger LOG = LogManager.getLogger(IRWriter.class);
+
   public static final byte BOOL_COMP_SIG = 0;
   public static final byte INT_COMP_SIG = 1;
   public static final byte FLOAT_COMP_SIG = 2;
   public static final byte STR_COMP_SIG = 3;
   public static final byte CODE_COMP_SIG = 4;
   public static final byte DATA_COMP_SIG = 5;
-
   
   private IRWriter() {}
   
@@ -96,7 +99,7 @@ public final class IRWriter {
     final DataOutputStream ds = new DataOutputStream(outputStream);
     try {
       ds.writeLong(SeaHorseInterpreter.VERSION);
-      //ds.write(encodeConstantPool(module.getConstantMap()));
+      ds.write(encodeConstantPool(module.getConstants()));
       ds.writeInt(module.getModuleCodeObject().getInstrs().length);
       for (RuntimeInstruction instr : module.getModuleCodeObject().getInstrs()) {
         ds.write(encodeInstr(instr));
@@ -109,7 +112,7 @@ public final class IRWriter {
     return outputStream.toByteArray();
   }
   
-  public static byte [] encodeConstantPool(Map<Integer, RuntimeInstance> pool) {
+  public static byte [] encodeConstantPool(RuntimeInstance [] pool) {
     final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     final DataOutputStream ds = new DataOutputStream(outputStream);
 
@@ -137,9 +140,9 @@ public final class IRWriter {
      *                      <code object encoding length><code object encoding>
      */
     try {
-      ds.writeInt(pool.size());
-      for(Entry<Integer, RuntimeInstance> instance : pool.entrySet()) {
-        ds.write(encodePoolComponent(instance.getValue()));
+      ds.writeInt(pool.length);
+      for(RuntimeInstance comp : pool) {
+        ds.write(encodePoolComponent(comp));
       }
     } catch (IOException e) {
       //Should never happen.
@@ -180,30 +183,36 @@ public final class IRWriter {
       if (instance instanceof RuntimeBool) {
         RuntimeBool comp = (RuntimeBool) instance;
         ds.writeByte(BOOL_COMP_SIG);
+        System.out.println(" ===> Writing: "+Byte.valueOf(BOOL_COMP_SIG));
         ds.writeBoolean(comp.getValue());
       }
       else if (instance instanceof RuntimeInteger) {
         RuntimeInteger comp = (RuntimeInteger) instance;
         ds.writeByte(INT_COMP_SIG);
+        System.out.println(" ===> Writing: "+Byte.valueOf(INT_COMP_SIG));
         ds.writeLong(comp.getValue());
       }
       else if (instance instanceof RuntimeFloat) {
         RuntimeFloat comp = (RuntimeFloat) instance;
         ds.writeByte(FLOAT_COMP_SIG);
+        System.out.println(" ===> Writing: "+Byte.valueOf(FLOAT_COMP_SIG));
         ds.writeDouble(comp.getValue());
       }
       else if (instance instanceof RuntimeString) {
         RuntimeString comp = (RuntimeString) instance;
         final byte [] bytes = comp.getValue().getBytes(StandardCharsets.UTF_8);
         ds.writeByte(STR_COMP_SIG);
+        System.out.println(" ===> Writing: "+Byte.valueOf(STR_COMP_SIG));
         ds.writeInt(bytes.length);
         ds.write(bytes);
       }
       else if (instance instanceof RuntimeCodeObject) {
         ds.write(encodeCodeObject((RuntimeCodeObject) instance));
+        System.out.println(" ===> Writing: "+Byte.valueOf(CODE_COMP_SIG));
       }
       else if (instance instanceof RuntimeDataRecord) {
         ds.write(encodeDateDef((RuntimeDataRecord) instance));
+        System.out.println(" ===> Writing: "+Byte.valueOf(DATA_COMP_SIG));
       }
     } catch (IOException e) {
       //Should never happen.
@@ -395,9 +404,6 @@ public final class IRWriter {
         final byte [] commentBytes = cInstr.getComment().getBytes(StandardCharsets.UTF_8);
         ds.writeInt(commentBytes.length);
         ds.write(commentBytes);
-      }
-      else {
-        throw new IllegalArgumentException(instr.getClass()+" is not an encodable instruction.");
       }
 
       /*

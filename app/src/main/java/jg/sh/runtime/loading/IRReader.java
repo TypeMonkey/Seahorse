@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
@@ -37,7 +38,8 @@ public class IRReader {
   public static final Charset UTF8 = StandardCharsets.UTF_8;
 
   public static RuntimeModule loadFromSHRCFile(HeapAllocator allocator, String moduleName, byte [] data) throws IOException,  IllegalArgumentException{
-    final ByteBuffer buffer = ByteBuffer.wrap(data);
+    ByteBuffer buffer = ByteBuffer.wrap(data);
+    buffer = buffer.order(ByteOrder.BIG_ENDIAN);
 
     try {
       final long savedInterpreterVersion = buffer.getLong();
@@ -53,7 +55,8 @@ public class IRReader {
     final String moduleName = StringUtils.getBareFileName(path.getName());
     final Path shrcPath = path.toPath();
     final FileChannel channel = (FileChannel) Files.newByteChannel(shrcPath, EnumSet.of(StandardOpenOption.READ));
-    final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+    MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+    buffer = (MappedByteBuffer) buffer.order(ByteOrder.BIG_ENDIAN);
 
     try {
       final long savedInterpreterVersion = buffer.getLong();
@@ -161,7 +164,7 @@ public class IRReader {
           break;
         }
         default:
-          throw new IllegalStateException("Unknown component of code: "+Integer.valueOf(componentSignifier));
+          throw new IllegalStateException("Unknown component of code: "+Byte.valueOf(componentSignifier));
       }
     }
 

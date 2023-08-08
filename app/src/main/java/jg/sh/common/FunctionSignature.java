@@ -41,6 +41,18 @@ public class FunctionSignature {
     this(positionalParamCount, keywordParams, false, false);
   }
 
+  public boolean equals(Object obj) {
+    if (obj instanceof FunctionSignature) {
+      final FunctionSignature sig = (FunctionSignature) obj;
+      return sig.positionalParamCount == positionalParamCount && 
+             sig.hasVariableParams == hasVariableParams &&
+             sig.hasVarKeywordParams == hasVarKeywordParams &&
+             sig.keywordParams.containsAll(keywordParams) &&
+             keywordParams.containsAll(sig.keywordParams);
+    }
+    return false;
+  }
+
   public int getPositionalParamCount() {
     return positionalParamCount;
   }

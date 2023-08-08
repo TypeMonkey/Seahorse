@@ -135,8 +135,4 @@ public class InterpreterOptions {
   public static Map<IOption, Object> getDefaultOptions(){
     return new EnumMap<>(DEFAULTS);
   }
-  
-  public static Map<IOption, Object> getBareOptions(){ 
-    return new EnumMap<>(IOption.class);
-  }
 }

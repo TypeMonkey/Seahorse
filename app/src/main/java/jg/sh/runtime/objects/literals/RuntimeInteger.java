@@ -13,6 +13,10 @@ public class RuntimeInteger extends RuntimePrimitive {
     this.value = value;
   }
 
+  public boolean equals(Object obj) {
+    return obj instanceof RuntimeInteger && ((RuntimeInteger) obj).value == value;
+  }
+
   @Override
   public RuntimeInstance $add(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
     if(otherOp instanceof RuntimeInteger) {

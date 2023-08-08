@@ -27,5 +27,7 @@ public abstract class RuntimePrimitive extends RuntimeInstance {
     return;
   }
 
+  public abstract boolean equals(Object obj); 
+
   public abstract String toString();
 }

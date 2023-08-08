@@ -8,6 +8,10 @@ public final class RuntimeBool extends RuntimePrimitive {
     super();
     this.value = value;
   }
+
+  public boolean equals(Object obj) {
+    return obj instanceof RuntimeBool && ((RuntimeBool) obj).value == value;
+  }
   
   public boolean getValue() {
     return value;

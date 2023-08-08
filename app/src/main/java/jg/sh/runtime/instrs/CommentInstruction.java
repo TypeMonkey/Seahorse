@@ -11,6 +11,16 @@ public class CommentInstruction extends RuntimeInstruction {
     this.comment = comment;
   }
 
+  public boolean equals(Object obj) {
+    if (obj instanceof CommentInstruction) {
+      final CommentInstruction other = ((CommentInstruction) obj);
+      return other.opCode == opCode && 
+             other.exceptionJumpIndex == exceptionJumpIndex && 
+             other.comment.equals(comment);
+    }
+    return false;
+  }
+
   public String getComment() {
     return comment;
   }

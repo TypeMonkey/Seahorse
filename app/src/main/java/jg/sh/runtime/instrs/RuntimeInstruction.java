@@ -16,6 +16,14 @@ public abstract class RuntimeInstruction {
     this.exceptionJumpIndex = exceptionJumpIndex;
   }
 
+  public boolean equals(Object obj) {
+    if (obj instanceof RuntimeInstruction) {
+      final RuntimeInstruction other = ((RuntimeInstruction) obj);
+      return other.opCode == opCode && other.exceptionJumpIndex == exceptionJumpIndex;
+    }
+    return false;
+  }
+
   public RuntimeInstruction setStart(Location start) {
     this.start = start;
     return this;

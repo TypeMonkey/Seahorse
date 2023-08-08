@@ -14,6 +14,16 @@ public class ArgInstruction extends RuntimeInstruction {
       throw new IllegalArgumentException(opCode+" expects no argument.");
     }
   }
+
+  public boolean equals(Object obj) {
+    if (obj instanceof ArgInstruction) {
+      final ArgInstruction other = ((ArgInstruction) obj);
+      return other.opCode == opCode && 
+             other.exceptionJumpIndex == exceptionJumpIndex && 
+             other.argument == argument;
+    }
+    return false;
+  }
   
   public int getArgument() {
     return argument;

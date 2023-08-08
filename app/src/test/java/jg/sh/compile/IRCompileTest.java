@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
-import jg.sh.compile.instrs.OpCode;
 import jg.sh.compile.optimization.OptimizingIRCompiler;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.Parser;

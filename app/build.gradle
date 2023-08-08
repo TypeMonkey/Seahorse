@@ -23,6 +23,14 @@ java {
   }
 }
 
+test {
+  testLogging {
+    outputs.upToDateWhen {false}
+    showStandardStreams = true
+    events "failed"
+  }
+}
+
 
 jar {
     archiveName = 'sh.jar'
@@ -50,7 +58,8 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClass = 'jg.sh.SeaHorseInterpreter'
+    //mainClass = 'jg.sh.SeaHorseInterpreter'
+    mainClass = 'jg.sh.IOMain'
 }
 
 tasks.named('test') {
