@@ -865,14 +865,17 @@ public class FunctionFrame extends StackFrame {
       final RuntimeModule otherModule = fiber.getFinder().load(moduleName);
 
       if (otherModule != null) {
+
+        System.out.println(" is "+otherModule.getName()+" loaded? "+otherModule.isLoaded());
+
         if (!otherModule.isLoaded()) {
           final StackFrame otherModuleFrame = generalCall(allocator, 
                                                           loadInstr, 
                                                           otherModule.getModuleCallable(), 
                                                           new ArgVector(), 
                                                           "");
-          otherModule.setAsLoaded(true);
           pushOperand(otherModule.getModuleObject());
+          otherModule.setAsLoaded(true);
           return otherModuleFrame;
         }
         else {

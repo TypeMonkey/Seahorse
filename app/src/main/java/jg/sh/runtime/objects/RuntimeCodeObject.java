@@ -1,5 +1,6 @@
 package jg.sh.runtime.objects;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import jg.sh.common.FunctionSignature;
@@ -57,5 +58,42 @@ public class RuntimeCodeObject extends RuntimeInstance {
 
   public int getVarArgIndex() {
     return varArgIndex;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof RuntimeCodeObject)) {
+      return false;
+    }
+    RuntimeCodeObject other = (RuntimeCodeObject) obj;
+
+    if(!boundName.equals(other.boundName)) {
+      return false;
+    }
+
+    if (!signature.equals(other.signature)) {
+      return false;
+    }
+
+    if (!keywordIndexes.equals(other.keywordIndexes)) {
+      return false;
+    }
+
+    if (!Arrays.equals(instrs, other.instrs)) {
+      return false;
+    }
+
+    if (!Arrays.equals(captures, other.captures)) {
+      return false;
+    }
+
+    if (varArgIndex != other.varArgIndex) {
+      return false;
+    }
+    if (keywordVarArgIndex != other.keywordVarArgIndex) {
+      return false;
+    }
+    
+    return true;
   }
 }

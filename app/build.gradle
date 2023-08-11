@@ -58,8 +58,8 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    //mainClass = 'jg.sh.SeaHorseInterpreter'
-    mainClass = 'jg.sh.IOMain'
+    mainClass = 'jg.sh.SeaHorseInterpreter'
+    //mainClass = 'jg.sh.IOMain'
 }
 
 tasks.named('test') {

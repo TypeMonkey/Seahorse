@@ -74,11 +74,12 @@ public class SeaHorseInterpreter {
   public boolean init() {
     manager.initialize();
     
+    System.out.println(" ===> Should create bytecode dir? "+options.get(IOption.COMP_TO_BYTE)+" | "+new File(CACHE_DIR_NAME).getAbsolutePath());
     if (options.containsKey(IOption.COMP_TO_BYTE) && (boolean) options.get(IOption.COMP_TO_BYTE)) {
       final File CACHE_DIR = new File(CACHE_DIR_NAME);
-      LOG.info(" --> Making bytecode dir at: "+CACHE_DIR.getAbsolutePath()+" | "+CACHE_DIR.isDirectory());
+      System.out.println(" --> Making bytecode dir at: "+CACHE_DIR.getAbsolutePath()+" | "+CACHE_DIR.isDirectory());
       if (!CACHE_DIR.isDirectory()) {
-        if (!CACHE_DIR.mkdir()) {
+        if (!CACHE_DIR.exists() && !CACHE_DIR.mkdir()) {
           return false;
         }
       }
@@ -167,7 +168,12 @@ public class SeaHorseInterpreter {
       */
 
       finder.registerModules(compiledModules);
-      RuntimeModule mainModule = finder.getModule(compiledModules.get(0).getName());
+
+      final RuntimeModule mainModule = finder.load(compiledModules.get(0).getName());
+
+      //If there's a recursive reference to the main module, we need to make sure
+      //that its properly recognized as loaded as to not re-initialize already initialized variables
+      mainModule.setAsLoaded(true);
       try {
         manager.spinFiber((RuntimeCallable) mainModule.getModuleCallable(), new ArgVector());
       } catch (CallSiteException e) {
@@ -201,13 +207,15 @@ public class SeaHorseInterpreter {
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
     options.put(IOption.POOL_SIZE, 2);
     options.put(IOption.LOG_LEVEL, "OFF");
+    options.put(IOption.COMP_TO_BYTE, true);
     
     final long wholeStart = System.currentTimeMillis();
     SeaHorseInterpreter interpreter = new SeaHorseInterpreter(options);
-    interpreter.init();
+    final boolean success = interpreter.init();
+    System.out.println(" ==> was interpeter initialization successful? "+success);
     interpreter.executeModule(mainModule, args);
     final long wholeEnd = System.currentTimeMillis();
     System.out.println(" ===> Total Seahorse Runtime: "+(wholeEnd - wholeStart)+" ms");
-    System.out.println(GeneralMetrics.statsAsStrings());
+    //System.out.println(GeneralMetrics.statsAsStrings());
   }
 }

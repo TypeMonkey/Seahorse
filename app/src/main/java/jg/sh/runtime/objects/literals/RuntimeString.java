@@ -14,7 +14,7 @@ public final class RuntimeString extends RuntimePrimitive {
   }
 
   public boolean equals(Object obj) {
-    return obj instanceof RuntimeString && ((RuntimeString) obj).value == value;
+    return obj instanceof RuntimeString && ((RuntimeString) obj).value.equals(value);
   }
 
   @Override

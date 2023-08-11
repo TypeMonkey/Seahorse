@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -108,6 +109,7 @@ public class ModuleFinder implements Markable {
   }
   
   public RuntimeModule load(String name) {
+    System.out.println(" ===> loading: "+name+" | "+modules.keySet());
     RuntimeModule module = modules.get(name);
     if (module == null) {                  
       
@@ -115,15 +117,19 @@ public class ModuleFinder implements Markable {
       String [] standardLibPaths = options.containsKey(IOption.ST_LIB_PATH) ? 
                                        (String[]) options.get(IOption.ST_LIB_PATH) : 
                                        new String[0];
+
+      System.out.println(" ==> searching in stdlibs dir "+Arrays.toString(standardLibPaths));
       module = loadFromDirectories(standardLibPaths, name, true);
       //System.out.println("searched MODULE_SEARCH. "+(module != null));
       
       
       //Next, search for modules in the MODULE_SEARCH paths
       if (module == null) {
-        String [] moduleSearchPaths = options.containsKey(IOption.MODULE_SEARCH) ? 
-                                          (String[]) options.get(IOption.MODULE_SEARCH) : 
-                                          new String[0];
+        String [] moduleSearchPaths = (String[]) options.getOrDefault(IOption.MODULE_SEARCH, new String[0]);
+
+        moduleSearchPaths = Stream.of(moduleSearchPaths).map(x -> new File(x).getAbsolutePath()).toArray(String[]::new);
+        
+        System.out.println(" ==> searching in MODULE_SEARCH "+Arrays.toString(moduleSearchPaths));
         module = loadFromDirectories(moduleSearchPaths, name, false);
         //System.out.println("searched MODULE_SEARCH. "+(module != null));
       }
@@ -131,10 +137,17 @@ public class ModuleFinder implements Markable {
       //Finally, search for modules in the current working directory
       if (module == null) {
         String [] cwdPAths = { new File(System.getProperty("user.dir")).toString() };
+
+        System.out.println(" ==> searching in working dir "+Arrays.toString(cwdPAths));
         module = loadFromDirectories(cwdPAths, name, false);
       }      
     }
     
+    if (module != null) {
+      //Cache loaded module into our map
+      modules.put(module.getName(), module);
+    }
+
     return module;
   }
   
@@ -145,14 +158,16 @@ public class ModuleFinder implements Markable {
       File shrFile = new File(path, moduleName+".shr");
       
       if (shrFile.isFile() && shrFile.canRead()) {
-        File shrcFile = new File(new File(path, SeaHorseInterpreter.CACHE_DIR_NAME), moduleName+".shrc");
+        File shrcFile = new File(new File(SeaHorseInterpreter.CACHE_DIR_NAME), moduleName+".shrc");
         
+        System.out.println(" ===> shrc file? "+shrcFile.getAbsolutePath());
+
         if (shrcFile.isFile() && shrcFile.canRead()) {
             final long shrcLastModified = shrcFile.lastModified();
             final long shrLastModified = shrFile.lastModified();
             
             if (shrLastModified > shrcLastModified) {
-              //System.out.println("---- shr file is newer, loading from shr");
+              System.out.println("---- shr file is newer, loading from shr");
               
               //.shr file is newer. use shr!
               if((module = loadFromSHRFile(shrFile)) != null) {
@@ -170,7 +185,7 @@ public class ModuleFinder implements Markable {
               //.shr is older, use shrc.
               module = loadFromSHRC(shrcFile);
               
-              //System.out.println("---- shr file is older, loading from shrc "+(module != null));
+              System.out.println("---- shr file is older, loading from shrc "+(module != null));
               
               if(module != null) {
                 RuntimeInstance moduleObject = allocator.allocateEmptyObject();

@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
@@ -42,11 +41,17 @@ public final class IRWriter {
     File newFile = new File(destinationFolder, compiledFile.getName()+".shrc");
     
     try {
-      if (!newFile.createNewFile()) {
-        return false;
+      if (!newFile.exists()) {
+        if(!newFile.createNewFile()){
+          return false;
+        }
       } 
       
-      FileOutputStream fileOutputStream = new FileOutputStream(newFile, false);
+      if (!newFile.canWrite()) {
+        return false;
+      }
+
+      final FileOutputStream fileOutputStream = new FileOutputStream(newFile, false);
       fileOutputStream.write(encodeModule(compiledFile));
       fileOutputStream.flush();
       fileOutputStream.close();
@@ -183,36 +188,36 @@ public final class IRWriter {
       if (instance instanceof RuntimeBool) {
         RuntimeBool comp = (RuntimeBool) instance;
         ds.writeByte(BOOL_COMP_SIG);
-        System.out.println(" ===> Writing: "+Byte.valueOf(BOOL_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(BOOL_COMP_SIG));
         ds.writeBoolean(comp.getValue());
       }
       else if (instance instanceof RuntimeInteger) {
         RuntimeInteger comp = (RuntimeInteger) instance;
         ds.writeByte(INT_COMP_SIG);
-        System.out.println(" ===> Writing: "+Byte.valueOf(INT_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(INT_COMP_SIG));
         ds.writeLong(comp.getValue());
       }
       else if (instance instanceof RuntimeFloat) {
         RuntimeFloat comp = (RuntimeFloat) instance;
         ds.writeByte(FLOAT_COMP_SIG);
-        System.out.println(" ===> Writing: "+Byte.valueOf(FLOAT_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(FLOAT_COMP_SIG));
         ds.writeDouble(comp.getValue());
       }
       else if (instance instanceof RuntimeString) {
         RuntimeString comp = (RuntimeString) instance;
         final byte [] bytes = comp.getValue().getBytes(StandardCharsets.UTF_8);
         ds.writeByte(STR_COMP_SIG);
-        System.out.println(" ===> Writing: "+Byte.valueOf(STR_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(STR_COMP_SIG));
         ds.writeInt(bytes.length);
         ds.write(bytes);
       }
       else if (instance instanceof RuntimeCodeObject) {
         ds.write(encodeCodeObject((RuntimeCodeObject) instance));
-        System.out.println(" ===> Writing: "+Byte.valueOf(CODE_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(CODE_COMP_SIG));
       }
       else if (instance instanceof RuntimeDataRecord) {
         ds.write(encodeDateDef((RuntimeDataRecord) instance));
-        System.out.println(" ===> Writing: "+Byte.valueOf(DATA_COMP_SIG));
+        //System.out.println(" ===> Writing: "+Byte.valueOf(DATA_COMP_SIG));
       }
     } catch (IOException e) {
       //Should never happen.

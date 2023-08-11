@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +49,7 @@ public class ReadWriteTest {
         final RuntimeInstance expected = runtimeModule.getConstant(i);
 
         assertInstanceOf(expected.getClass(), instance);
+        assertEquals(expected, instance, expected.getClass()+" is equals to? "+instance.getClass());
       }
     } catch (Exception e) {
       fail(e);
