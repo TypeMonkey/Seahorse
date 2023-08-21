@@ -1,14 +1,15 @@
 package jg.sh.runtime.objects;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
-import jg.sh.runtime.alloc.Cleaner;
+import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.RuntimeModule;
-import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
@@ -78,15 +79,6 @@ public class RuntimeArray extends RuntimeInstance {
     }
   );
 
-  private static final InternalFunction TO_STRING = 
-  create(
-    RuntimeArray.class,
-    FunctionSignature.NO_ARG, 
-    (fiber, self, callable, args) -> {
-      return fiber.getHeapAllocator().allocateString(self.toString());
-    }
-  );
-
   private final List<RuntimeInstance> array;
   
   public RuntimeArray() {
@@ -95,15 +87,49 @@ public class RuntimeArray extends RuntimeInstance {
     
       ini.init("size", new ImmediateInternalCallable(systemModule, self, SIZE));
       ini.init("add", new ImmediateInternalCallable(systemModule, self, ADD));
-      ini.init("toString", new ImmediateInternalCallable(systemModule, self, TO_STRING));
       ini.init(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
       ini.init(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
     });
     array = new ArrayList<>();
   }
+
+  public RuntimeInstance $add(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    if (otherOperand instanceof RuntimeArray) {
+      final RuntimeArray otherArray = (RuntimeArray) otherOperand;
+      array.addAll(otherArray.array);
+    }
+    else {
+      addValue(otherOperand);
+    }
+
+    return this;
+  }
+
+  public RuntimeInstance $getAtIndex(RuntimeInstance index, HeapAllocator alloc) throws OperationException {
+    if (index instanceof RuntimeInteger) {
+      final RuntimeInteger intIndex = (RuntimeInteger) index;
+      return getValue((int) intIndex.getValue());
+    }
+
+    throw new OperationException("Unsupported index type '"+index+"'");
+  }
+
+  public void $setAtIndex(RuntimeInstance index, RuntimeInstance value, HeapAllocator alloc) throws OperationException {
+    if (index instanceof RuntimeInteger) {
+      final RuntimeInteger intIndex = (RuntimeInteger) index;
+      setValue((int) intIndex.getValue(), value);
+    }
+    else {
+      throw new OperationException("Unsupported index type '"+index+"'");
+    }
+  }
   
-  public synchronized void addValue(RuntimeInstance valueLoc) {
-    array.add(valueLoc);
+  public synchronized void addValue(RuntimeInstance ... valueLoc) {
+    array.addAll(Arrays.asList(valueLoc));
+  }
+
+  public synchronized void addAll(RuntimeArray otherArray) {
+    array.addAll(otherArray.array);
   }
   
   public synchronized RuntimeInstance getValue(int index) {

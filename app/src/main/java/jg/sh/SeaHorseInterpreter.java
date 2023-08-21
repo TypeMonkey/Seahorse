@@ -167,9 +167,7 @@ public class SeaHorseInterpreter {
       }
       */
 
-      finder.registerModules(compiledModules);
-
-      final RuntimeModule mainModule = finder.load(compiledModules.get(0).getName());
+      final RuntimeModule mainModule = finder.registerModules(compiledModules).get(0);
 
       //If there's a recursive reference to the main module, we need to make sure
       //that its properly recognized as loaded as to not re-initialize already initialized variables
@@ -216,6 +214,6 @@ public class SeaHorseInterpreter {
     interpreter.executeModule(mainModule, args);
     final long wholeEnd = System.currentTimeMillis();
     System.out.println(" ===> Total Seahorse Runtime: "+(wholeEnd - wholeStart)+" ms");
-    //System.out.println(GeneralMetrics.statsAsStrings());
+    System.out.println(GeneralMetrics.statsAsStrings());
   }
 }

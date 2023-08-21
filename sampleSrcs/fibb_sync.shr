@@ -57,4 +57,3 @@ const value := fib(5);
 const endF := now();
 println("*** fib(5) Time: "+(endF - startF));
 println("Result: "+value);
-

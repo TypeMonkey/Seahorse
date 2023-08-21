@@ -215,7 +215,7 @@ public class SystemModule extends NativeModule {
   @NativeFunction
   public RuntimeInstance currentFiber(Fiber fiber, RuntimeInstance self, RuntimeInternalCallable callable, ArgVector args) throws InvocationException{
     return fiber;
-  } 
+  }
 
   @Override
   public String getName() {

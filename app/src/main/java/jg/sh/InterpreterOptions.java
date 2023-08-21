@@ -17,7 +17,7 @@ public class InterpreterOptions {
      * 
      * If false, the bytecode transformation of a module will not be written out.
      */
-    COMP_TO_BYTE,
+    COMP_TO_BYTE(true),
     
     /**
      * Whether modules should be compiled without any optimization.
@@ -27,7 +27,7 @@ public class InterpreterOptions {
      * It's NOT recommended to set this option to be true unless for instrumentation purposes.
      * Optimized bytecode compilation and execution provides significant, performance critical improvements.
      */
-    INTERPRET_ONLY,  
+    INTERPRET_ONLY(false),  
     
     /**
      * Whether a module's bytecode transformation should be loaded and favored over the source text.
@@ -37,7 +37,7 @@ public class InterpreterOptions {
      * It's NOT recommended to set this option to be false unless for instrumentation purposes.
      * Bytecode compilation and execution provided significant, performance critical improvements.
      */
-    LOAD_FROM_BYTE,
+    LOAD_FROM_BYTE(true),
     
     /**
      * Sets the list of directories to search for when loading modules.
@@ -48,7 +48,7 @@ public class InterpreterOptions {
      * The SeaHorse loading order is to first search for a module within the standard library, as set
      * by ST_LIB_PATH.
      */
-    MODULE_SEARCH,
+    MODULE_SEARCH(new String[]{System.getProperty("user.dir")}),
     
     /**
      * Sets the list of directories to search for modules.
@@ -60,17 +60,7 @@ public class InterpreterOptions {
      * 
      * The SeaHorse loading order is to first search for a module within the directories listed by this option.
      */
-    ST_LIB_PATH,
-    
-    /**
-     * Sets whether modules should be validated prior to execution.
-     * 
-     * Value of this option should be a boolean. Default is true.
-     * 
-     * Validation checks a module for important errors, such as unfound variable references.
-     */
-    @Deprecated
-    VALIDATE,
+    ST_LIB_PATH(new String[]{System.getProperty("user.dir")}),
     
     /**
      * An additional set of modules to compile with the main module.
@@ -85,7 +75,7 @@ public class InterpreterOptions {
      * So, when the main module is loading these modules, no parsing and compilation
      * is done at runtime.
      */
-    ADDITIONAL,
+    ADDITIONAL(new String[0]),
     
     /**
      * Whether to print the amount of milliseconds for the given module to execute after 
@@ -93,7 +83,7 @@ public class InterpreterOptions {
      * 
      * Value of this option should be a boolean. Default is false.
      */
-    MEASURE,  
+    MEASURE(false),  
     
     /**
      * Sets the amount of threads to be used by the interpreter when executing
@@ -103,7 +93,7 @@ public class InterpreterOptions {
      * 
      * Note: the main thread (actually a fiber) is executed using this thread pool
      */
-    POOL_SIZE,
+    POOL_SIZE(4),
 
     /**
      * Sets the logging level for diagnostic output from the interpreter.
@@ -113,21 +103,25 @@ public class InterpreterOptions {
      * 
      * The default is OFF
      */
-    LOG_LEVEL;
+    LOG_LEVEL("OFF");
+
+    private final Object defaultValue;
+
+    private IOption(Object defaultValue) {
+      this.defaultValue = defaultValue;
+    }
+
+    public Object getDefault() {
+      return defaultValue;
+    }
   }
   
   private static final Map<IOption, Object> DEFAULTS = new EnumMap<>(IOption.class);
-  static {
-    String [] moduleSearch = {System.getProperty("user.dir")};
-    
-    DEFAULTS.put(IOption.COMP_TO_BYTE, true);
-    DEFAULTS.put(IOption.LOAD_FROM_BYTE, true);
-    DEFAULTS.put(IOption.MODULE_SEARCH, moduleSearch);
-    DEFAULTS.put(IOption.ST_LIB_PATH, moduleSearch);
-    DEFAULTS.put(IOption.MEASURE, false);
-    DEFAULTS.put(IOption.POOL_SIZE, 1);
-    DEFAULTS.put(IOption.LOG_LEVEL, "OFF");
-    DEFAULTS.put(IOption.INTERPRET_ONLY, false);
+  
+  static {    
+    for (IOption option : IOption.values()) {
+      DEFAULTS.put(option, option.getDefault());
+    }
   }
   
   private InterpreterOptions() {}

@@ -219,7 +219,8 @@ public enum OpCode {
   EXPORTMV,
   
   /*
-   * Makes a module variable constant
+   * Stores the value at the top of the stack as the value of a module variable.
+   * That module variable's value cannot be changed - in essense being constant.
    * 
    * This instruction requires an index that corresponds to the module variable's name
    * in the constant pool

@@ -2,8 +2,6 @@ package jg.sh.runtime.objects;
 
 import java.util.Map;
 
-import jg.sh.runtime.alloc.Cleaner;
-
 /**
  * A data record is a template for constructing an 
  * object with a specified structure (methods, initial attributes, etc.)

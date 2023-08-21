@@ -9,6 +9,7 @@ import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.ModuleLoadException;
 import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.instrs.ArgInstruction;
 import jg.sh.runtime.instrs.RuntimeInstruction;
@@ -834,32 +835,33 @@ public final class BytecodeDispatch {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     if(loadInstr.getArgument() < 0) {
       //Load the instr module
-      frame.pushOperand(frame.getHostModule().getModuleObject());
+      frame.pushOperand(module.getModuleObject());
       return frame;
     }              
     else {
       final String moduleName = ((RuntimeString) module.getConstant(loadInstr.getArgument())).getValue();
-      final RuntimeModule otherModule = fiber.getFinder().load(moduleName);
 
-      if (otherModule != null) {
-        if (!module.isLoaded()) {
-          final StackFrame otherModuleFrame = generalCall(frame, 
-                                                          allocator, 
+      try {
+        final RuntimeModule otherModule = fiber.getFinder().load(moduleName);
+
+        System.out.println(" is "+otherModule.getName()+" loaded? "+otherModule.isLoaded());
+
+        if (!otherModule.isLoaded()) {
+          final StackFrame otherModuleFrame = generalCall(frame, allocator, 
                                                           loadInstr, 
                                                           otherModule.getModuleCallable(), 
                                                           new ArgVector(), 
                                                           "");
-          otherModule.setAsLoaded(true);
           frame.pushOperand(otherModule.getModuleObject());
+          otherModule.setAsLoaded(true);
           return otherModuleFrame;
         }
         else {
           frame.pushOperand(otherModule.getModuleObject());
           return frame;
         }
-      }
-      else {
-        return prepareErrorJump(frame, instr, allocator, "Couldn't find the module '"+moduleName+"'");
+      } catch (ModuleLoadException e) {
+        return prepareErrorJump(frame, instr, allocator, e.getMessage());
       }
     }
   }                                 

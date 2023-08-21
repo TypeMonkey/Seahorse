@@ -24,6 +24,15 @@ import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
 import jg.sh.runtime.objects.literals.RuntimeString;
 
+/**
+ * Utility class encoding various parts of a RuntimeModule
+ * into its binary format (e.g: byte[])
+ * 
+ * While individual encodeXXX() can be used, the main intention of this class
+ * is for encoding a whole RuntimeModule as a .shrc file, through printCompiledfile()
+ * 
+ * @author Jose Guaro
+ */
 public final class IRWriter {
 
   private static Logger LOG = LogManager.getLogger(IRWriter.class);
@@ -38,7 +47,7 @@ public final class IRWriter {
   private IRWriter() {}
   
   public static boolean printCompiledFile(String destinationFolder, RuntimeModule compiledFile) {
-    File newFile = new File(destinationFolder, compiledFile.getName()+".shrc");
+    final File newFile = new File(destinationFolder, compiledFile.getName()+".shrc");
     
     try {
       if (!newFile.exists()) {

@@ -31,6 +31,9 @@ import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.Statement;
 import jg.sh.parsing.nodes.statements.VarDeclr;
 import jg.sh.parsing.nodes.statements.blocks.Block;
+import jg.sh.parsing.nodes.statements.blocks.IfBlock;
+import jg.sh.parsing.nodes.statements.blocks.TryCatch;
+import jg.sh.parsing.nodes.statements.blocks.WhileBlock;
 import jg.sh.parsing.nodes.values.Bool;
 import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
@@ -288,17 +291,136 @@ public final class ParseTestUtils {
         assertStmt(expectedStmt, actualStmt);
       }
     }
+    else if(expected instanceof WhileBlock) {
+      final WhileBlock expectedBlock = (WhileBlock) expected;
+      final WhileBlock actualBlock = assertAndCast(WhileBlock.class, actual);
+      
+      assertEquals(expectedBlock.getStatements().size(), actualBlock.getStatements().size());
+
+      assertNodeEquals(expectedBlock.getCondition(), actualBlock.getCondition());
+
+      for (int i = 0; i < expectedBlock.getStatements().size(); i++) {
+        final Statement expectedStmt = expectedBlock.get(i);
+        final Statement actualStmt = actualBlock.get(i);
+
+        assertStmt(expectedStmt, actualStmt);
+      }
+    }
+    else if(expected instanceof IfBlock) {
+      final IfBlock expectedBlock = (IfBlock) expected;
+      final IfBlock actualBlock = assertAndCast(IfBlock.class, actual);
+      
+      assertEquals(expectedBlock.getStatements().size(), actualBlock.getStatements().size());
+      assertNodeEquals(expectedBlock.getKeyword(), actualBlock.getKeyword());
+      assertNodeEquals(expectedBlock.getCondition(), actualBlock.getCondition());
+
+      for (int i = 0; i < expectedBlock.getStatements().size(); i++) {
+        final Statement expectedStmt = expectedBlock.get(i);
+        final Statement actualStmt = actualBlock.get(i);
+
+        assertStmt(expectedStmt, actualStmt);
+      }
+
+      assertEquals(expectedBlock.getOtherBranches().size(), actualBlock.getOtherBranches().size());
+
+      for (int i = 0; i < expectedBlock.getOtherBranches().size(); i++) {
+        final IfBlock expectedStmt = expectedBlock.getOtherBranches().get(i);
+        final IfBlock actualStmt = actualBlock.getOtherBranches().get(i);
+
+        assertStmt(expectedStmt, actualStmt);
+      }
+    }
+    else if(expected instanceof TryCatch) {
+      final TryCatch expectedBlock = (TryCatch) expected;
+      final TryCatch actualBlock = assertAndCast(TryCatch.class, actual);
+      
+      assertEquals(expectedBlock.getStatements().size(), actualBlock.getStatements().size());
+
+      for (int i = 0; i < expectedBlock.getStatements().size(); i++) {
+        final Statement expectedStmt = expectedBlock.get(i);
+        final Statement actualStmt = actualBlock.get(i);
+
+        assertStmt(expectedStmt, actualStmt);
+      }
+
+      assertStmt(expectedBlock.getCatchBlock(), actualBlock.getCatchBlock());
+    }
+    else if(expected instanceof VarDeclr) {
+      final VarDeclr expectedVar = (VarDeclr) expected;
+      final VarDeclr actualVar = assertAndCast(VarDeclr.class, actual);
+      
+      assertEquals(expectedVar.getName().getIdentifier(), actualVar.getName().getIdentifier());
+      assertEquals(expectedVar.isConst(), actualVar.isConst());
+      assertTrue(expectedVar.getDescriptors().containsAll(actualVar.getDescriptors()));
+      assertTrue(actualVar.getDescriptors().containsAll(expectedVar.getDescriptors()));
+      assertNodeEquals(expectedVar.getInitialValue(), actualVar.getInitialValue());
+    }
     else {
+      assertNodeEquals(expected.getExpr(), expected.getExpr());
+      /*
       fail("No matching condition. Expected: "+
            (expected == null ? "null" : expected.getClass())+
            " . Actual "+
            (actual == null ? "null" : actual.getClass()));
+      */
     }
   } 
 
   //Wrapper methods
+  public static Block block(Statement ... statements) {
+    return new Block(Arrays.asList(statements), Location.DUMMY, Location.DUMMY);
+  }
+
+  public static TryCatch handle(Block toHandle, Block handler, String errorIden) {
+    return new TryCatch(toHandle.getStatements(), handler, name(errorIden), Location.DUMMY, Location.DUMMY);
+  }
+
+  public static VarDeclr var(String name, boolean isConst, Node initialValue) {
+    return new VarDeclr(name(name), isConst, initialValue, Location.DUMMY, Location.DUMMY);
+  }
+
+  public static VarDeclr var(String name, boolean isConst) {
+    return new VarDeclr(name(name), isConst, null, Location.DUMMY, Location.DUMMY);
+  }
+
+  public static IfBlock cond(Node condition, Statement ... statements) {
+    return new IfBlock(keyword(TokenType.IF), 
+                       condition, 
+                       Arrays.asList(statements), 
+                       Collections.emptyList(), 
+                       Location.DUMMY);
+  }
+
+  public static WhileBlock loop(Node condition, Statement ... statements) {
+    return new WhileBlock(condition, Arrays.asList(statements), Location.DUMMY, Location.DUMMY);
+  }
+
+  public static IfBlock cond(Node condition, List<Statement> statements, IfBlock ... otherConditionals) {
+    return new IfBlock(keyword(TokenType.IF), 
+                       condition, 
+                       statements, 
+                       Arrays.asList(otherConditionals), 
+                       Location.DUMMY);
+  }
+
+  public static Argument arg(Node value) {
+    return new Argument(value);
+  }
+
+  public static Argument arg(String name, Node value) {
+    return new Argument(name(name), value);
+  }
+
+  public static FuncCall call(Node target, Argument ... args) {
+    return new FuncCall(target, Location.DUMMY, args);
+  }
+
   public static FuncCall call(Node target) {
     return new FuncCall(target, Location.DUMMY);
+  }
+
+  public static Statement stmt(Node expr) {
+    return new Statement(expr, Location.DUMMY, Location.DUMMY);
   }
 
   public static ReturnStatement ret(Node value) {
@@ -366,7 +488,7 @@ public final class ParseTestUtils {
     return new IndexAccess(target, index);
   }
 
-  public static AttrAccess attr(Node target, Identifier attr) {
-    return new AttrAccess(target, attr);
+  public static AttrAccess attr(Node target, String attr) {
+    return new AttrAccess(target, name(attr));
   }
 }

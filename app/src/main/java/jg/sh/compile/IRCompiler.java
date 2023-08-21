@@ -1663,14 +1663,11 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
       * (only module/top-level variable can be exported)
       */
       if (!parentContext.isWithinContext(ContextType.FUNCTION)) {
-        instrs.add(new LoadInstr(varDeclr.getName().start, 
-                              varDeclr.getName().end, 
-                              CONSTMV, 
-                              varLoadStore.store.getArgument()));
+        varLoadStore.store.setOpCode(CONSTMV);
       }
     }
   
-    LOG.info(" ==== '"+varDeclr.getName()+"' instr: "+instrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));
+    LOG.info(" COMP VAR DEC === '"+varDeclr.getName()+"' instr: "+instrs.stream().map(Instruction::toString).collect(Collectors.joining(System.lineSeparator())));
     return VarResult.single(varDeclr.getName(), varLoadStore, instrs);
   }
 

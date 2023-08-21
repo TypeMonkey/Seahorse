@@ -10,12 +10,21 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
+import jg.sh.common.FunctionSignature;
+import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
+import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
+import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
+import jg.sh.runtime.objects.callable.InternalFunction;
+import jg.sh.runtime.objects.literals.RuntimeBool;
+
+import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
+import static jg.sh.runtime.objects.callable.InternalFunction.create;
 
 /**
  * Root type representing all runtime entities.
@@ -23,6 +32,15 @@ import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
  * A RuntimeInstance is backed by a Map of attributes.
  */
 public class RuntimeInstance implements Markable {
+
+  private static final InternalFunction TO_STRING = 
+  create(
+    RuntimeInstance.class, 
+    FunctionSignature.NO_ARG, 
+    (fiber, self, callable, args) -> {
+      return fiber.getHeapAllocator().allocateString(self.toString());
+    }
+  );
 
   public static enum AttrModifier {
     CONSTANT,
@@ -100,16 +118,78 @@ public class RuntimeInstance implements Markable {
     }
   }
 
+  public RuntimeInstance $equal(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    return alloc.allocateBool(this == otherOperand || equals(otherOperand));
+  }
+
   public RuntimeInstance $add(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
     throw new OperationException("+ is not defined for this object.");
   }
 
+  public RuntimeInstance $sub(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("- is not defined for this object.");
+  }
+
+  public RuntimeInstance $mul(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("* is not defined for this object.");
+  }
+
+  public RuntimeInstance $div(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("/ is not defined for this object.");
+  }
+
+  public RuntimeInstance $mod(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("% is not defined for this object.");
+  }
+
+  public RuntimeInstance $neg(HeapAllocator alloc) throws OperationException {
+    throw new OperationException("negation (-) is not defined for this object.");
+  }
+
+  public RuntimeInstance $not(HeapAllocator alloc) throws OperationException {
+    throw new OperationException("negation (!) is not defined for this object.");
+  }
+
+  public RuntimeBool $less(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("< is not defined for this object.");
+  }
+
+  public RuntimeBool $great(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("> is not defined for this object.");
+  }
+
+  public RuntimeBool $lesse(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("<= is not defined for this object.");
+  }
+
+  public RuntimeBool $greate(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException(">= is not defined for this object.");
+  }
+
+  public RuntimeInstance $band(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("% is not defined for this object.");
+  }
+
+  public RuntimeInstance $bor(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    throw new OperationException("| is not defined for this object.");
+  }
+
   public RuntimeInstance $inc(HeapAllocator alloc) throws OperationException {
-    throw new OperationException("+ is not defined for this object.");
+    throw new OperationException("increment is not defined for this object.");
   }
 
   public RuntimeInstance $dec(HeapAllocator alloc) throws OperationException {
-    throw new OperationException("+ is not defined for this object.");
+    throw new OperationException("decrement is not defined for this object.");
+  }
+
+  public RuntimeInstance $getAtIndex(RuntimeInstance index, HeapAllocator alloc) throws OperationException {
+    final String attrName = index.toString();
+    return getAttr(attrName);
+  }
+
+  public void $setAtIndex(RuntimeInstance index, RuntimeInstance value, HeapAllocator alloc) throws OperationException {
+    final String attrName = index.toString();
+    setAttribute(attrName, value);
   }
   
   public RuntimeInstance getAttr(String name) {
@@ -173,11 +253,4 @@ public class RuntimeInstance implements Markable {
     }
     return x;
   }
-  
-  /*
-  @Override
-  public void finalize(){
-     System.out.println(" Being colltect: "+this);
-  }
-  */
 }

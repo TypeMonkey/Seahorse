@@ -1,6 +1,7 @@
 package jg.sh.runtime.objects.literals;
 
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +31,7 @@ public enum FuncOperatorCoupling {
   private static final Map<OpCode, FuncOperatorCoupling> opCodeToCoupling;
   
   static {
-    HashMap<OpCode, FuncOperatorCoupling> temp = new HashMap<>();
+    EnumMap<OpCode, FuncOperatorCoupling> temp = new EnumMap<>(OpCode.class);
 
     final FuncOperatorCoupling [] couplings = FuncOperatorCoupling.values();
     for(FuncOperatorCoupling coupling : couplings) {

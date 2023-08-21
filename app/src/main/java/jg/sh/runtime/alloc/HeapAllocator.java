@@ -9,6 +9,7 @@ import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
+import jg.sh.runtime.objects.RuntimeByteArray;
 import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeError;
@@ -112,6 +113,10 @@ public class HeapAllocator {
     //heapPointer++;
     
     return integer;
+  }
+
+  public RuntimeByteArray allocateBytes(byte [] bytes) {
+    return new RuntimeByteArray(bytes);
   }
 
   public RuntimeBool allocateBool(boolean value) {

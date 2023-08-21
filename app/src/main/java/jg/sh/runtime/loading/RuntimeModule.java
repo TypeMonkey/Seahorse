@@ -4,8 +4,11 @@ import java.util.Map;
 
 import org.checkerframework.checker.units.qual.s;
 
+import jg.sh.compile.instrs.Instruction;
+import jg.sh.compile.instrs.OpCode;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.Markable;
+import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
 import jg.sh.runtime.objects.RuntimeCodeObject;
@@ -91,7 +94,33 @@ public class RuntimeModule implements Markable {
   }
 
   @Override
-  public void gcMark(Cleaner allocator) {
+  public void gcMark(Cleaner allocator) {}
+
+  @Override
+  public String toString() {
+    String x = "Runtime module '"+name+"'"+System.lineSeparator();
     
+    x += "-------CONSTANT POOL-------"+System.lineSeparator();
+    for(int i = 0; i < constants.length; i++) {
+      x += "  "+i+" : "+constants[i]+System.lineSeparator();
+    }
+    x += "-------CONSTANT POOL-------"+System.lineSeparator();
+    
+    if (moduleCodeObject != null) {
+      x += "CODE: "+System.lineSeparator();
+      for (RuntimeInstruction instruction : moduleCodeObject.getInstrs()) {
+        if (instruction.getOpCode() == OpCode.LABEL) {
+          x += "   "+instruction+System.lineSeparator();
+        }
+        else {
+          x += "        "+instruction+System.lineSeparator();
+        }
+      }
+    }
+    else {
+      x += "CODE: None, module is native.";
+    }
+    
+    return x;
   }
 }

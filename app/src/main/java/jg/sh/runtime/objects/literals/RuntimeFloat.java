@@ -32,6 +32,99 @@ public final class RuntimeFloat extends RuntimePrimitive {
   }
 
   @Override
+  public RuntimeInstance $sub(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateFloat(value - ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateFloat(value - ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("- not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeInstance $mul(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateFloat(value * ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateFloat(value * ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("* not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeInstance $div(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateFloat(value / ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateFloat(value / ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("/ not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeInstance $mod(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateFloat(value % ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateFloat(value % ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("% not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeInstance $neg(HeapAllocator alloc) throws OperationException {
+    return alloc.allocateFloat(-value);
+  }
+
+  @Override
+  public RuntimeBool $less(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateBool(value < ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateBool(value < ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("< not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeBool $great(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateBool(value > ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateBool(value > ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("> not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeBool $lesse(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateBool(value <= ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateBool(value <= ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException("<= not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
+  public RuntimeBool $greate(RuntimeInstance otherOp, HeapAllocator alloc) throws OperationException {
+    if(otherOp instanceof RuntimeInteger) {
+      return alloc.allocateBool(value >= ((RuntimeInteger) otherOp).getValue());
+    }
+    else if(otherOp instanceof RuntimeFloat) {
+      return alloc.allocateBool(value >= ((RuntimeFloat) otherOp).value);
+    }
+    throw new OperationException(">= not applicable on type "+otherOp.getClass());
+  }
+
+  @Override
   public RuntimeInstance $inc(HeapAllocator alloc) throws OperationException {
     return alloc.allocateFloat(value + 1.0);
   }

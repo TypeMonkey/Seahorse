@@ -33,6 +33,14 @@ import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.util.StringUtils;
 
+/**
+ * A counter-part of IRWriter, but with the intention of decoding
+ * a byte sequence (e.g byte []) to a RuntimeModule.
+ * 
+ * Like IRWrite, the readXXX() methods can be used individually, but the main
+ * intention of this class is to decode a RuntimeModule from a file/byte sequence
+ * through loadFromSHRCFile().
+ */
 public class IRReader {
   
   public static final Charset UTF8 = StandardCharsets.UTF_8;
@@ -51,10 +59,9 @@ public class IRReader {
     }
   }
 
-  public static RuntimeModule loadFromSHRCFile(HeapAllocator allocator, File path) throws IOException,  IllegalArgumentException {
-    final String moduleName = StringUtils.getBareFileName(path.getName());
-    final Path shrcPath = path.toPath();
-    final FileChannel channel = (FileChannel) Files.newByteChannel(shrcPath, EnumSet.of(StandardOpenOption.READ));
+  public static RuntimeModule loadFromSHRCFile(HeapAllocator allocator, Path path) throws IOException,  IllegalArgumentException {
+    final String moduleName = StringUtils.getBareFileName(path.getFileName().toString());
+    final FileChannel channel = (FileChannel) Files.newByteChannel(path, EnumSet.of(StandardOpenOption.READ));
     MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
     buffer = (MappedByteBuffer) buffer.order(ByteOrder.BIG_ENDIAN);
 
@@ -70,7 +77,7 @@ public class IRReader {
     }
   }
 
-  private static RuntimeCodeObject readModuleInstrs(String moduleName, ByteBuffer buffer, HeapAllocator allocator) throws IOException {
+  public static RuntimeCodeObject readModuleInstrs(String moduleName, ByteBuffer buffer, HeapAllocator allocator) throws IOException {
     final int modInstrAmnt = buffer.getInt();
     final RuntimeInstruction [] modInstrs = new RuntimeInstruction[modInstrAmnt];
     for (int i = 0; i < modInstrs.length; i++) {
@@ -88,7 +95,7 @@ public class IRReader {
                                         new int[0]);
   }
 
-  private static RuntimeInstruction readInstruction(ByteBuffer buffer) {
+  public static RuntimeInstruction readInstruction(ByteBuffer buffer) {
     final byte ordinalValue = buffer.get();
     final OpCode opCode = OpCode.values()[ordinalValue];
 
@@ -124,7 +131,7 @@ public class IRReader {
     return instr;
   }
 
-  private static RuntimeInstance [] readConstants(ByteBuffer buffer, HeapAllocator allocator) throws IOException, IllegalStateException {
+  public static RuntimeInstance [] readConstants(ByteBuffer buffer, HeapAllocator allocator) throws IOException, IllegalStateException {
     final int poolSize = buffer.getInt();
     final RuntimeInstance [] pool = new RuntimeInstance[poolSize];
 
@@ -171,7 +178,7 @@ public class IRReader {
     return pool;
   }
 
-  private static RuntimeCodeObject readCodeObject(ByteBuffer buffer, HeapAllocator allocator) throws IOException {
+  public static RuntimeCodeObject readCodeObject(ByteBuffer buffer, HeapAllocator allocator) throws IOException {
     final int nameSize = buffer.getInt();
     final byte [] nameBytes = new byte[nameSize];
     buffer.get(nameBytes);
@@ -220,7 +227,7 @@ public class IRReader {
                                         captures);
   }
 
-  private static RuntimeDataRecord readDataDef(ByteBuffer buffer, HeapAllocator allocator) throws IOException {
+  public static RuntimeDataRecord readDataDef(ByteBuffer buffer, HeapAllocator allocator) throws IOException {
     final int nameSize = buffer.getInt();
     final byte [] nameBytes = new byte[nameSize];
     buffer.get(nameBytes);

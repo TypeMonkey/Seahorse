@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.exceptions.OperationException;
 
 /**

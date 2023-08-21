@@ -26,6 +26,7 @@ import jg.sh.parsing.nodes.Parameter;
 import jg.sh.parsing.nodes.FuncCall.Argument;
 import jg.sh.parsing.nodes.statements.ReturnStatement;
 import jg.sh.parsing.nodes.statements.VarDeclr;
+import jg.sh.parsing.nodes.statements.blocks.IfBlock;
 import jg.sh.parsing.nodes.values.Str;
 
 import static jg.sh.parsing.utils.ParseTestUtils.*;
@@ -62,6 +63,7 @@ public class ParserTest {
       prog = parser.parseProgram();
     } catch (ParseException e) {
       fail(e);
+      return;
     }
 
     assertEquals(prog.getName(), "SampleProgram");
@@ -105,6 +107,7 @@ public class ParserTest {
       System.out.println(prog);
     } catch (ParseException e) {
       fail(e);
+      return;
     }
 
     assertEquals(2, prog.getStatements().size());   
@@ -183,6 +186,7 @@ public class ParserTest {
       prog = parser.parseProgram();
     } catch (ParseException e) {
       fail(e);
+      return;
     }
 
     assertEquals(1, prog.getStatements().size());
@@ -213,4 +217,64 @@ public class ParserTest {
     assertNodeEquals(expected, expr);
   }
 
+  @Test
+  public void testSimpleIf() {
+    final String src = "if(true){system.println(\"hello world!\"); const test := funky() + 58;}";
+
+    Tokenizer tokenizer = new Tokenizer(new StringReader(src), false);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
+
+    Module prog = null;
+    try {
+      prog = parser.parseProgram();
+    } catch (ParseException e) {
+      fail(e);
+      return;
+    }
+
+    assertEquals(1, prog.getStatements().size());
+    final IfBlock ifBlock = assertAndCast(IfBlock.class, prog.getStatements().get(0));
+
+    assertStmt(cond(bool(true), stmt(
+                                    call(
+                                      attr(name("system"), "println"),
+                                      arg(str("hello world!"))
+                                    )
+                                  ),
+                                  stmt(
+                                    var("test", true, bin(call(name("funky")), PLUS, num(58))))), 
+                                  ifBlock);
+
+  }
+
+  @Test
+  public void testSimpleIf2() {
+    final String src = "if(true){system.println(\"hello world!\");} const test := funky() + 58;";
+
+    Tokenizer tokenizer = new Tokenizer(new StringReader(src), false);
+    Parser parser = new Parser(tokenizer, "SampleProgram");
+
+    Module prog = null;
+    try {
+      prog = parser.parseProgram();
+    } catch (ParseException e) {
+      fail(e);
+      return;
+    }
+
+    assertEquals(2, prog.getStatements().size());
+    final IfBlock ifBlock = assertAndCast(IfBlock.class, prog.getStatements().get(0));
+
+    assertStmt(cond(bool(true), stmt(
+                                    call(
+                                      attr(name("system"), "println"),
+                                      arg(str("hello world!"))
+                                    )
+                                  )), 
+                                  ifBlock);
+
+    assertStmt(stmt(
+                 var("test", true, bin(call(name("funky")), PLUS, num(58)))),
+               prog.getStatements().get(1));
+  }
 }

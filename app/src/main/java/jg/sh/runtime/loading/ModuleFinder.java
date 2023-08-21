@@ -1,6 +1,7 @@
 package jg.sh.runtime.loading;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -12,6 +13,9 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,11 +39,13 @@ import jg.sh.modules.NativeModule;
 import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.parsing.Module;
+import jg.sh.parsing.exceptions.ParseException;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.ModuleLoadException;
 import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
@@ -52,6 +58,7 @@ import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
 import jg.sh.compile.ObjectFile;
 import jg.sh.compile.SeahorseCompiler;
+import jg.sh.compile.exceptions.InvalidModulesException;
 import jg.sh.compile.instrs.Instruction;
 import jg.sh.compile.instrs.JumpInstr;
 import jg.sh.compile.instrs.LabelInstr;
@@ -108,122 +115,98 @@ public class ModuleFinder implements Markable {
     return systemModule;
   }
   
-  public RuntimeModule load(String name) {
-    System.out.println(" ===> loading: "+name+" | "+modules.keySet());
+  public RuntimeModule load(String name) throws ModuleLoadException {
+    //System.out.println(" ===> loading: "+name+" | "+modules.keySet());
     RuntimeModule module = modules.get(name);
     if (module == null) {                  
-      
-      //Search for module in the standard library paths first
-      String [] standardLibPaths = options.containsKey(IOption.ST_LIB_PATH) ? 
-                                       (String[]) options.get(IOption.ST_LIB_PATH) : 
-                                       new String[0];
 
-      System.out.println(" ==> searching in stdlibs dir "+Arrays.toString(standardLibPaths));
-      module = loadFromDirectories(standardLibPaths, name, true);
-      //System.out.println("searched MODULE_SEARCH. "+(module != null));
-      
-      
-      //Next, search for modules in the MODULE_SEARCH paths
-      if (module == null) {
-        String [] moduleSearchPaths = (String[]) options.getOrDefault(IOption.MODULE_SEARCH, new String[0]);
+      final String [] allDirectories = Stream.of((String[]) options.getOrDefault(IOption.ST_LIB_PATH, IOption.ST_LIB_PATH.getDefault()),
 
-        moduleSearchPaths = Stream.of(moduleSearchPaths).map(x -> new File(x).getAbsolutePath()).toArray(String[]::new);
-        
-        System.out.println(" ==> searching in MODULE_SEARCH "+Arrays.toString(moduleSearchPaths));
-        module = loadFromDirectories(moduleSearchPaths, name, false);
-        //System.out.println("searched MODULE_SEARCH. "+(module != null));
-      }
-      
-      //Finally, search for modules in the current working directory
-      if (module == null) {
-        String [] cwdPAths = { new File(System.getProperty("user.dir")).toString() };
+                                                  Stream.of((String[]) options.getOrDefault(IOption.MODULE_SEARCH, IOption.MODULE_SEARCH.getDefault()))
+                                                        .map(x -> new File(x).getAbsolutePath())
+                                                        .toArray(String[]::new),
 
-        System.out.println(" ==> searching in working dir "+Arrays.toString(cwdPAths));
-        module = loadFromDirectories(cwdPAths, name, false);
-      }      
+                                                  new String[]{new File(System.getProperty("user.dir")).toString()})
+
+                                              .flatMap(Stream::of)
+                                              .toArray(String[]::new);
+      
+      try {
+        module = loadFromDirectories(allDirectories, name, false);
+      } catch (Exception e) {
+        throw new ModuleLoadException(name, e.getMessage());
+      }     
     }
     
     if (module != null) {
       //Cache loaded module into our map
       modules.put(module.getName(), module);
+      return module;
     }
 
-    return module;
+    throw new ModuleLoadException(name, "Couldn't find module '"+name+"'");
   }
   
-  private RuntimeModule loadFromDirectories(String [] directories, String moduleName, boolean considerClassFiles) {
-    RuntimeModule module = null;
+  private RuntimeModule loadFromDirectories(String [] directories, String moduleName, boolean considerClassFiles) throws Exception {
+    //RuntimeModule module = null;
     for (String path : directories) {      
-      File classFile = new File(path, moduleName+".class");
-      File shrFile = new File(path, moduleName+".shr");
+      final Path classFile = Paths.get(path, moduleName+".class");
+      final Path shrFile = Paths.get(path, moduleName+".shr");
+      //final File classFile = new File(path, moduleName+".class");
+      //final File shrFile = new File(path, moduleName+".shr");
       
-      if (shrFile.isFile() && shrFile.canRead()) {
-        File shrcFile = new File(new File(SeaHorseInterpreter.CACHE_DIR_NAME), moduleName+".shrc");
+      if (Files.isReadable(shrFile)) {
+        final Path shrcFile = Paths.get(SeaHorseInterpreter.CACHE_DIR_NAME, moduleName+".shrc");
         
-        System.out.println(" ===> shrc file? "+shrcFile.getAbsolutePath());
+        System.out.println(" ===> shrc file? "+shrcFile.toAbsolutePath().toString()+" || "+Files.isReadable(shrcFile));
 
-        if (shrcFile.isFile() && shrcFile.canRead()) {
-            final long shrcLastModified = shrcFile.lastModified();
-            final long shrLastModified = shrFile.lastModified();
-            
-            if (shrLastModified > shrcLastModified) {
-              System.out.println("---- shr file is newer, loading from shr");
-              
-              //.shr file is newer. use shr!
-              if((module = loadFromSHRFile(shrFile)) != null) {
-                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
-                RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
-                module.setLoadingComponents(moduleObject, initCallable);
-                //update shrc file!
-                if (options.containsKey(IOption.COMP_TO_BYTE) && (boolean) options.get(IOption.COMP_TO_BYTE)) {
-                  IRWriter.printCompiledFile(SeaHorseInterpreter.CACHE_DIR_NAME, module);
-                }
-                break;
-              }
+        if (Files.isReadable(shrcFile)) {
+          final Instant shrcLastModified = Files.getLastModifiedTime(shrcFile).toInstant();
+          final Instant shrLastModified = Files.getLastModifiedTime(shrFile).toInstant();
+
+          System.out.println(" ===> shrc vs shr lastModified "+shrcLastModified.compareTo(shrLastModified));
+
+          if (shrcLastModified.compareTo(shrLastModified) > 0) {
+            System.out.println("---- shrc file is newer, loading from shrc");
+
+            //.shrc file is newer. use shrc!
+            try {
+              final RuntimeModule module = loadFromSHRC(shrcFile);
+
+              final RuntimeInstance moduleObject = allocator.allocateEmptyObject();
+              final RuntimeCallable initCallable = allocator.allocateCallable(module, 
+                                                                              moduleObject, 
+                                                                              module.getModuleCodeObject(), 
+                                                                              new CellReference[0]);
+              module.setLoadingComponents(moduleObject, initCallable);
+
+              return module;
+            } catch (Exception e) {
+              System.out.println("Error encoutered while loading shrc file: "+e);
+              e.printStackTrace(System.out);
             }
-            else {
-              //.shr is older, use shrc.
-              module = loadFromSHRC(shrcFile);
-              
-              System.out.println("---- shr file is older, loading from shrc "+(module != null));
-              
-              if(module != null) {
-                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
-                RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
-                module.setLoadingComponents(moduleObject, initCallable);
-                //System.out.println("---successfully loaded from shrc");
-                break;
-              }
-              else if((module = loadFromSHRFile(shrFile)) != null){
-                //fall back to using shrFile if, for some reason, shrcFile couldn't be used
-                RuntimeInstance moduleObject = allocator.allocateEmptyObject();
-                RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
-                module.setLoadingComponents(moduleObject, initCallable);
-                
-                //update shrc file!
-                if (options.containsKey(IOption.COMP_TO_BYTE) && (boolean) options.get(IOption.COMP_TO_BYTE)) {
-                  IRWriter.printCompiledFile(SeaHorseInterpreter.CACHE_DIR_NAME, module);
-                }
-                
-                break;
-              }
-            }
-        } 
-        else if((module = loadFromSHRFile(shrFile)) != null){
-          RuntimeInstance moduleObject = allocator.allocateEmptyObject();
-          RuntimeCallable initCallable = allocator.allocateCallable(module, moduleObject, module.getModuleCodeObject(), new CellReference[0]);
-          module.setLoadingComponents(moduleObject, initCallable);
-          
-          if (options.containsKey(IOption.COMP_TO_BYTE) && (boolean) options.get(IOption.COMP_TO_BYTE)) {
-            IRWriter.printCompiledFile(SeaHorseInterpreter.CACHE_DIR_NAME, module);
           }
-          
-          break;
         }
+
+        System.out.println("---- Falling back to loading shr file (either because shrc failed or shr is newer)");
+
+        final RuntimeModule module = loadFromSHRFile(shrFile);
+
+        final RuntimeInstance moduleObject = allocator.allocateEmptyObject();
+        final RuntimeCallable initCallable = allocator.allocateCallable(module, 
+                                                                          moduleObject, 
+                                                                          module.getModuleCodeObject(), 
+                                                                          new CellReference[0]);
+        module.setLoadingComponents(moduleObject, initCallable);
+
+        if ((boolean) options.getOrDefault(IOption.COMP_TO_BYTE, IOption.COMP_TO_BYTE.getDefault())) {
+          IRWriter.printCompiledFile(SeaHorseInterpreter.CACHE_DIR_NAME, module);
+        }
+
+        return module;
       }
-      if (considerClassFiles && 
-          classFile.isFile() && 
-          classFile.canRead()) {
+
+      if (considerClassFiles && Files.isReadable(classFile)) {
         
         NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
@@ -232,15 +215,17 @@ public class ModuleFinder implements Markable {
             nativeModule.initialAttrs(self, ini);
           });
           
-          RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeModule.getLoadingFunction());
-          module = nativeModule.getModule();
+          final RuntimeModule module = nativeModule.getModule();
+          final RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, 
+                                                                                     moduleObject, 
+                                                                                     nativeModule.getLoadingFunction());
           module.setLoadingComponents(moduleObject, initialization);
-          break;
+          return module;
         }
       }
     }
     
-    return module;
+    throw new Exception("Couldn't determine module path.");
   }
 
   public void prepareFromAnnotations(NativeModule module, Initializer ini, RuntimeInstance moduleObject) {
@@ -319,14 +304,11 @@ public class ModuleFinder implements Markable {
    * 
    * @param path - the path to the .shrc file
    * @return the RuntimeModule held by this .class file, or null if a RuntimeModule couldn't be loaded
+   * @throws IOException
+   * @throws IllegalArgumentException
    */
-  private RuntimeModule loadFromSHRC(File path) {
-    try {
-      return IRReader.loadFromSHRCFile(allocator, path);
-    } catch (Exception e) {
-      //e.printStackTrace();
-      return null;
-    }
+  private RuntimeModule loadFromSHRC(Path path) throws IllegalArgumentException, IOException {
+    return IRReader.loadFromSHRCFile(allocator, path);
   }
   
   /**
@@ -337,20 +319,16 @@ public class ModuleFinder implements Markable {
    * 
    * @param path - the path to the .class file
    * @return the RuntimeModule held by this .class file, or null if a RuntimeModule couldn't be loaded
+   * @throws IOException
    */
-  private NativeModule loadFromClassFile(File path){  
-    try {
-      //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
+  private NativeModule loadFromClassFile(Path path) throws IOException {  
+    //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
 
-      final byte [] data = Files.readAllBytes(path.toPath());
+    final byte [] data = Files.readAllBytes(path);
       
-      Class<?> targetClass = classLoader.loadClass(data);      
+    Class<?> targetClass = classLoader.loadClass(data);      
       
-      return loadFromClass(targetClass);
-    } catch (Exception e) {
-      LOG.debug("Class loading exception", e);
-      return null;
-    }
+    return loadFromClass(targetClass);
   }
 
   public NativeModule loadFromClass(Class<?> targetClass) {
@@ -386,29 +364,19 @@ public class ModuleFinder implements Markable {
    * 
    * @param path - the path to the .shr file
    * @return the RuntimeModule held by this .class file, or null if a RuntimeModule couldn't be loaded
+   * @throws IOException
+   * @throws ParseException
+   * @throws IllegalArgumentException
+   * @throws InvalidModulesException
    */
-  private RuntimeModule loadFromSHRFile(File path) {
-    try {
-      final Module module = compiler.compile(path.toString()).get(0);
-      
-      /*
-      if (options.containsKey(IOption.VALIDATE) && ((boolean) options.get(IOption.VALIDATE))) {
-        Validator validator = new Validator();
-        FileValidationReport report = validator.validate(module).get(module.getName());
-        
-        if (report.getExceptions().size() > 0) {
-          return null;
-        }
-      }
-      */
-
-      final ObjectFile objectFile = compiler.generateByteCode(module).get(0);      
-      RuntimeModule runtimeModule = prepareModule(objectFile);
-      return runtimeModule;
-    } catch (Exception e) {
-      LOG.debug("Error encountered while loading .shr file", e);
-      return null;
-    }
+  private RuntimeModule loadFromSHRFile(Path path) throws IllegalArgumentException, 
+                                                          ParseException, 
+                                                          IOException, 
+                                                          InvalidModulesException {
+    final Module module = compiler.compile(path.toFile().toString()).get(0);
+    final ObjectFile objectFile = compiler.generateByteCode(module).get(0); 
+    final RuntimeModule runtimeModule = prepareModule(objectFile);
+    return runtimeModule;
   }
   
   /**
@@ -425,21 +393,25 @@ public class ModuleFinder implements Markable {
    * Registers multiple CompiledFiles with this ModuleFinder
    * @param includedModules - the CompiledFiles to register
    */
-  public void registerModules(List<ObjectFile> includedModules) {
+  public List<RuntimeModule> registerModules(List<ObjectFile> includedModules) {
+    final ArrayList<RuntimeModule> mods = new ArrayList<>();
+
     for (ObjectFile compiledFile : includedModules) {
-      registerModule(compiledFile);
+      mods.add(registerModule(compiledFile));
     }
+
+    return mods;
   }
   
   /**
-   * Registers a CompiledFile with this ModuleFinder.
+   * Registers a ObjectFile with this ModuleFinder.
    * 
    * This method will prepare a CompiledFile to a RuntimeModule. 
    * Registered modules are not loaded/executed. 
    * 
    * @param compiledFile - the CompiledFile to register
    */
-  public void registerModule(ObjectFile compiledFile) {
+  public RuntimeModule registerModule(ObjectFile compiledFile) {
     //System.out.println(compiledFile);
     //System.out.println("------------- "+compiledFile.getName());
     
@@ -447,16 +419,17 @@ public class ModuleFinder implements Markable {
       throw new IllegalArgumentException("There's already a module called '"+compiledFile.getName()+"'");
     }
     
-    RuntimeModule preparedModule = prepareModule(compiledFile);
-    
-    RuntimeInstance moduleObject = allocator.allocateEmptyObject();
-    RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, 
+    final RuntimeModule preparedModule = prepareModule(compiledFile);
+    final RuntimeInstance moduleObject = allocator.allocateEmptyObject();
+    final RuntimeCallable initCallable = allocator.allocateCallable(preparedModule, 
                                                               moduleObject, 
                                                               preparedModule.getModuleCodeObject(), 
                                                               new CellReference[0]);
     preparedModule.setLoadingComponents(moduleObject, initCallable);
         
     modules.put(preparedModule.getName(), preparedModule);
+
+    return preparedModule;
   }
   
   private RuntimeModule prepareModule(ObjectFile compiledFile) {    
