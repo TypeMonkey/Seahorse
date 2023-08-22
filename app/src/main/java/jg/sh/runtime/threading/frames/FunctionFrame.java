@@ -290,6 +290,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                              instr, 
                              left, 
@@ -307,6 +308,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.SUB), 
                              instr, 
                              left, 
@@ -324,6 +326,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.MUL), 
                              instr, 
                              left, 
@@ -341,6 +344,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.DIV), 
                              instr, 
                              left, 
@@ -358,6 +362,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.BAND), 
                              instr, 
                              left, 
@@ -375,6 +380,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.BOR), 
                              instr, 
                              left, 
@@ -392,6 +398,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.LESS), 
                              instr, 
                              left, 
@@ -409,6 +416,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.GREAT), 
                              instr, 
                              left, 
@@ -426,6 +434,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.LESSE), 
                              instr, 
                              left, 
@@ -443,6 +452,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.GREATE), 
                              instr, 
                              left, 
@@ -460,6 +470,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.MOD), 
                              instr, 
                              left, 
@@ -476,6 +487,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                              instr, 
                              target, 
@@ -494,6 +506,7 @@ public class FunctionFrame extends StackFrame {
 
     final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NEG);
     return checkAndCall(allocator, 
+                        fiber, 
                         instr, 
                         target, 
                         coupling.getFuncName(), 
@@ -513,6 +526,7 @@ public class FunctionFrame extends StackFrame {
 
     final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NOT);
     return checkAndCall(allocator, 
+                        fiber, 
                         instr, 
                         target, 
                         coupling.getFuncName(), 
@@ -530,6 +544,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return binaryArithCall(allocator, 
+                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.SUB), 
                              instr, 
                              target, 
@@ -538,12 +553,14 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame binaryArithCall(HeapAllocator allocator, 
+                                     Fiber fiber,
                                      FuncOperatorCoupling opFuncName,
                                      RuntimeInstruction instruction, 
                                      RuntimeInstance left, 
                                      RuntimeInstance right) {
     LOG.trace(" For: "+instruction+" => Not numerical operands. Will call overloaded operator implementation!");
     return checkAndCall(allocator, 
+                        fiber, 
                         instruction, 
                         right, 
                         opFuncName.getFuncName(), 
@@ -557,19 +574,19 @@ public class FunctionFrame extends StackFrame {
     final ArgVector args = (ArgVector) popOperand();   
     
     if (callable instanceof Callable) {
-      return generalCall(allocator, instr, callable, args, "");
+      return generalCall(allocator, fiber, instr, callable, args, "");
     }
     else if(callable instanceof RuntimeDataRecord) {
       final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
       LOG.info(" ===> call to data record!!!");
 
+      final RuntimeInstance selfObject = dataRecord.instantiate(allocator, hostModule);
       final RuntimeCodeObject constructor = (RuntimeCodeObject) dataRecord.getAttr(TokenType.CONSTR.name().toLowerCase());
-      final RuntimeInstance selfObject = allocator.allocateEmptyObject();
       final RuntimeCallable actualCallable = allocator.allocateCallable(hostModule, selfObject, constructor);
 
       passOver = selfObject;
 
-      return generalCall(allocator, instr, actualCallable, args, "");
+      return generalCall(allocator, fiber, instr, actualCallable, args, "");
     }   
     else {
       return prepareErrorJump(instr, allocator, "Target isn't callable "+callable.getClass());
@@ -833,6 +850,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return checkAndCall(allocator, 
+                          fiber, 
                           instr, 
                           target, 
                           RuntimeArray.RETR_INDEX_ATTR, 
@@ -853,6 +871,7 @@ public class FunctionFrame extends StackFrame {
       return this;
     } catch (OperationException e) {
       return checkAndCall(allocator, 
+                          fiber, 
                           instr, 
                           target, 
                           RuntimeArray.STORE_INDEX_ATTR, 
@@ -881,6 +900,7 @@ public class FunctionFrame extends StackFrame {
 
         if (!otherModule.isLoaded()) {
           final StackFrame otherModuleFrame = generalCall(allocator, 
+                                                          fiber, 
                                                           loadInstr, 
                                                           otherModule.getModuleCallable(), 
                                                           new ArgVector(), 
@@ -1110,6 +1130,7 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame checkAndCall(HeapAllocator allocator,
+                                  Fiber fiber,
                                   RuntimeInstruction instr,
                                   RuntimeInstance target, 
                                   String funcName, 
@@ -1122,11 +1143,33 @@ public class FunctionFrame extends StackFrame {
       return prepareErrorJump(instr, allocator, noAttrError);
     }
     else {
-      return generalCall(allocator, instr, potentialCallable, args, notCallableError);
+      return generalCall(allocator, fiber, instr, potentialCallable, args, notCallableError);
     }
   }
 
+  /**
+   * Attempts to invoke a Callable.
+   * 
+   * If the given RuntimeInstance isn't a Callable, a RuntimeError indicating
+   * a failed call operation is floated up to the nearest error handler
+   * 
+   * Else, the Callable is first checked for eligibility to be called immediately
+   * (i.e: it's an instance of ImmediateInternalCallable). If so, it's called immediately
+   * and the result is pushed onto the operand stack. The current StackFrame is returned.
+   * 
+   * Otherwise, the Callable is prepared its own StackFrame and the method returns that 
+   * StackFrame.
+   * 
+   * @param allocator - the HeapAllocator to use in this call.
+   * @param fiber - the current Fiber
+   * @param instr - the original CALL instruction
+   * @param potentialCallable - the RuntimeInstance that maybe a Callable
+   * @param args - the arguments to be passed to the invoked function
+   * @param notCallableError - the String message to use as a error message if potentialCallable isn't a Callable 
+   * @return (See above)
+   */
   private StackFrame generalCall(HeapAllocator allocator,
+                                 Fiber fiber,
                                  RuntimeInstruction instr,
                                  RuntimeInstance potentialCallable, 
                                  ArgVector args,
@@ -1135,7 +1178,7 @@ public class FunctionFrame extends StackFrame {
       final Callable actualCallable = (Callable) potentialCallable;
 
       try {
-        final RuntimeInstance result = RuntimeUtils.fastCall(null, args, null);
+        final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, fiber);
         if (result != null) {
           pushOperand(result);
           return this;
@@ -1149,7 +1192,7 @@ public class FunctionFrame extends StackFrame {
         return prepareErrorJump(instr, allocator, e.getMessage());
       }
     }
-    else return prepareErrorJump(instr, allocator, notCallableError);
+    return prepareErrorJump(instr, allocator, notCallableError);
   }
 
   private StackFrame prepareErrorJump(RuntimeInstruction instruction, 
@@ -1161,9 +1204,7 @@ public class FunctionFrame extends StackFrame {
       instrIndex = instruction.getExceptionJumpIndex();
       return this;
     }
-    else {
-      return null;
-    }
+    return null;
   }
 
   // Bytecode dispatch methods - END

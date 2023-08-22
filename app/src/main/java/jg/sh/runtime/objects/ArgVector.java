@@ -25,7 +25,7 @@ public class ArgVector extends RuntimeInstance {
    * Does nothing.
    */
   @Override
-  public void seal(){}
+  public final void seal(){}
 
   public void setKeywordArg(String keyword, RuntimeInstance value) {
     try {

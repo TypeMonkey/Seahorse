@@ -230,6 +230,10 @@ public class ModuleFinder implements Markable {
 
   public void prepareFromAnnotations(NativeModule module, Initializer ini, RuntimeInstance moduleObject) {
     final Class<?> actualClass = module.getClass();
+
+    /**
+     * Link methods annotated with NativeFunction
+     */
     for(Method method : actualClass.getDeclaredMethods()) {
       if (method.isAnnotationPresent(NativeFunction.class) && 
           method.getParameterCount() == 4 &&
@@ -321,7 +325,7 @@ public class ModuleFinder implements Markable {
    * @return the RuntimeModule held by this .class file, or null if a RuntimeModule couldn't be loaded
    * @throws IOException
    */
-  private NativeModule loadFromClassFile(Path path) throws IOException {  
+  private NativeModule loadFromClassFile(Path path) throws Exception {  
     //System.out.println("LOADING FROM CLASS "+path+" | "+path.isFile()+" | "+path.canRead()+" | "+path.getParent());
 
     final byte [] data = Files.readAllBytes(path);
@@ -331,9 +335,14 @@ public class ModuleFinder implements Markable {
     return loadFromClass(targetClass);
   }
 
-  public NativeModule loadFromClass(Class<?> targetClass) {
+  public NativeModule loadFromClass(Class<?> targetClass) throws Exception {
     if (NativeModule.class.isAssignableFrom(targetClass)) {
       Method invocationTarget = null;
+
+      /**
+       * Search class for the static method on this class
+       * to retrieve the RuntimeModule instance
+       */
       for(Method method : targetClass.getDeclaredMethods()) {
         if (method.isAnnotationPresent(NativeModuleDiscovery.class) && 
             NativeModule.class.isAssignableFrom(method.getReturnType()) && 
@@ -348,12 +357,13 @@ public class ModuleFinder implements Markable {
         try {
           return (NativeModule) invocationTarget.invoke(null);
         } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-          return null;
+          throw new Exception("Exception invoking retrieval method for class "+targetClass.getName()+"", e);
         }
       }
       
     }     
-    return null;
+
+    throw new Exception("Java class "+targetClass.getName()+" isn't annotated as a NativeModule.");
   }
   
   /**
