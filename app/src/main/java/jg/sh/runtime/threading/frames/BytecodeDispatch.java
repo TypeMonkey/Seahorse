@@ -485,7 +485,9 @@ public final class BytecodeDispatch {
       final RuntimeInstance selfObject = allocator.allocateEmptyObject();
       final RuntimeCallable actualCallable = allocator.allocateCallable(frame.getHostModule(), selfObject, constructor);
 
-      frame.setPassOver(selfObject);
+      
+
+      //frame.setPassOver(selfObject);
 
       return generalCall(frame, allocator, instr, actualCallable, args, "");
     }   
@@ -1065,7 +1067,7 @@ public final class BytecodeDispatch {
         ArgVector args = new ArgVector(right);
         
         try {
-          StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator);
+          StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, null);
           frame.incrmntInstrIndex();
           return newFrame;
         } catch (CallSiteException e) {
@@ -1117,7 +1119,7 @@ public final class BytecodeDispatch {
           return callerFrame;
         }
         else {
-          final StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator);
+          final StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, null);
           callerFrame.incrmntInstrIndex();
           return newFrame;
         }

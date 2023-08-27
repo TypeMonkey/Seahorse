@@ -3,8 +3,10 @@ package jg.sh.runtime.objects;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.objects.callable.Callable;
 
 /**
  * A data record is a template for constructing an 
@@ -13,6 +15,8 @@ import jg.sh.runtime.loading.RuntimeModule;
  * Note: A RuntimeDateRecord is sealed after instantiation.
  */
 public class RuntimeDataRecord extends RuntimeInstance {
+
+  public static final String TYPE_ATTR = "$type";
 
   private final Map<String, RuntimeCodeObject> methods;
   private final String name;
@@ -40,9 +44,23 @@ public class RuntimeDataRecord extends RuntimeInstance {
       for (Entry<String, RuntimeCodeObject> method : methods.entrySet()) {
         ini.init(method.getKey(), allocator.allocateCallable(hostModule, self, method.getValue()));
       }
+
+      ini.init(TYPE_ATTR, this);
     });
 
     return selfObject;
+  }
+
+  /**
+   * Prepares this RuntimeDataRecord's constructor for invocation.
+   * @param allocator - the HeapAllocator to use for preparation.
+   * @param hostModule - the host module of this RuntimeDataRecord
+   * @param instance - the instance of this RuntimeDateRecord
+   * @return the constructor as a Callable.
+   */
+  public Callable prepareConstructor(HeapAllocator allocator, RuntimeModule hostModule, RuntimeInstance instance) {
+    final RuntimeCodeObject constrCodeObj = (RuntimeCodeObject) getAttr(TokenType.CONSTR.name().toLowerCase());
+    return allocator.allocateCallable(hostModule, instance, constrCodeObj);
   }
 
   @Override

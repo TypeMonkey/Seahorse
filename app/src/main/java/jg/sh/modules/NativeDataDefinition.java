@@ -9,6 +9,14 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface NativeDataDefinition {
   
+  /**
+   * The NativeModule this data definition residers in.
+   * 
+   * Note: If no class is provided 
+   * @return the NativeModule this data definition residers in.
+   */
+  Class<? extends NativeModule> hostModule() default NativeModule.class;
+
   String name() default "";
 
   boolean isSealed();

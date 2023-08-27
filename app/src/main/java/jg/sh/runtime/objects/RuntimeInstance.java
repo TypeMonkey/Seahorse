@@ -2,7 +2,6 @@ package jg.sh.runtime.objects;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -10,21 +9,13 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
-import jg.sh.common.FunctionSignature;
-import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
-import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
-import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
-import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.literals.RuntimeBool;
-
-import static jg.sh.runtime.objects.callable.InternalFunction.ARG_INDEX;
-import static jg.sh.runtime.objects.callable.InternalFunction.create;
 
 /**
  * Root type representing all runtime entities.
@@ -32,15 +23,6 @@ import static jg.sh.runtime.objects.callable.InternalFunction.create;
  * A RuntimeInstance is backed by a Map of attributes.
  */
 public class RuntimeInstance implements Markable {
-
-  private static final InternalFunction TO_STRING = 
-  create(
-    RuntimeInstance.class, 
-    FunctionSignature.NO_ARG, 
-    (fiber, self, callable, args) -> {
-      return fiber.getHeapAllocator().allocateString(self.toString());
-    }
-  );
 
   public static enum AttrModifier {
     CONSTANT,

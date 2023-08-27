@@ -17,8 +17,9 @@ public class JavaFrame extends StackFrame{
   
   public JavaFrame(RuntimeModule hostModule, 
                    RuntimeInternalCallable callable, 
-                   ArgVector initialArgs) {
-    super(hostModule, initialArgs);
+                   ArgVector initialArgs,
+                   ReturnAction action) {
+    super(hostModule, initialArgs, action);
     this.callable = callable;
   }
   

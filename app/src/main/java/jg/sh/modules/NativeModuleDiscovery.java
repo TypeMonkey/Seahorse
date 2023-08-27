@@ -14,6 +14,9 @@ import java.lang.annotation.Target;
  * for such condition. If such condition fails to hold, an exception will be thrown
  * at loading.
  * 
+ * It's advised that the returned RuntimeModule should be a
+ * singleton instance (i.e: the method shouldn't return a new instance each call)
+ * 
  * @author Jose
  */
 @Retention(RetentionPolicy.RUNTIME)

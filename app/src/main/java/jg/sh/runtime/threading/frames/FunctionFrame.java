@@ -58,25 +58,13 @@ public class FunctionFrame extends StackFrame {
   private final RuntimeModule hostModule;
 
   private int instrIndex;
-
-  /**
-   * This is solely used by the CALL instruction 
-   * when being invoked on a RuntimeDataRecord.
-   * 
-   * Since a CALL instruction immediately returns the new frame
-   * of the constructor, there's no chance to "overwrite" whatever return
-   * value of that constructor with the allocated instance.
-   * 
-   * With this place holder variable, we can signal to the next invocation of
-   * run() that we need to push the value of "passOver" on the operand stack first.
-   */
-  private RuntimeInstance passOver;
   
   public FunctionFrame(RuntimeModule hostModule, 
                        RuntimeCallable callable, 
                        int instrIndex, 
-                       ArgVector initialArgs) {
-    super(hostModule, initialArgs);
+                       ArgVector initialArgs,
+                       ReturnAction action) {
+    super(hostModule, initialArgs, action);
     this.callable = callable;
     this.instrs = callable.getCodeObject().getInstrs();
     this.hostModule = callable.getHostModule();
@@ -85,15 +73,6 @@ public class FunctionFrame extends StackFrame {
   }  
 
   public StackFrame run(HeapAllocator allocator, Fiber thread) {
-
-    /**
-     * Use solely by CALL when doing data definition instantiation.
-     * See comments for passOver
-     */
-    if (passOver != null) {
-      pushOperand(passOver);
-      passOver = null;
-    }
 
     if (getError() != null) {
       if (hasInstrLeft() && getCurrInstr().getExceptionJumpIndex() >= 0) {
@@ -581,12 +560,16 @@ public class FunctionFrame extends StackFrame {
       LOG.info(" ===> call to data record!!!");
 
       final RuntimeInstance selfObject = dataRecord.instantiate(allocator, hostModule);
-      final RuntimeCodeObject constructor = (RuntimeCodeObject) dataRecord.getAttr(TokenType.CONSTR.name().toLowerCase());
-      final RuntimeCallable actualCallable = allocator.allocateCallable(hostModule, selfObject, constructor);
+      final Callable actualCallable = dataRecord.prepareConstructor(allocator, hostModule, selfObject);
 
-      passOver = selfObject;
+      final ReturnAction action = (r, e) -> {
+        if (r != null) {
+          //Constructor executed normally. Push instance to stack.
+          pushOperand(r);
+        }
+      };
 
-      return generalCall(allocator, fiber, instr, actualCallable, args, "");
+      return generalCall(allocator, fiber, instr, actualCallable, args, "", action);
     }   
     else {
       return prepareErrorJump(instr, allocator, "Target isn't callable "+callable.getClass());
@@ -1111,7 +1094,7 @@ public class FunctionFrame extends StackFrame {
         ArgVector args = new ArgVector(right);
         
         try {
-          StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator);
+          StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, null);
           instrIndex++;
           return newFrame;
         } catch (CallSiteException e) {
@@ -1166,6 +1149,7 @@ public class FunctionFrame extends StackFrame {
    * @param potentialCallable - the RuntimeInstance that maybe a Callable
    * @param args - the arguments to be passed to the invoked function
    * @param notCallableError - the String message to use as a error message if potentialCallable isn't a Callable 
+   * @param returnAction - the ReturnAction to execute when the frame returns normally or exceptionally
    * @return (See above)
    */
   private StackFrame generalCall(HeapAllocator allocator,
@@ -1174,6 +1158,38 @@ public class FunctionFrame extends StackFrame {
                                  RuntimeInstance potentialCallable, 
                                  ArgVector args,
                                  String notCallableError) {
+    return generalCall(allocator, fiber, instr, potentialCallable, args, notCallableError, null);
+  }
+
+  /**
+   * Attempts to invoke a Callable.
+   * 
+   * If the given RuntimeInstance isn't a Callable, a RuntimeError indicating
+   * a failed call operation is floated up to the nearest error handler
+   * 
+   * Else, the Callable is first checked for eligibility to be called immediately
+   * (i.e: it's an instance of ImmediateInternalCallable). If so, it's called immediately
+   * and the result is pushed onto the operand stack. The current StackFrame is returned.
+   * 
+   * Otherwise, the Callable is prepared its own StackFrame and the method returns that 
+   * StackFrame.
+   * 
+   * @param allocator - the HeapAllocator to use in this call.
+   * @param fiber - the current Fiber
+   * @param instr - the original CALL instruction
+   * @param potentialCallable - the RuntimeInstance that maybe a Callable
+   * @param args - the arguments to be passed to the invoked function
+   * @param notCallableError - the String message to use as a error message if potentialCallable isn't a Callable 
+   * @param returnAction - the ReturnAction to execute when the frame returns normally or exceptionally
+   * @return (See above)
+   */
+  private StackFrame generalCall(HeapAllocator allocator,
+                                 Fiber fiber,
+                                 RuntimeInstruction instr,
+                                 RuntimeInstance potentialCallable, 
+                                 ArgVector args,
+                                 String notCallableError,
+                                 ReturnAction returnAction) {
     if (potentialCallable instanceof Callable) {
       final Callable actualCallable = (Callable) potentialCallable;
 
@@ -1184,7 +1200,7 @@ public class FunctionFrame extends StackFrame {
           return this;
         }
         else {
-          final StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator);
+          final StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, returnAction);
           instrIndex++;
           return newFrame;
         }
@@ -1252,18 +1268,6 @@ public class FunctionFrame extends StackFrame {
 
   public CellReference[] getCaptureReferences() {
     return callable.getCaptures();
-  }
-
-  public void setPassOver(RuntimeInstance passOver) {
-    this.passOver = passOver;
-  }
-
-  public boolean hasPassOver() {
-    return passOver != null;
-  }
-  
-  public RuntimeInstance getPassOver() {
-    return passOver;
   }
 
   @Override

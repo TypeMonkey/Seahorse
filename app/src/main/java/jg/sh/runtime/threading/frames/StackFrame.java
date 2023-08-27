@@ -59,6 +59,7 @@ public abstract class StackFrame implements Markable {
 
   protected final Stack<RuntimeInstance> operandStack;
   protected final ArgVector initialArgs;
+  protected final ReturnAction action;
   
   protected RuntimeInstance [] localVars; 
   protected InvocationException error; // null <- no error, anything else <- error object
@@ -67,10 +68,12 @@ public abstract class StackFrame implements Markable {
   private int gcFlag;
   
   public StackFrame(RuntimeModule hostModule, 
-                    ArgVector initialArgs) {
+                    ArgVector initialArgs,
+                    ReturnAction action) {
     this.localVars = new RuntimeInstance[0];
     this.operandStack = new Stack<>();
     this.initialArgs = initialArgs;
+    this.action = action;
   } 
     
   public abstract StackFrame run(HeapAllocator allocator, Fiber thread);
@@ -86,6 +89,11 @@ public abstract class StackFrame implements Markable {
    */
   protected void returnValue(RuntimeInstance instance) {
     pushOperand(instance);
+
+    if (action != null) {
+      action.ret(instance, null);
+    }
+
     this.isDone = true;
   }
   
@@ -110,6 +118,12 @@ public abstract class StackFrame implements Markable {
 
   public void returnError(RuntimeError error) {
     this.error = new InvocationException(error, getCallable());
+
+    if (action != null) {
+      action.ret(null, error);
+    }
+
+    this.isDone = true;
   }
   
   public void pushOperand(RuntimeInstance value) {
@@ -197,7 +211,8 @@ public abstract class StackFrame implements Markable {
   
   public static StackFrame makeFrame(Callable callable, 
                                      ArgVector args, 
-                                     HeapAllocator allocator) throws CallSiteException {
+                                     HeapAllocator allocator,
+                                     ReturnAction action) throws CallSiteException {
 
     /*
      * At Index 0 -> callable
@@ -223,14 +238,14 @@ public abstract class StackFrame implements Markable {
       //System.out.println("CALLING!!!!! internal ");
 
       RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
-      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args);
+      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, action);
     }
     else {
       //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args);
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, action);
       //Push the new frame!
       //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 

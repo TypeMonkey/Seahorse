@@ -24,7 +24,6 @@ import jg.sh.runtime.threading.fiber.Fiber;
  * This static method must be marked with the NativeModuleDiscovery annotation.
  * 
  * 
- * 
  * Module Loading:
  * At module loading, .class file will be loaded and checked if they are annotated with the NativeModule annotation.
  * Only classes with such annotation are considered, and such classes

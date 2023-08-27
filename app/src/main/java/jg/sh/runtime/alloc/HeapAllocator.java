@@ -14,7 +14,9 @@ import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeDataRecord;
 import jg.sh.runtime.objects.RuntimeError;
 import jg.sh.runtime.objects.RuntimeInstance;
+import jg.sh.runtime.objects.callable.InternalFunction;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
+import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 import jg.sh.runtime.objects.literals.RuntimeFloat;
 import jg.sh.runtime.objects.literals.RuntimeInteger;
@@ -202,6 +204,21 @@ public class HeapAllocator {
     //heapPointer++;
     
     return callable;
+  }
+
+  public RuntimeInternalCallable allocateCallable(RuntimeModule hostModule, RuntimeInstance self, InternalFunction function) {
+    //perform garbage collection prior to allocation
+    /*
+    if (heapPointer >= storageLimit) {
+      throw new IllegalStateException("Out of memory when allocating integer!");
+    }
+    */
+    
+    
+    //storage.add(new WeakReference<>(callable));
+    //heapPointer++;
+    
+    return new RuntimeInternalCallable(hostModule, self, function);
   }
   
   public RuntimeCallable allocateCallable(RuntimeModule hostModule, RuntimeInstance self, RuntimeCodeObject codeObject, CellReference [] captures) {
