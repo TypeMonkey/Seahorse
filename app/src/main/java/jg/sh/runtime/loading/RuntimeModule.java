@@ -32,9 +32,7 @@ public class RuntimeModule implements Markable {
   private Callable moduleCallable;
   private RuntimeInstance moduleObject;
   private boolean isLoaded;
-  
-  private int gcMark;
-  
+    
   public RuntimeModule(String name, 
                        RuntimeCodeObject codeObject,
                        RuntimeInstance [] constants) {
@@ -84,13 +82,11 @@ public class RuntimeModule implements Markable {
   }
   
   @Override
-  public void setGcFlag(int gcFlag) {
-    this.gcMark = gcFlag;
-  }
+  public void setGcFlag(int gcFlag) {}
   
   @Override
   public int getGcFlag() {
-    return gcMark;
+    return 0;
   }
 
   @Override

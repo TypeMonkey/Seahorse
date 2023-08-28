@@ -38,19 +38,9 @@ import jg.sh.runtime.threading.fiber.Fiber;
 public abstract class NativeModule {
 
   protected final RuntimeModule runtimeModule;
-  private final InternalFunction loadingFunction;
   
   protected NativeModule() {
     this.runtimeModule = new RuntimeModule(getName(), null, new RuntimeInstance[0]);
-    
-    this.loadingFunction = new InternalFunction(FunctionSignature.NO_ARG) {      
-      @Override
-      public RuntimeInstance invoke(Fiber executor, ArgVector args)
-          throws InvocationException {
-        initialize(args.getPositional(SELF_INDEX));
-        return args.getPositional(SELF_INDEX);
-      }
-    };
   }
   
   /**
@@ -59,7 +49,7 @@ public abstract class NativeModule {
    * should be put in initialize();
    * 
    * The method is invoked directly when the moduleObject is allocated, meaning
-   * if there are lengthy tasks in this method, it has the potential to substantially
+   * if there are lengthy tasks in this method, it may substantially
    * hold up execution.
    * 
    * @param moduleObject - the RuntimeObject for this NativeModule
@@ -79,10 +69,6 @@ public abstract class NativeModule {
   public abstract void initialize(RuntimeInstance moduleObject);
 
   public abstract String getName();
-  
-  public InternalFunction getLoadingFunction() {
-    return loadingFunction;
-  }
   
   public RuntimeModule getModule() {
     return runtimeModule;

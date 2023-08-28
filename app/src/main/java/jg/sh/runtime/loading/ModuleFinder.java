@@ -103,13 +103,18 @@ public class ModuleFinder implements Markable {
   private RuntimeModule prepareSystemModule() {
     final NativeModule systemNativeModule = SystemModule.getNativeModule();
     final RuntimeModule systemModule = systemNativeModule.getModule();
+
+    final InternalFunction nativeLoadingFunc = InternalFunction.create(FunctionSignature.NO_ARG, (fiber, self, callable, args) -> {
+      systemNativeModule.initialize(self);
+      return self;
+    });
     
     final RuntimeInstance systemObject = allocator.allocateEmptyObject((o, m) -> {
       prepareFromAnnotations(systemNativeModule, o, m);
       systemNativeModule.initialAttrs(m, o);
     });
     
-    final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, systemNativeModule.getLoadingFunction());
+    final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, nativeLoadingFunc);
     systemModule.setLoadingComponents(systemObject, initialization);
         
     return systemModule;
@@ -208,7 +213,7 @@ public class ModuleFinder implements Markable {
 
       if (considerClassFiles && Files.isReadable(classFile)) {
         
-        NativeModule nativeModule = loadFromClassFile(classFile);
+        final NativeModule nativeModule = loadFromClassFile(classFile);
         if(nativeModule != null) {
           RuntimeInstance moduleObject = allocator.allocateEmptyObject((ini, self) -> {
             prepareFromAnnotations(nativeModule, ini, self);
@@ -216,9 +221,11 @@ public class ModuleFinder implements Markable {
           });
           
           final RuntimeModule module = nativeModule.getModule();
-          final RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, 
-                                                                                     moduleObject, 
-                                                                                     nativeModule.getLoadingFunction());
+          final InternalFunction nativeLoadingFunc = InternalFunction.create(FunctionSignature.NO_ARG, (fiber, self, callable, args) -> {
+            nativeModule.initialize(self);
+            return self;
+          });
+          final RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, moduleObject, nativeLoadingFunc);
           module.setLoadingComponents(moduleObject, initialization);
           return module;
         }
