@@ -1,5 +1,5 @@
 use system:println, now;
-use verysimple;
+//use verysimple;
 
 func fibSlow(n){
   if(n < 0){
@@ -53,7 +53,7 @@ println("Result: "+value+" @ "+fastElasped+" ns | slow "+valueSlow+" @ "+slowEla
 //println("Result: slow "+valueSlow+" @ "+slowElasped+" ns | ");
 
 const startF := now();
-const value := fib(5);
+const value := fibSlow(28);
 const endF := now();
-println("*** fib(5) Time: "+(endF - startF));
+println("*** fibSlow(28) Time: "+(endF - startF));
 println("Result: "+value);

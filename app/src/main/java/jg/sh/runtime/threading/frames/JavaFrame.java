@@ -18,16 +18,17 @@ public class JavaFrame extends StackFrame{
   public JavaFrame(RuntimeModule hostModule, 
                    RuntimeInternalCallable callable, 
                    ArgVector initialArgs,
-                   ReturnAction action) {
-    super(hostModule, initialArgs, action);
+                   ReturnAction action,
+                   Fiber fiber) {
+    super(hostModule, initialArgs, action, fiber);
     this.callable = callable;
   }
   
   @Override
-  public StackFrame run(HeapAllocator allocator, Fiber thread) {
+  public StackFrame run(HeapAllocator allocator) {
     final RuntimeInternalCallable internalCallable = getRuntimeInternalCallable();
     try {     
-      RuntimeInstance returnValue = internalCallable.getFunction().invoke(thread, initialArgs);
+      RuntimeInstance returnValue = internalCallable.getFunction().invoke(fiber, initialArgs);
       returnValue(returnValue);
     } catch (InvocationException e) {
       returnError(allocator.allocateError(e.getMessage()));

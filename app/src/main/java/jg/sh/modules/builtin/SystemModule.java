@@ -117,7 +117,7 @@ public class SystemModule extends NativeModule {
       else if(!module.isLoaded()){
         module.setAsLoaded(true);
         try {
-          fiber.queueFrame(StackFrame.makeFrame(module.getModuleCallable(), new ArgVector(), fiber.getHeapAllocator(), null));
+          fiber.queueFrame(fiber.makeFrame(module.getModuleCallable(), new ArgVector(), fiber.getHeapAllocator(), null));
         } catch (CallSiteException e) {
           throw new InvocationException(e.getMessage(), module.getModuleCallable());
         }

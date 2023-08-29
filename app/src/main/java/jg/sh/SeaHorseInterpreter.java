@@ -214,6 +214,6 @@ public class SeaHorseInterpreter {
     interpreter.executeModule(mainModule, args);
     final long wholeEnd = System.currentTimeMillis();
     System.out.println(" ===> Total Seahorse Runtime: "+(wholeEnd - wholeStart)+" ms");
-    System.out.println(GeneralMetrics.statsAsStrings());
+    //System.out.println(GeneralMetrics.statsAsStrings());
   }
 }

@@ -100,11 +100,11 @@ public class ThreadManager {
    * @return the created Fiber
    */
   public Fiber spinFiber(Callable callable, ArgVector vector) throws CallSiteException {
-    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator, null);
-    Fiber executor = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
-    threadPool.queueFiber(executor);
-    reportFiber(executor);     
-    return executor;
+    final Fiber fiber = new Fiber(allocator, finder, this, null, cleaner, this::reportFiber, null);
+    fiber.makeAndQueue(callable, vector, allocator, null);
+    threadPool.queueFiber(fiber);
+    reportFiber(fiber);     
+    return fiber;
   }
 
   /**
@@ -115,8 +115,8 @@ public class ThreadManager {
    * Note: Unlike {@link spinFiber}, the created {@link Fiber} isn't started immediately.
    */
   public Fiber makeFiber(Callable callable, ArgVector vector) throws CallSiteException {
-    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator, null);
-    Fiber fiber = new Fiber(allocator, finder, this, initialFrame, cleaner, this::reportFiber, null);
+    final Fiber fiber = new Fiber(allocator, finder, this, null, cleaner, this::reportFiber, null);
+    fiber.makeAndQueue(callable, vector, allocator, null);
     reportFiber(fiber);     
     return fiber;
   }
@@ -129,8 +129,8 @@ public class ThreadManager {
    * Note: Unlike {@link spinFiber}, the created {@link RuntimeThread} isn't started immediately.
    */
   public RuntimeThread makeThread(Callable callable, ArgVector vector) throws CallSiteException{
-    final StackFrame initialFrame = StackFrame.makeFrame(callable, vector, allocator, null);
-    RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, initialFrame, this::reportFiber);    
+    final RuntimeThread thread = new RuntimeThread(allocator, finder, cleaner, this, null, this::reportFiber);    
+    thread.makeAndQueue(callable, vector, allocator, null);
     reportFiber(thread);
     return thread;
   }

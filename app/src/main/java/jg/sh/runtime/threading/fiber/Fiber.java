@@ -1,6 +1,7 @@
 package jg.sh.runtime.threading.fiber;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -10,17 +11,28 @@ import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
+import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
+import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
+import jg.sh.runtime.objects.RuntimeArray;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.InternalFunction;
+import jg.sh.runtime.objects.callable.RuntimeCallable;
+import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
+import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.ImmediateInternalCallable;
 import jg.sh.runtime.threading.ThreadManager;
+import jg.sh.runtime.threading.frames.FunctionFrame;
+import jg.sh.runtime.threading.frames.JavaFrame;
+import jg.sh.runtime.threading.frames.ReturnAction;
 import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
+import jg.sh.util.CachedStack;
+import jg.sh.util.RuntimeUtils;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
 
@@ -104,6 +116,7 @@ public class Fiber extends RuntimeInstance {
   private final ModuleFinder finder;
   private final ThreadManager manager;
   private final Stack<StackFrame> callStack;
+  private final Stack<RuntimeInstance> operandStack;
   private final Cleaner cleaner;
   private final int fiberID;
   protected final Consumer<Fiber> fiberReporter;
@@ -163,13 +176,16 @@ public class Fiber extends RuntimeInstance {
     this.manager = manager;
     this.cleaner = cleaner;
     this.callStack = new Stack<>();
+    this.operandStack = new CachedStack<>();
     this.fiberID = FIBER_ID_COUNTER++;
     this.startTime = -1;
     this.endTime = -1;
     this.status = FiberStatus.CREATED;
     this.fiberReporter = fiberReporter;
 
-    queueFrame(initialFrame);
+    if (initialFrame != null) {
+      queueFrame(initialFrame);
+    }
   }
 
   /**
@@ -201,6 +217,105 @@ public class Fiber extends RuntimeInstance {
   public void markEndTime() {
     endTime = System.nanoTime();
   }
+
+  public StackFrame makeAndQueue(Callable callable, 
+                                 ArgVector args, 
+                                 HeapAllocator allocator,
+                                 ReturnAction action) throws CallSiteException{
+    final StackFrame frame = makeFrame(callable, args, allocator, action);
+    queueFrame(frame);
+    return frame;
+  }
+
+  public StackFrame makeFrame(Callable callable, 
+                              ArgVector args, 
+                              HeapAllocator allocator,
+                              ReturnAction action) throws CallSiteException {
+
+    /*
+     * At Index 0 -> callable
+     * At Index 1 -> self object
+     */
+    args.addAtFront(callable.getSelf());
+    args.addAtFront(callable);
+    
+    final FunctionSignature signature = callable.getSignature();
+    
+    /*
+     * Check if arguments are valid first!
+     */
+    final CallSiteException exception = RuntimeUtils.checkArgs(callable, signature, args);
+    if (exception != null) {
+      throw exception;
+    }
+    
+    StackFrame toReturn = null;
+    
+    //Now, do the calling!
+    if (callable instanceof RuntimeInternalCallable) {
+      //System.out.println("CALLING!!!!! internal ");
+
+      RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
+      toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, action, this);
+    }
+    else {
+      //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
+      
+      RuntimeCallable regularCallable = (RuntimeCallable) callable;
+
+      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, action, this);
+      //Push the new frame!
+      //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
+
+      //Set positional arguments to the calle's local variables
+      int positionalIndex = 0;
+      for(; positionalIndex < signature.getPositionalParamCount() + 2 ; positionalIndex++) {
+        //System.out.println(" -- setting local: "+positionalIndex+" with val: "+args.getPositional(positionalIndex));
+        frame.storeLocalVar(positionalIndex, args.getPositional(positionalIndex));
+      }
+      
+      /**
+       * We combine keyword arguments and extra keyword argument setting 
+       * in one go, by readily allocating the keywordVarArg object and using it's 
+       * initialization parameter to decide which keyword args go in keywordVarArg object
+       * or be saved directly as a local variable
+       */
+      final Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
+      final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
+        for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
+          if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
+            int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
+            //System.out.println("        ===> saving as local: "+keywordIndex);
+            frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+          }
+          else if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
+            ini.init(keywordArg.getKey(), keywordArg.getValue());
+          }
+        }
+      });
+
+      if (signature.hasVarKeywordParams()) {
+        frame.storeLocalVar(regularCallable.getCodeObject().getKeywordVarArgIndex(), leftOverKeywords);
+      }
+      
+      //System.out.println("------------> DONE WITH ARGS");
+      
+      //Put any leftover positional arguments in an array
+      if (signature.hasVariableParams()) {
+        final RuntimeArray leftOvers = allocator.allocateEmptyArray();
+        //System.out.println(" ===> STARTING VARARGS: "+(positionalIndex + 1)+" | "+args.getPositionals().size()+" | "+args.getPositionals());
+        for(int i = positionalIndex; i < args.getPositionals().size(); i++) {
+          leftOvers.addValue(args.getPositional(i));
+        }
+
+        frame.storeLocalVar(regularCallable.getCodeObject().getVarArgIndex(), leftOvers);
+      }
+      
+      toReturn = frame;
+    }
+    
+    return toReturn;
+  }
  
   /**
    * Initializes this Executor to execute a RuntimeCallable.
@@ -221,7 +336,7 @@ public class Fiber extends RuntimeInstance {
       //Set start time, if needed
       startTime = startTime < 0 ? System.nanoTime() : startTime;
       
-      StackFrame current = topFrame.run(allocator, this);
+      StackFrame current = topFrame.run(allocator);
       if (current == null) {
         //error flag set, or frame was done (returned value)
         if (topFrame.hasError()) {
@@ -358,5 +473,13 @@ public class Fiber extends RuntimeInstance {
    */
   public FiberStatus getStatus() {
     return status;
+  }
+
+  /**
+   * Returns this Fiber's operand stack
+   * @return this Fiber's operand stack
+   */
+  public Stack<RuntimeInstance> getOperandStack() {
+    return operandStack;
   }
 }

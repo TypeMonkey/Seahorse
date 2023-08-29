@@ -1,5 +1,5 @@
 use system:now, println;
-use fibb_sync;
+//use fibb_sync;
 
 const someVar := 50;
 const start := now();

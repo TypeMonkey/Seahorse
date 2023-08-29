@@ -163,16 +163,16 @@ public class ModuleFinder implements Markable {
       if (Files.isReadable(shrFile)) {
         final Path shrcFile = Paths.get(SeaHorseInterpreter.CACHE_DIR_NAME, moduleName+".shrc");
         
-        System.out.println(" ===> shrc file? "+shrcFile.toAbsolutePath().toString()+" || "+Files.isReadable(shrcFile));
+        //System.out.println(" ===> shrc file? "+shrcFile.toAbsolutePath().toString()+" || "+Files.isReadable(shrcFile));
 
         if (Files.isReadable(shrcFile)) {
           final Instant shrcLastModified = Files.getLastModifiedTime(shrcFile).toInstant();
           final Instant shrLastModified = Files.getLastModifiedTime(shrFile).toInstant();
 
-          System.out.println(" ===> shrc vs shr lastModified "+shrcLastModified.compareTo(shrLastModified));
+          //System.out.println(" ===> shrc vs shr lastModified "+shrcLastModified.compareTo(shrLastModified));
 
           if (shrcLastModified.compareTo(shrLastModified) > 0) {
-            System.out.println("---- shrc file is newer, loading from shrc");
+            //System.out.println("---- shrc file is newer, loading from shrc");
 
             //.shrc file is newer. use shrc!
             try {
@@ -187,13 +187,13 @@ public class ModuleFinder implements Markable {
 
               return module;
             } catch (Exception e) {
-              System.out.println("Error encoutered while loading shrc file: "+e);
+              //System.out.println("Error encoutered while loading shrc file: "+e);
               e.printStackTrace(System.out);
             }
           }
         }
 
-        System.out.println("---- Falling back to loading shr file (either because shrc failed or shr is newer)");
+        //System.out.println("---- Falling back to loading shr file (either because shrc failed or shr is newer)");
 
         final RuntimeModule module = loadFromSHRFile(shrFile);
 

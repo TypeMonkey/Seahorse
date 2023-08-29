@@ -63,8 +63,9 @@ public class FunctionFrame extends StackFrame {
                        RuntimeCallable callable, 
                        int instrIndex, 
                        ArgVector initialArgs,
-                       ReturnAction action) {
-    super(hostModule, initialArgs, action);
+                       ReturnAction action,
+                       Fiber fiber) {
+    super(hostModule, initialArgs, action, fiber);
     this.callable = callable;
     this.instrs = callable.getCodeObject().getInstrs();
     this.hostModule = callable.getHostModule();
@@ -72,7 +73,7 @@ public class FunctionFrame extends StackFrame {
     this.instrIndex = instrIndex;
   }  
 
-  public StackFrame run(HeapAllocator allocator, Fiber thread) {
+  public StackFrame run(HeapAllocator allocator) {
 
     if (getError() != null) {
       if (hasInstrLeft() && getCurrInstr().getExceptionJumpIndex() >= 0) {
@@ -102,145 +103,145 @@ public class FunctionFrame extends StackFrame {
         case LABEL:
           break;
         case ADD:
-          frame = binAdd(instr, thread, allocator);
+          frame = binAdd(instr, allocator);
           break;
         case ALLOCA:
-          frame = allocateArray(instr, thread, allocator);
+          frame = allocateArray(instr, allocator);
           break;
         case ALLOCF:
-          frame = allocateFunc(instr, thread, allocator);
+          frame = allocateFunc(instr, allocator);
           break;
         case ALLOCO:
-          frame = allocateObject(instr, thread, allocator);
+          frame = allocateObject(instr, allocator);
           break;
         case ARG:
-          frame = arg(instr, thread, allocator);
+          frame = arg(instr, allocator);
           break;
         case BAND:
-          frame = binBitwiseAnd(instr, thread, allocator);
+          frame = binBitwiseAnd(instr, allocator);
           break;
         case BIND:
-          frame = bind(instr, thread, allocator);
+          frame = bind(instr, allocator);
           break;
         case BOR:
-          frame = binBitwiseOr(instr, thread, allocator);
+          frame = binBitwiseOr(instr, allocator);
           break;
         case CALL:
-          frame = call(instr, thread, allocator);
+          frame = call(instr, allocator);
           break;
         case CONSTMV:
-          frame = constantModuleVar(instr, thread, allocator);
+          frame = constantModuleVar(instr, allocator);
           break;
         case DEC:
-          frame = dec(instr, thread, allocator);
+          frame = dec(instr, allocator);
           break;
         case DIV:
-          frame = binDiv(instr, thread, allocator);
+          frame = binDiv(instr, allocator);
           break;
         case EQUAL:
-          frame = equality(instr, thread, allocator);
+          frame = equality(instr, allocator);
           break;
         case EXPORTMV:
-          frame = exportModuleVar(instr, thread, allocator);
+          frame = exportModuleVar(instr, allocator);
           break;
         case GREAT:
-          frame = binGreat(instr, thread, allocator);
+          frame = binGreat(instr, allocator);
           break;
         case GREATE:
-          frame = binGreatEqual(instr, thread, allocator);
+          frame = binGreatEqual(instr, allocator);
           break;
         case HAS_KARG:
-          frame = hasKeywordArg(instr, thread, allocator);
+          frame = hasKeywordArg(instr, allocator);
           break;
         case INC:
-          frame = inc(instr, thread, allocator);
+          frame = inc(instr, allocator);
           break;
         case JUMP:
-          frame = jump(instr, thread, allocator);
+          frame = jump(instr, allocator);
           break;
         case JUMPF:
-          frame = jumpFalse(instr, thread, allocator);
+          frame = jumpFalse(instr, allocator);
           break;
         case JUMPT:
-          frame = jumpTrue(instr, thread, allocator);
+          frame = jumpTrue(instr, allocator);
           break;
         case LESS:
-          frame = binLess(instr, thread, allocator);
+          frame = binLess(instr, allocator);
           break;
         case LESSE:
-          frame = binLessEqual(instr, thread, allocator);
+          frame = binLessEqual(instr, allocator);
           break;
         case LOAD:
-          frame = loadLocal(instr, thread, allocator);
+          frame = loadLocal(instr, allocator);
           break;
         case LOADATTR:
-          frame = loadAttr(instr, thread, allocator);
+          frame = loadAttr(instr, allocator);
           break;
         case LOADC:
-          frame = loadConstant(instr, thread, allocator);
+          frame = loadConstant(instr, allocator);
           break;
         case LOADIN:
-          frame = loadIndex(instr, thread, allocator);
+          frame = loadIndex(instr, allocator);
           break;
         case LOADMOD:
-          frame = loadModule(instr, thread, allocator);
+          frame = loadModule(instr, allocator);
           break;
         case LOADMV:
-          frame = loadModuleVar(instr, thread, allocator);
+          frame = loadModuleVar(instr, allocator);
           break;
         case LOADNULL:
-          frame = loadNull(instr, thread, allocator);
+          frame = loadNull(instr, allocator);
           break;
         case LOAD_CL:
-          frame = loadCapture(instr, thread, allocator);
+          frame = loadCapture(instr, allocator);
           break;
         case MAKEARGV:
-          frame = makeArgV(instr, thread, allocator);
+          frame = makeArgV(instr, allocator);
           break;
         case MAKECONST:
-          frame = makeConstant(instr, thread, allocator);
+          frame = makeConstant(instr, allocator);
           break;
         case MOD:
-          frame = binMod(instr, thread, allocator);
+          frame = binMod(instr, allocator);
           break;
         case MUL:
-          frame = binMul(instr, thread, allocator);
+          frame = binMul(instr, allocator);
           break;
         case NEG:
-          frame = negative(instr, thread, allocator);
+          frame = negative(instr, allocator);
           break;
         case NOT:
-          frame = not(instr, thread, allocator);
+          frame = not(instr, allocator);
           break;
         case POPERR:
-          frame = popError(instr, thread, allocator);
+          frame = popError(instr, allocator);
           break;
         case RET:
-          frame = returnFrame(instr, thread, allocator);
+          frame = returnFrame(instr, allocator);
           break;
         case RETE:
-          frame = throwError(instr, thread, allocator);
+          frame = throwError(instr, allocator);
           break;
         case SEAL:
-          frame = sealObject(instr, thread, allocator);
+          frame = sealObject(instr, allocator);
           break;
         case STORE:
-          frame = storeLocal(instr, thread, allocator);
+          frame = storeLocal(instr, allocator);
           break;
         case STOREATTR:
-          frame = storeAttr(instr, thread, allocator);
+          frame = storeAttr(instr, allocator);
           break;
         case STOREIN:
-          frame = storeIndex(instr, thread, allocator);
+          frame = storeIndex(instr, allocator);
           break;
         case STOREMV:
-          frame = storeModuleVar(instr, thread, allocator);
+          frame = storeModuleVar(instr, allocator);
           break;
         case STORE_CL:
-          frame = storeCapture(instr, thread, allocator);
+          frame = storeCapture(instr, allocator);
           break;
         case SUB:
-          frame = binMinus(instr, thread, allocator);
+          frame = binMinus(instr, allocator);
           break;
       }
 
@@ -259,7 +260,7 @@ public class FunctionFrame extends StackFrame {
 
   // Bytecode dispatch methods - START
 
-  private StackFrame binAdd(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binAdd(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
 
@@ -277,7 +278,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binMinus(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binMinus(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
 
@@ -295,7 +296,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binMul(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binMul(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -313,7 +314,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binDiv(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binDiv(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -331,7 +332,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binBitwiseAnd(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binBitwiseAnd(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -349,7 +350,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binBitwiseOr(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binBitwiseOr(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -367,7 +368,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binLess(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binLess(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -385,7 +386,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binGreat(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binGreat(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -403,7 +404,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binLessEqual(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binLessEqual(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -421,7 +422,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binGreatEqual(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binGreatEqual(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -439,7 +440,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame binMod(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame binMod(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
     
@@ -457,7 +458,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame inc(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame inc(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance target = popOperand();
 
     try {
@@ -474,7 +475,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame negative(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame negative(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance target = popOperand();
     
     final RuntimeInstance result = RuntimeUtils.negative(target, allocator);
@@ -494,7 +495,7 @@ public class FunctionFrame extends StackFrame {
                         "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+target.getClass());
   }
 
-  private StackFrame not(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame not(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance target = popOperand();
     
     final RuntimeInstance result = RuntimeUtils.negate(target, allocator);
@@ -514,7 +515,7 @@ public class FunctionFrame extends StackFrame {
                         "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+target.getClass());
   }
 
-  private StackFrame dec(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame dec(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance target = popOperand();
     
     try {
@@ -548,7 +549,7 @@ public class FunctionFrame extends StackFrame {
                         "Unsupported operation for "+opFuncName.getOpCode().name().toLowerCase()+" on "+left.getClass());
   }
 
-  private StackFrame call(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame call(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance callable = popOperand();
     final ArgVector args = (ArgVector) popOperand();   
     
@@ -576,7 +577,7 @@ public class FunctionFrame extends StackFrame {
     }                         
   }
 
-  private StackFrame jump(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame jump(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction jumpInstr = (ArgInstruction) instr;
     instrIndex = jumpInstr.getArgument() - 1;
     //frame.setInstrIndex(jumpInstr.getArgument());
@@ -584,7 +585,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame jumpTrue(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame jumpTrue(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction jumpInstr = (ArgInstruction) instr;
     final RuntimeInstance boolValue = popOperand();
     /*
@@ -604,7 +605,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame jumpFalse(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame jumpFalse(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction jumpInstr = (ArgInstruction) instr;
     final RuntimeInstance boolValue = popOperand();
     /*
@@ -623,12 +624,12 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame returnFrame(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame returnFrame(RuntimeInstruction instr, HeapAllocator allocator) {
     returnValue(popOperand());
     return null;
   }
 
-  private StackFrame throwError(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame throwError(RuntimeInstruction instr, HeapAllocator allocator) {
     RuntimeInstance potentialException = popOperand();
           
     RuntimeError error = null;
@@ -666,18 +667,18 @@ public class FunctionFrame extends StackFrame {
     return prepareErrorJump(instr, allocator, error.getMessage());
   }
 
-  private StackFrame popError(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame popError(RuntimeInstruction instr, HeapAllocator allocator) {
     pushOperand(getError().getErrorObject());
     returnError(null);
     return this;
   }
 
-  private StackFrame makeArgV(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame makeArgV(RuntimeInstruction instr, HeapAllocator allocator) {
     pushOperand(new ArgVector());
     return this;
   }
 
-  private StackFrame arg(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame arg(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction argInstr = (ArgInstruction) instr;          
     //Pop the actual argument
     final RuntimeInstance argValue = popOperand();
@@ -700,15 +701,15 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame loadConstant(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame loadConstant(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction loadcInstr = (ArgInstruction) instr;
-    RuntimeInstance constant = hostModule.getConstant(loadcInstr.getArgument());
+    RuntimeInstance constant = constantMap[loadcInstr.getArgument()];
     pushOperand(constant);
     LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
     return this;
   }
 
-  private StackFrame loadLocal(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame loadLocal(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
 
     //System.out.println(" ------- LOAD: LOCAL VARS: "+getLocalVars().length+", "+loadInstr.getIndex()+" | AT: "+hashCode());
@@ -716,7 +717,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame storeLocal(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame storeLocal(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
     final RuntimeInstance value = popOperand();
 
@@ -726,7 +727,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame loadAttr(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame loadAttr(RuntimeInstruction instr, HeapAllocator allocator) {
     //final long start = System.nanoTime();
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(loadInstr.getArgument())).getValue();
@@ -748,7 +749,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame storeAttr(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame storeAttr(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(storeInstr.getArgument())).getValue();
     final RuntimeInstance object = popOperand();
@@ -765,13 +766,13 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame loadNull(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
-    System.out.println(" => null: "+instr);
+  private StackFrame loadNull(RuntimeInstruction instr, HeapAllocator allocator) {
+    //System.out.println(" => null: "+instr);
     pushOperand(RuntimeNull.NULL);
     return this;
   }
 
-  private StackFrame loadCapture(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame loadCapture(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
 
     //System.out.println(" ------- LOAD: LOCAL VARS: "+getLocalVars().length+", "+loadInstr.getIndex()+" | AT: "+hashCode());
@@ -779,7 +780,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame storeCapture(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame storeCapture(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
     final RuntimeInstance value = popOperand();
 
@@ -789,7 +790,7 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
-  private StackFrame loadModuleVar(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) {
+  private StackFrame loadModuleVar(RuntimeInstruction instr, HeapAllocator allocator) {
     final long methodStart = System.nanoTime();
 
     final ArgInstruction loadInstr = (ArgInstruction) instr;
@@ -808,7 +809,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame storeModuleVar(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) { 
+  private StackFrame storeModuleVar(RuntimeInstruction instr, HeapAllocator allocator) { 
     final ArgInstruction storeInstr = (ArgInstruction) instr;      
     final RuntimeInstance newValue = popOperand();
     final String attrName = ((RuntimeString) hostModule.getConstant(storeInstr.getArgument())).getValue();
@@ -823,7 +824,7 @@ public class FunctionFrame extends StackFrame {
     }
   }
 
-  private StackFrame loadIndex(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) { 
+  private StackFrame loadIndex(RuntimeInstruction instr, HeapAllocator allocator) { 
     final RuntimeInstance index = popOperand();
     final RuntimeInstance target = popOperand();
 
@@ -843,7 +844,7 @@ public class FunctionFrame extends StackFrame {
     }                                 
   }
 
-  private StackFrame storeIndex(RuntimeInstruction instr, Fiber fiber, HeapAllocator allocator) { 
+  private StackFrame storeIndex(RuntimeInstruction instr, HeapAllocator allocator) { 
     final RuntimeInstance value = popOperand();
     final RuntimeInstance index = popOperand();
     final RuntimeInstance target = popOperand();
@@ -865,7 +866,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame loadModule(RuntimeInstruction instr,
-                                Fiber fiber,
                                 HeapAllocator allocator) {
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     if(loadInstr.getArgument() < 0) {
@@ -903,7 +903,6 @@ public class FunctionFrame extends StackFrame {
   }                                 
 
   private StackFrame exportModuleVar(RuntimeInstruction instr, 
-                                     Fiber fiber,
                                      HeapAllocator allocator) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
     final String varName = ((RuntimeString) hostModule.getConstant(exportInstr.getArgument())).getValue();
@@ -923,12 +922,11 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame constantModuleVar(RuntimeInstruction instr, 
-                                       Fiber fiber,
                                        HeapAllocator allocator) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
     final String varName = ((RuntimeString) hostModule.getConstant(exportInstr.getArgument())).getValue();
 
-    System.out.println("===> making module variable "+varName+" constant!");
+    //System.out.println("===> making module variable "+varName+" constant!");
     //System.out.println("===> FOR MODULE: "+System.lineSeparator()+getHostModule());
 
     final RuntimeInstance value = popOperand();
@@ -946,7 +944,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame allocateFunc(RuntimeInstruction instr, 
-                                  Fiber fiber,
                                   HeapAllocator allocator) {
     final RuntimeInstance codeObject = popOperand();
     if (codeObject instanceof RuntimeCodeObject) {
@@ -971,7 +968,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame allocateArray(RuntimeInstruction instr, 
-                                   Fiber fiber,
                                    HeapAllocator allocator) {
     final ArgVector args = (ArgVector) popOperand();
     final RuntimeArray array = allocator.allocateEmptyArray();
@@ -987,7 +983,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame allocateObject(RuntimeInstruction instr, 
-                                    Fiber fiber,
                                     HeapAllocator allocator) {
     final ArgInstruction alloco = (ArgInstruction) instr;
     final ArgVector args = (ArgVector) popOperand();
@@ -1014,7 +1009,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame bind(RuntimeInstruction instr, 
-                          Fiber fiber,
                           HeapAllocator allocator) {
     Callable func = (Callable) popOperand();
     final RuntimeInstance newSelf = popOperand();
@@ -1026,7 +1020,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame makeConstant(RuntimeInstruction instr, 
-                                  Fiber fiber,
                                   HeapAllocator allocator) {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
 
@@ -1046,7 +1039,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame sealObject(RuntimeInstruction instr, 
-                                Fiber fiber,
                                 HeapAllocator allocator) {
     final RuntimeInstance obj = popOperand();
     obj.seal();
@@ -1056,7 +1048,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame hasKeywordArg(RuntimeInstruction instr, 
-                                   Fiber fiber,
                                    HeapAllocator allocator) {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(hasInstr.getArgument())).getValue();
@@ -1068,7 +1059,6 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame equality(RuntimeInstruction instr, 
-                              Fiber fiber,
                               HeapAllocator allocator) {
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
@@ -1094,7 +1084,7 @@ public class FunctionFrame extends StackFrame {
         ArgVector args = new ArgVector(right);
         
         try {
-          StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, null);
+          StackFrame newFrame = fiber.makeFrame(actualCallable, args, allocator, null);
           instrIndex++;
           return newFrame;
         } catch (CallSiteException e) {
@@ -1200,7 +1190,7 @@ public class FunctionFrame extends StackFrame {
           return this;
         }
         else {
-          final StackFrame newFrame = StackFrame.makeFrame(actualCallable, args, allocator, returnAction);
+          final StackFrame newFrame = fiber.makeFrame(actualCallable, args, allocator, returnAction);
           instrIndex++;
           return newFrame;
         }
