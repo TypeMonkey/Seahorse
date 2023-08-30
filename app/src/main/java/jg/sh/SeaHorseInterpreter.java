@@ -203,7 +203,7 @@ public class SeaHorseInterpreter {
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     options.put(IOption.MEASURE, true);
     options.put(IOption.MODULE_SEARCH, StringUtils.wrap("../sampleSrcs"));
-    options.put(IOption.POOL_SIZE, 2);
+    options.put(IOption.POOL_SIZE, 1);
     options.put(IOption.LOG_LEVEL, "OFF");
     options.put(IOption.COMP_TO_BYTE, true);
     

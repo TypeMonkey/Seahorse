@@ -1,5 +1,6 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -58,7 +59,6 @@ public abstract class StackFrame implements Markable {
   //private static final int LOCAL_VAR_INIT_AMOUNT = 1;
 
   protected final Fiber fiber;
-  protected final Stack<RuntimeInstance> operandStack;
   protected final ArgVector initialArgs;
   protected final ReturnAction action;
   
@@ -73,7 +73,6 @@ public abstract class StackFrame implements Markable {
                     ReturnAction action,
                     Fiber fiber) {
     this.localVars = new RuntimeInstance[0];
-    this.operandStack = fiber.getOperandStack();
     this.fiber = fiber;
     this.initialArgs = initialArgs;
     this.action = action;
@@ -130,30 +129,23 @@ public abstract class StackFrame implements Markable {
   }
   
   public void pushOperand(RuntimeInstance value) {
-    long start = System.nanoTime();
-    operandStack.push(value);
-    long end = System.nanoTime();
-    GeneralMetrics.addTimes(Meaures.PUSH_OPERAND, end - start);
+    fiber.pushOperand(value);
+  }
+
+  public RuntimeInstance popOperand() {
+    return fiber.popOperand();
+  }
+
+  public RuntimeInstance peekOperand() {
+    return fiber.peekOperand();
+  }
+  
+  public boolean hasOperand() {
+    return !fiber.isOpStackEmpty();
   }
 
   public boolean isDone() {
     return isDone;
-  }
-  
-  public RuntimeInstance popOperand() {
-    return operandStack.pop();
-  }
-  
-  public RuntimeInstance peekOperand() {
-    return operandStack.peek();
-  }
-  
-  public boolean hasOperand() {
-    return !operandStack.isEmpty();
-  }
-  
-  public Stack<RuntimeInstance> getOperandStack() {
-    return operandStack;
   }
   
   public RuntimeInstance [] getLocalVars() {
@@ -176,6 +168,7 @@ public abstract class StackFrame implements Markable {
   
   @Override
   public void gcMark(Cleaner cleaner) {
+    /*
     cleaner.gcMarkObject(getCallable());
     
     //System.out.println(" marking frame: "+current.getClass()+"  "+current);
@@ -194,6 +187,7 @@ public abstract class StackFrame implements Markable {
     }
     
     markAdditional(cleaner);
+    */
   }
   
   protected abstract void markAdditional(Cleaner allocator);
@@ -207,7 +201,7 @@ public abstract class StackFrame implements Markable {
   }
   
   public void clearOpStack() {
-    operandStack.clear();
+    fiber.clearOpStack();
   }
 
   public Fiber getFiber() {

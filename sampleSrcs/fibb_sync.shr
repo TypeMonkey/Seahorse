@@ -52,8 +52,27 @@ println("Result: "+value+" @ "+fastElasped+" ns | slow "+valueSlow+" @ "+slowEla
 
 //println("Result: slow "+valueSlow+" @ "+slowElasped+" ns | ");
 
+/*
+var i := 0;
+const times := [];
+
+while(i < 10) {
+  var startF := now();
+  var value := fib(28);
+  var endF := now();
+  times.add((endF - startF));
+  println(" -> "+times);
+
+  i += 1;
+}
+
+println("*** fib(28) TIMES: "+times);
+*/
+
+
 const startF := now();
-const value := fibSlow(28);
+const value := fib(28);
 const endF := now();
-println("*** fibSlow(28) Time: "+(endF - startF));
+println("*** fib(28) Time: "+(endF - startF));
 println("Result: "+value);
+

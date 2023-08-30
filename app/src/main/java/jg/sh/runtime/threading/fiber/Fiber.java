@@ -1,5 +1,7 @@
 package jg.sh.runtime.threading.fiber;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Stack;
@@ -31,7 +33,6 @@ import jg.sh.runtime.threading.frames.JavaFrame;
 import jg.sh.runtime.threading.frames.ReturnAction;
 import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
-import jg.sh.util.CachedStack;
 import jg.sh.util.RuntimeUtils;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
@@ -115,8 +116,8 @@ public class Fiber extends RuntimeInstance {
   private final HeapAllocator allocator;
   private final ModuleFinder finder;
   private final ThreadManager manager;
-  private final Stack<StackFrame> callStack;
-  private final Stack<RuntimeInstance> operandStack;
+  private final Deque<StackFrame> callStack;
+  private final Deque<RuntimeInstance> operandStack;
   private final Cleaner cleaner;
   private final int fiberID;
   protected final Consumer<Fiber> fiberReporter;
@@ -175,8 +176,8 @@ public class Fiber extends RuntimeInstance {
     this.finder = finder;
     this.manager = manager;
     this.cleaner = cleaner;
-    this.callStack = new Stack<>();
-    this.operandStack = new CachedStack<>();
+    this.callStack = new ArrayDeque<>();
+    this.operandStack = new ArrayDeque<>();
     this.fiberID = FIBER_ID_COUNTER++;
     this.startTime = -1;
     this.endTime = -1;
@@ -323,15 +324,15 @@ public class Fiber extends RuntimeInstance {
    * @args args - the arguments meant to pass to this RuntimeCallable
    */
   public void queueFrame(StackFrame frame) {
-    callStack.push(frame);
+    pushFrame(frame);
   }
 
   /**
    * Advances this Fiber by one function frame.
    */
   public void advanceFrame() {
-    if (!callStack.isEmpty()) {
-      StackFrame topFrame = callStack.pop();
+    if (!isCallStackEmpty()) {
+      StackFrame topFrame = popFrame();
 
       //Set start time, if needed
       startTime = startTime < 0 ? System.nanoTime() : startTime;
@@ -341,8 +342,8 @@ public class Fiber extends RuntimeInstance {
         //error flag set, or frame was done (returned value)
         if (topFrame.hasError()) {
           //error flag was set
-          if (!callStack.isEmpty()) {
-            callStack.peek().returnError(topFrame.getError().getErrorObject());
+          if (!isCallStackEmpty()) {
+            peekFrame().returnError(topFrame.getError().getErrorObject());
           }
           else {
             leftOverException = topFrame.getError();
@@ -350,8 +351,8 @@ public class Fiber extends RuntimeInstance {
         }
         else {
           //topFrame is done.
-          if (!callStack.isEmpty()) {
-            callStack.peek().pushOperand(topFrame.popOperand());
+          if (!isCallStackEmpty()) {
+            pushOperand(topFrame.popOperand());
           }
           else {
             //System.out.println("   -> got new frame: "+topFrame.hasOperand()+" | "+topFrame.hashCode()+" | "+topFrame.getClass());
@@ -361,9 +362,9 @@ public class Fiber extends RuntimeInstance {
       }
       else {
         if(!topFrame.isDone()) {
-          callStack.push(topFrame);
+          pushFrame(topFrame);
         }
-        callStack.push(current);
+        pushFrame(current);
       }      
     }        
   }
@@ -372,14 +373,177 @@ public class Fiber extends RuntimeInstance {
    * PRIVATE UTILITY METHODS - start
    */
 
+  private ArrayDeque<RuntimeInstance> newWholeDeque() {
+    final ArrayDeque<RuntimeInstance> newDeque = new ArrayDeque<>(operandStack);
+    newDeque.push(t2);
+    newDeque.push(t1);
+    newDeque.push(t0);
+
+    return newDeque;
+  }
   
   /*
    * PRIVATE UTILITY METHODS - end 
    */
 
-   public int getFiberID() {
+  /*
+   * OPERAND STACK UTILITY METHODS - start 
+   */
+  private RuntimeInstance t0, t1, t2;
+
+  public void pushOperand(RuntimeInstance value) {
+    if(t0 == null) {
+      t0 = value;
+    }
+    else if(t1 == null) {
+      t1 = t0;
+      t0 = value;
+    }
+    else if(t2 == null) {
+      t2 = t1;
+      t1 = t0;
+      t0 = value;
+    }
+    else {
+      operandStack.push(t2);
+      t2 = t1;
+      t1 = t0;
+      t0 = value;
+    }
+  }
+
+  public RuntimeInstance popOperand() {
+    if(t0 != null) {
+      final RuntimeInstance temp = t0;
+      t0 = null;
+      return temp;
+    }
+    else if(t1 != null) {
+      final RuntimeInstance temp = t1;
+      t1 = null;
+      return temp;
+    }
+    else if(t2 != null) {
+      final RuntimeInstance temp = t2;
+      t2 = null;   
+      return temp;
+    }
+    else {
+      final RuntimeInstance res = operandStack.pop();
+
+      //Pull up the top three from the inner stack
+      t0 = operandStack.isEmpty() ? null : operandStack.pop();
+      t1 = operandStack.isEmpty() ? null : operandStack.pop();
+      t2 = operandStack.isEmpty() ? null : operandStack.pop();
+
+      return res;
+    }
+  }
+  
+  public RuntimeInstance peekOperand() {
+    return t0 == null ? (t1 == null ? (t2 == null ? operandStack.peek() : t2) : t1) : t0;
+  }
+
+  public Deque<RuntimeInstance> getFullOperandStack() {
+    return newWholeDeque();
+  }
+
+  public void clearOpStack() {
+    t0 = t1 = t2 = null;
+    operandStack.clear();
+  }
+
+  public boolean isOpStackEmpty() {
+    return t0 == null && t1 == null && t2 == null && operandStack.isEmpty();
+  }
+
+  /*
+   * OPERAND STACK UTILITY METHODS - end 
+   */
+
+  /*
+   * FRAME STACK UTILITY METHODS - start 
+   */
+  private StackFrame f0, f1, f2;
+
+  private void pushFrame(StackFrame frame) {
+    if(f0 == null) {
+      f0 = frame;
+    }
+    else if(f1 == null) {
+      f1 = f0;
+      f0 = frame;
+    }
+    else if(f2 == null) {
+      f2 = f1;
+      f1 = f0;
+      f0 = frame;
+    }
+    else {
+      callStack.push(f2);
+      f2 = f1;
+      f1 = f0;
+      f0 = frame;
+    }
+  }
+
+  private StackFrame popFrame() {
+    if(f0 != null) {
+      final StackFrame temp = f0;
+      f0 = null;
+      return temp;
+    }
+    else if(f1 != null) {
+      final StackFrame temp = f1;
+      f1 = null;
+      return temp;
+    }
+    else if(f2 != null) {
+      final StackFrame temp = f2;
+      f2 = null;   
+      return temp;
+    }
+    else {
+      final StackFrame res = callStack.pop();
+
+      //Pull up the top three from the inner stack
+      f0 = callStack.isEmpty() ? null : callStack.pop();
+      f1 = callStack.isEmpty() ? null : callStack.pop();
+      f2 = callStack.isEmpty() ? null : callStack.pop();
+
+      return res;
+    }
+  }
+  
+  private StackFrame peekFrame() {
+    return f0 == null ? (f1 == null ? (f2 == null ? callStack.peek() : f2) : f1) : f0;
+  }
+
+  private Deque<StackFrame> getFullCallStack() {
+    final ArrayDeque<StackFrame> newDeque = new ArrayDeque<>(callStack);
+    newDeque.push(f2);
+    newDeque.push(f1);
+    newDeque.push(f0);
+
+    return newDeque;
+  }
+
+  private void clearCallStack() {
+    f0 = f1 = f2 = null;
+    callStack.clear();
+  }
+
+  private boolean isCallStackEmpty() {
+    return f0 == null && f1 == null && f2 == null && callStack.isEmpty();
+  }
+
+  /*
+   * FRAME STACK UTILITY METHODS - end 
+   */
+
+  public int getFiberID() {
     return fiberID;
-   }
+  }
 
   /**
    * Returns this Executor's HeapAllocator
@@ -394,7 +558,7 @@ public class Fiber extends RuntimeInstance {
    * @return true if a StackFrame is present in this Executor's FunctionStack, false if there isn't
    */
   public boolean hasFrame() {
-    return !callStack.isEmpty();
+    return !isCallStackEmpty();
   }
 
   /**
@@ -435,8 +599,8 @@ public class Fiber extends RuntimeInstance {
    * Returns the call stack of this Executor
    * @return the call stack of this Executor.
    */
-  public Stack<StackFrame> getCallStack() {
-    return callStack;
+  public Deque<StackFrame> getCallStack() {
+    return getFullCallStack();
   }
   
   /**
@@ -479,7 +643,7 @@ public class Fiber extends RuntimeInstance {
    * Returns this Fiber's operand stack
    * @return this Fiber's operand stack
    */
-  public Stack<RuntimeInstance> getOperandStack() {
-    return operandStack;
+  public Deque<RuntimeInstance> getOperandStack() {
+    return getFullOperandStack();
   }
 }
