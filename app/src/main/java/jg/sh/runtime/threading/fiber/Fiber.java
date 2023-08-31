@@ -7,7 +7,9 @@ import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.modules.builtin.SystemModule;
@@ -15,6 +17,7 @@ import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.ModuleFinder;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
@@ -33,6 +36,7 @@ import jg.sh.runtime.threading.frames.JavaFrame;
 import jg.sh.runtime.threading.frames.ReturnAction;
 import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
+import jg.sh.runtime.threading.stackops.TopModifier;
 import jg.sh.util.RuntimeUtils;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
@@ -410,6 +414,44 @@ public class Fiber extends RuntimeInstance {
       t1 = t0;
       t0 = value;
     }
+  }
+
+  public StackFrame modifyTopOperand(TopModifier modifier, 
+                                     StackFrame continuance,
+                                     BiFunction<RuntimeInstance, OperationException, StackFrame> errorHandler) {
+    
+    if(t0 != null) {
+      try {
+        t0 = modifier.modify(t0);
+      } catch (OperationException e) {
+        return errorHandler.apply(t0, e);
+      }
+    }
+    else if(t1 != null) {
+      try {
+        t1 = modifier.modify(t1);
+      } catch (OperationException e) {
+        return errorHandler.apply(t1, e);
+      }
+    }
+    else if(t2 != null) {
+      try {
+        t2 = modifier.modify(t2);
+      } catch (OperationException e) {
+        return errorHandler.apply(t2, e);
+      }
+    }
+    else {
+      final RuntimeInstance top = popOperand();
+      try {
+        final RuntimeInstance modified = modifier.modify(top);
+        pushOperand(modified);
+      } catch (OperationException e) {
+        return errorHandler.apply(top, e);
+      }
+    }
+
+    return continuance;
   }
 
   public RuntimeInstance popOperand() {

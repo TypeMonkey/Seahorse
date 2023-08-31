@@ -1,5 +1,5 @@
 use system:println, now;
-//use verysimple;
+use verysimple;
 
 func fibSlow(n){
   if(n < 0){

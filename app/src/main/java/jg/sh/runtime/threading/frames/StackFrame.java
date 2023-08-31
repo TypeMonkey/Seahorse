@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Map.Entry;
+import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Sets;
@@ -16,6 +18,7 @@ import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.CallSiteException;
 import jg.sh.runtime.exceptions.InvocationException;
+import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
@@ -27,6 +30,7 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.runtime.threading.stackops.TopModifier;
 import jg.sh.util.RuntimeUtils;
 
 /**
@@ -130,6 +134,12 @@ public abstract class StackFrame implements Markable {
   
   public void pushOperand(RuntimeInstance value) {
     fiber.pushOperand(value);
+  }
+
+  public StackFrame modifyTopOperand(TopModifier modifier, 
+                               StackFrame continuance,
+                               BiFunction<RuntimeInstance, OperationException, StackFrame> errorHandler){
+    return fiber.modifyTopOperand(modifier, continuance, errorHandler);
   }
 
   public RuntimeInstance popOperand() {

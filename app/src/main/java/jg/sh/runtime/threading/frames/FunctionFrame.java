@@ -459,23 +459,32 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame inc(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance target = popOperand();
-
-    try {
-      final RuntimeInstance result = target.$inc(allocator);
-      pushOperand(result);
-      return this;
-    } catch (OperationException e) {
+    return modifyTopOperand((top) -> top.$inc(allocator), this, (top, err) -> {
       return binaryArithCall(allocator, 
                              fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                              instr, 
-                             target, 
+                             top, 
                              allocator.allocateInt(1));
-    }
+    });
   }
 
   private StackFrame negative(RuntimeInstruction instr, HeapAllocator allocator) {
+    return modifyTopOperand(
+      (top) -> {
+        final RuntimeInstance result = RuntimeUtils.negative(top, allocator);
+        if (result != null) {
+          return result;
+        }
+        
+        
+      }, 
+      this, 
+      (top, err) -> {
+        return null;
+      });
+
+    /*
     final RuntimeInstance target = popOperand();
     
     final RuntimeInstance result = RuntimeUtils.negative(target, allocator);
@@ -493,6 +502,7 @@ public class FunctionFrame extends StackFrame {
                         new ArgVector(), 
                         "Value for "+coupling.getOpCode().name().toLowerCase()+" isn't callable.", 
                         "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+target.getClass());
+    */
   }
 
   private StackFrame not(RuntimeInstruction instr, HeapAllocator allocator) {
@@ -1024,13 +1034,12 @@ public class FunctionFrame extends StackFrame {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
 
     final RuntimeInstance attrValue = popOperand();
-    final RuntimeInstance targetObj = popOperand();
+    final RuntimeInstance targetObj = peekOperand();
     final String attrName = ((RuntimeString) hostModule.getConstant(hasInstr.getArgument())).getValue();
 
     try {
       targetObj.setAttribute(attrName, attrValue);
       targetObj.appendAttrModifier(attrName, AttrModifier.CONSTANT);
-      pushOperand(targetObj);
     } catch (OperationException e) {
       return prepareErrorJump(hasInstr, allocator, "Cannot make '"+attrName+"' constant: "+e.getMessage());
     }   
@@ -1040,9 +1049,8 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame sealObject(RuntimeInstruction instr, 
                                 HeapAllocator allocator) {
-    final RuntimeInstance obj = popOperand();
+    final RuntimeInstance obj = peekOperand();
     obj.seal();
-    pushOperand(obj);  
     
     return this;
   }
