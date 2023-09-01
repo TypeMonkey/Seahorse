@@ -71,8 +71,8 @@ println("*** fib(28) TIMES: "+times);
 
 
 const startF := now();
-const value := fib(28);
+const value := fibSlow(28);
 const endF := now();
-println("*** fib(28) Time: "+(endF - startF));
+println("*** fibSlow(28) Time: "+(endF - startF));
 println("Result: "+value);
 
