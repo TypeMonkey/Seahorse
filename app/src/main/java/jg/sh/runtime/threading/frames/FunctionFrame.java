@@ -268,7 +268,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$add(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                                                            instr, 
                                                            left, 
@@ -280,7 +279,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$sub(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.SUB), 
                                                            instr, 
                                                            left, 
@@ -291,7 +289,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$mul(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.MUL), 
                                                            instr, 
                                                            left, 
@@ -302,7 +299,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$div(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.DIV), 
                                                            instr, 
                                                            left, 
@@ -313,7 +309,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$band(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.BAND), 
                                                            instr, 
                                                            left, 
@@ -324,7 +319,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$bor(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.BOR), 
                                                            instr, 
                                                            left, 
@@ -335,7 +329,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$less(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.LESS), 
                                                            instr, 
                                                            left, 
@@ -346,7 +339,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$great(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.GREAT), 
                                                            instr, 
                                                            left, 
@@ -357,7 +349,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$lesse(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.LESSE), 
                                                            instr, 
                                                            left, 
@@ -368,7 +359,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$greate(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.GREATE), 
                                                            instr, 
                                                            left, 
@@ -379,7 +369,6 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((right, left) -> left.$mod(right, allocator), 
                                this, 
                                (right, left, err) -> binaryArithCall(allocator, 
-                                                           fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.MOD), 
                                                            instr, 
                                                            left, 
@@ -392,7 +381,6 @@ public class FunctionFrame extends StackFrame {
       this, 
       (top, err) -> {
         return binaryArithCall(allocator, 
-                              fiber, 
                               FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                               instr, 
                               top, 
@@ -407,7 +395,6 @@ public class FunctionFrame extends StackFrame {
       (top, err) -> {
         final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NEG);
         return checkAndCall(allocator, 
-                            fiber, 
                             instr, 
                             top, 
                             coupling.getFuncName(), 
@@ -444,7 +431,6 @@ public class FunctionFrame extends StackFrame {
       (top, err) -> {
         final FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(OpCode.NOT);
         return checkAndCall(allocator, 
-                            fiber, 
                             instr, 
                             top, 
                             coupling.getFuncName(), 
@@ -457,7 +443,6 @@ public class FunctionFrame extends StackFrame {
   private StackFrame dec(RuntimeInstruction instr, HeapAllocator allocator) {
     return modifyTopOperand((top) -> top.$dec(allocator), this, (top, err) -> {
       return binaryArithCall(allocator, 
-                             fiber, 
                              FuncOperatorCoupling.getCoupling(OpCode.SUB), 
                              instr, 
                              top, 
@@ -466,14 +451,12 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame binaryArithCall(HeapAllocator allocator, 
-                                     Fiber fiber,
                                      FuncOperatorCoupling opFuncName,
                                      RuntimeInstruction instruction, 
                                      RuntimeInstance left, 
                                      RuntimeInstance right) {
     LOG.trace(" For: "+instruction+" => Not numerical operands. Will call overloaded operator implementation!");
     return checkAndCall(allocator, 
-                        fiber, 
                         instruction, 
                         right, 
                         opFuncName.getFuncName(), 
@@ -484,10 +467,10 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame call(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance callable = popOperand();
-    final ArgVector args = (ArgVector) popOperand();   
+    final ArgVector args = (ArgVector) popOperand();    
     
     if (callable instanceof Callable) {
-      return generalCall(allocator, fiber, instr, callable, args, "");
+      return generalCall(allocator, instr, callable, args, "");
     }
     else if(callable instanceof RuntimeDataRecord) {
       final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
@@ -503,7 +486,7 @@ public class FunctionFrame extends StackFrame {
         }
       };
 
-      return generalCall(allocator, fiber, instr, actualCallable, args, "", action);
+      return generalCall(allocator, instr, actualCallable, args, "", action);
     }   
     else {
       return prepareErrorJump(instr, allocator, "Target isn't callable "+callable.getClass());
@@ -801,7 +784,6 @@ public class FunctionFrame extends StackFrame {
       this, 
       (index, target, err) -> 
              checkAndCall(allocator, 
-                          fiber, 
                           instr, 
                           target, 
                           RuntimeArray.RETR_INDEX_ATTR, 
@@ -840,7 +822,6 @@ public class FunctionFrame extends StackFrame {
       this, 
       (index, target, err) -> 
              checkAndCall(allocator, 
-                          fiber, 
                           instr, 
                           target, 
                           RuntimeArray.STORE_INDEX_ATTR, 
@@ -884,7 +865,6 @@ public class FunctionFrame extends StackFrame {
 
         if (!otherModule.isLoaded()) {
           final StackFrame otherModuleFrame = generalCall(allocator, 
-                                                          fiber, 
                                                           loadInstr, 
                                                           otherModule.getModuleCallable(), 
                                                           new ArgVector(), 
@@ -946,8 +926,25 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame allocateFunc(RuntimeInstruction instr, 
                                   HeapAllocator allocator) {
+    return modifyTopTwoOperand((codeObject, self) -> {
+      if (codeObject instanceof RuntimeCodeObject) {
+        final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
+      
+        //Capture local variables based on the instr frame
+        final CellReference [] capturedLocals = new CellReference[actualCodeObject.getCaptures().length];
+        for(int dest = 0; dest < capturedLocals.length; dest++) {
+          capturedLocals[dest] = getCaptureReference(actualCodeObject.getCaptures()[dest]);
+        }
+
+        return allocator.allocateCallable(hostModule, self, actualCodeObject, capturedLocals);
+      }
+
+      throw new OperationException("Not a code object "+codeObject.getClass());
+    }, this, (codeObject, self, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
+
+    /*
     final RuntimeInstance codeObject = popOperand();
-    
+
     if (codeObject instanceof RuntimeCodeObject) {
       final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
       
@@ -968,7 +965,8 @@ public class FunctionFrame extends StackFrame {
     }
     else {
       return prepareErrorJump(instr, allocator, "Not a code object "+codeObject.getClass());
-    }                                    
+    }     
+    */                               
   }
 
   private StackFrame allocateArray(RuntimeInstruction instr, 
@@ -1097,7 +1095,7 @@ public class FunctionFrame extends StackFrame {
       (right, left, err) -> {
         if (err == null) {
           //Call overriden equals method in user-land
-          return binaryArithCall(allocator, fiber, coupling, instr, left, right);
+          return binaryArithCall(allocator, coupling, instr, left, right);
         }
         return prepareErrorJump(instr, allocator, err.getMessage());
       });
@@ -1146,8 +1144,19 @@ public class FunctionFrame extends StackFrame {
     */
   }
 
+  /**
+   * Attempts to invoke an object attribute as a function.
+   * 
+   * @param allocator - the HeapAllocator to use
+   * @param instr
+   * @param target
+   * @param funcName
+   * @param args
+   * @param notCallableError
+   * @param noAttrError
+   * @return
+   */
   private StackFrame checkAndCall(HeapAllocator allocator,
-                                  Fiber fiber,
                                   RuntimeInstruction instr,
                                   RuntimeInstance target, 
                                   String funcName, 
@@ -1160,7 +1169,7 @@ public class FunctionFrame extends StackFrame {
       return prepareErrorJump(instr, allocator, noAttrError);
     }
     else {
-      return generalCall(allocator, fiber, instr, potentialCallable, args, notCallableError);
+      return generalCall(allocator, instr, potentialCallable, args, notCallableError);
     }
   }
 
@@ -1187,12 +1196,11 @@ public class FunctionFrame extends StackFrame {
    * @return (See above)
    */
   private StackFrame generalCall(HeapAllocator allocator,
-                                 Fiber fiber,
                                  RuntimeInstruction instr,
                                  RuntimeInstance potentialCallable, 
                                  ArgVector args,
                                  String notCallableError) {
-    return generalCall(allocator, fiber, instr, potentialCallable, args, notCallableError, null);
+    return generalCall(allocator, instr, potentialCallable, args, notCallableError, null);
   }
 
   /**
@@ -1218,7 +1226,6 @@ public class FunctionFrame extends StackFrame {
    * @return (See above)
    */
   private StackFrame generalCall(HeapAllocator allocator,
-                                 Fiber fiber,
                                  RuntimeInstruction instr,
                                  RuntimeInstance potentialCallable, 
                                  ArgVector args,
