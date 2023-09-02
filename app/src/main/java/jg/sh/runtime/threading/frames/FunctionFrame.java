@@ -261,145 +261,128 @@ public class FunctionFrame extends StackFrame {
   // Bytecode dispatch methods - START
 
   private StackFrame binAdd(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
+    //final RuntimeInstance right = popOperand();
 
-    return modifyTopOperand((top) -> top.$add(right, allocator), 
-                            this, 
-                            (top, err) -> binaryArithCall(allocator, 
+    //System.out.println("===> ADDING: "+instr.getStart());
+
+    return modifyTopTwoOperand((right, left) -> left.$add(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.ADD), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
+
   }
 
   private StackFrame binMinus(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$sub(right, allocator), 
-                            this, 
-                            (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$sub(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.SUB), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
-  private StackFrame binMul(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-    
-    return modifyTopOperand((top) -> top.$mul(right, allocator), 
-                            this, 
-                            (top, err) -> binaryArithCall(allocator, 
+  private StackFrame binMul(RuntimeInstruction instr, HeapAllocator allocator) {    
+    return modifyTopTwoOperand((right, left) -> left.$mul(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.MUL), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binDiv(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-    
-    return modifyTopOperand((top) -> top.$div(right, allocator), 
-                            this, 
-                            (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$div(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.DIV), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binBitwiseAnd(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$band(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$band(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.BAND), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binBitwiseOr(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$bor(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$bor(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.BOR), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binLess(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-    
-    return modifyTopOperand((top) -> top.$less(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$less(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.LESS), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binGreat(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$great(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$great(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.GREAT), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binLessEqual(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$lesse(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$lesse(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.LESSE), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binGreatEqual(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-
-    return modifyTopOperand((top) -> top.$greate(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$greate(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.GREATE), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
   private StackFrame binMod(RuntimeInstruction instr, HeapAllocator allocator) {
-    final RuntimeInstance right = popOperand();
-    
-    return modifyTopOperand((top) -> top.$mod(right, allocator), 
-                             this, 
-                             (top, err) -> binaryArithCall(allocator, 
+    return modifyTopTwoOperand((right, left) -> left.$mod(right, allocator), 
+                               this, 
+                               (right, left, err) -> binaryArithCall(allocator, 
                                                            fiber, 
                                                            FuncOperatorCoupling.getCoupling(OpCode.MOD), 
                                                            instr, 
-                                                           top, 
+                                                           left, 
                                                            right));
   }
 
@@ -631,12 +614,30 @@ public class FunctionFrame extends StackFrame {
   private StackFrame arg(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction argInstr = (ArgInstruction) instr;          
     //Pop the actual argument
-    final RuntimeInstance argValue = popOperand();
+    //final RuntimeInstance argValue = popOperand();
     
-    ArgVector argVector = (ArgVector) peekOperand();
+    //ArgVector argVector = (ArgVector) peekOperand();
+
+    return modifyTopTwoOperand(
+      (argValue, argVectorInstance) -> {
+        final ArgVector argVector = (ArgVector) argVectorInstance;
+        if (argInstr.getArgument() >= 0) {
+          String argName = ((RuntimeString) hostModule.getConstant(argInstr.getArgument())).getValue();
+          argVector.setKeywordArg(argName, argValue);
+          //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
+        }
+        else {
+          argVector.addPositional(argValue);
+        }
+
+        return argVector;
+      }, 
+      this,
+      (argValue, argVector, error) -> prepareErrorJump(instr, allocator, "Couldn't add argument to ArgVector."));
 
     //System.out.println(" ===> arg instr!");
     
+    /*
     if (argInstr.getArgument() >= 0) {
       String argName = ((RuntimeString) hostModule.getConstant(argInstr.getArgument())).getValue();
       argVector.setKeywordArg(argName, argValue);
@@ -649,6 +650,7 @@ public class FunctionFrame extends StackFrame {
     
     //pushOperand(argVector);
     return this;
+    */
   }
 
   private StackFrame loadConstant(RuntimeInstruction instr, HeapAllocator allocator) {
@@ -681,22 +683,13 @@ public class FunctionFrame extends StackFrame {
     //final long start = System.nanoTime();
     final ArgInstruction loadInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(loadInstr.getArgument())).getValue();
-    final RuntimeInstance object = peekOperand();
     
     //System.out.println("====> object attr: "+object.attrs());
 
     return modifyTopOperand(
-      (top) -> {
-        final RuntimeInstance attrValue = object.getAttr(attrName);
-        if(attrValue != null) {
-          return attrValue;
-        }
-        throw new OperationException("'"+attrName+"' is unfound on object.");
-      }, 
+      (top) -> top.getAttr(attrName), 
       this, 
-      (top, err) -> {
-        return prepareErrorJump(instr, allocator, err.getMessage());
-      });
+      (top, err) -> prepareErrorJump(instr, allocator, "'"+attrName+"' is unfound on object."));
 
     /*
     final RuntimeInstance attrValue = object.getAttr(attrName);
@@ -717,11 +710,20 @@ public class FunctionFrame extends StackFrame {
   private StackFrame storeAttr(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(storeInstr.getArgument())).getValue();
-    final RuntimeInstance object = popOperand();
-    final RuntimeInstance value = popOperand();
+    //final RuntimeInstance object = popOperand();
+    //final RuntimeInstance value = popOperand();
+
+    return modifyTopTwoOperand(
+      (object, value) -> { 
+        object.setAttribute(attrName, value); 
+        return object; 
+      }, 
+      this, 
+      (object, value, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
 
     //System.out.println(" ===> STORING ATTR: "+attrName+" | "+object.attrModifiers(attrName));
-            
+       
+    /*
     try {
       object.setAttribute(attrName, value);
       pushOperand(object);
@@ -729,6 +731,7 @@ public class FunctionFrame extends StackFrame {
     } catch (OperationException e) {
       return prepareErrorJump(instr, allocator, e.getMessage());
     }
+    */
   }
 
   private StackFrame loadNull(RuntimeInstruction instr, HeapAllocator allocator) {
@@ -790,9 +793,23 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame loadIndex(RuntimeInstruction instr, HeapAllocator allocator) { 
-    final RuntimeInstance index = popOperand();
-    final RuntimeInstance target = popOperand();
+    //final RuntimeInstance index = popOperand();
+    //final RuntimeInstance target = popOperand();
 
+    return modifyTopTwoOperand(
+      (index, target) -> target.$getAtIndex(index, allocator), 
+      this, 
+      (index, target, err) -> 
+             checkAndCall(allocator, 
+                          fiber, 
+                          instr, 
+                          target, 
+                          RuntimeArray.RETR_INDEX_ATTR, 
+                          new ArgVector(index), 
+                          target.getClass()+" isn't indexible", 
+                          target.getClass()+" isn't indexible"));
+
+    /*
     try {
       final RuntimeInstance result = target.$getAtIndex(index, allocator);
       pushOperand(result);
@@ -806,14 +823,32 @@ public class FunctionFrame extends StackFrame {
                           new ArgVector(index), 
                           target.getClass()+" isn't indexible", 
                           target.getClass()+" isn't indexible"); 
-    }                                 
+    }     
+    */                            
   }
 
   private StackFrame storeIndex(RuntimeInstruction instr, HeapAllocator allocator) { 
     final RuntimeInstance value = popOperand();
-    final RuntimeInstance index = popOperand();
-    final RuntimeInstance target = popOperand();
+    //final RuntimeInstance index = popOperand();
+    //final RuntimeInstance target = popOperand();
 
+    return modifyTopTwoOperand(
+      (index, target) -> {
+        target.$setAtIndex(index, value, allocator);
+        return RuntimeNull.NULL;
+      }, 
+      this, 
+      (index, target, err) -> 
+             checkAndCall(allocator, 
+                          fiber, 
+                          instr, 
+                          target, 
+                          RuntimeArray.STORE_INDEX_ATTR, 
+                          new ArgVector(index), 
+                          target.getClass()+" isn't indexible", 
+                          target.getClass()+" isn't indexible"));
+
+    /*
     try {
       target.$setAtIndex(index, value, allocator);
       pushOperand(RuntimeNull.NULL);
@@ -827,7 +862,8 @@ public class FunctionFrame extends StackFrame {
                           new ArgVector(index), 
                           target.getClass()+" isn't indexible", 
                           target.getClass()+" isn't indexible"); 
-    }                                
+    }      
+    */                          
   }
 
   private StackFrame loadModule(RuntimeInstruction instr,
@@ -928,7 +964,7 @@ public class FunctionFrame extends StackFrame {
       return modifyTopOperand(
         (self) -> allocator.allocateCallable(hostModule, self, actualCodeObject, capturedLocals), 
         this, 
-        (self, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
+        (self, err) -> prepareErrorJump(instr, allocator, "Couldn't allocate callable for "+actualCodeObject.getBoundName()));
     }
     else {
       return prepareErrorJump(instr, allocator, "Not a code object "+codeObject.getClass());
@@ -994,18 +1030,31 @@ public class FunctionFrame extends StackFrame {
                                   HeapAllocator allocator) {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
 
-    final RuntimeInstance attrValue = popOperand();
-    final RuntimeInstance targetObj = peekOperand();
+    //final RuntimeInstance attrValue = popOperand();
+    //final RuntimeInstance targetObj = peekOperand();
     final String attrName = ((RuntimeString) hostModule.getConstant(hasInstr.getArgument())).getValue();
 
+    return modifyTopTwoOperand(
+      (attrValue, targetObj) -> {
+        targetObj.setAttribute(attrName, attrValue);
+        targetObj.appendAttrModifier(attrName, AttrModifier.CONSTANT);
+        return targetObj;
+      }, 
+      this, 
+      (attrValue, targetObj, err) -> 
+        prepareErrorJump(hasInstr, 
+                        allocator, 
+                        "Cannot make '"+attrName+"' constant: "+err.getMessage()));
+
+    /*
     try {
       targetObj.setAttribute(attrName, attrValue);
       targetObj.appendAttrModifier(attrName, AttrModifier.CONSTANT);
     } catch (OperationException e) {
       return prepareErrorJump(hasInstr, allocator, "Cannot make '"+attrName+"' constant: "+e.getMessage());
     }   
-    
     return this;
+    */
   }
 
   private StackFrame sealObject(RuntimeInstruction instr, 
@@ -1029,17 +1078,33 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame equality(RuntimeInstruction instr, 
                               HeapAllocator allocator) {
+    final FuncOperatorCoupling coupling = FuncOperatorCoupling.EQUAL;
+    final String opFuncName = coupling.getFuncName();
+
+    return modifyTopTwoOperand(
+      (right, left) -> {
+        if (left == right) {
+          return allocator.allocateBool(true);
+        }
+
+        if (left.hasAttr(opFuncName)) {
+          return null;
+        }
+
+        return left.$equal(right, allocator);
+      }, 
+      this, 
+      (right, left, err) -> {
+        if (err == null) {
+          //Call overriden equals method in user-land
+          return binaryArithCall(allocator, fiber, coupling, instr, left, right);
+        }
+        return prepareErrorJump(instr, allocator, err.getMessage());
+      });
+
+    /* 
     final RuntimeInstance right = popOperand();
     final RuntimeInstance left = popOperand();
-
-    /*
-    modifyTopOperand((left) -> {
-      if (left == right) {
-        return allocator.allocateBool(true);
-      }
-      return null;
-    }, null, null);
-    */
 
     if (left == right) {
       pushOperand(allocator.allocateBool(true));
@@ -1052,8 +1117,8 @@ public class FunctionFrame extends StackFrame {
       return this;
     }
 
-    FuncOperatorCoupling coupling = FuncOperatorCoupling.getCoupling(instr.getOpCode());
-    final String opFuncName = coupling.getFuncName();
+    //final FuncOperatorCoupling coupling = FuncOperatorCoupling.EQUAL;
+    //final String opFuncName = coupling.getFuncName();
     
     if (left.hasAttr(opFuncName)) {
       RuntimeInstance func = left.getAttr(opFuncName);
@@ -1078,6 +1143,7 @@ public class FunctionFrame extends StackFrame {
     }
 
     return this;
+    */
   }
 
   private StackFrame checkAndCall(HeapAllocator allocator,

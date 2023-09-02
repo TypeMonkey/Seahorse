@@ -36,7 +36,9 @@ import jg.sh.runtime.threading.frames.JavaFrame;
 import jg.sh.runtime.threading.frames.ReturnAction;
 import jg.sh.runtime.threading.frames.StackFrame;
 import jg.sh.runtime.threading.pool.ThreadPool;
+import jg.sh.runtime.threading.stackops.ErrorContinuer;
 import jg.sh.runtime.threading.stackops.TopModifier;
+import jg.sh.runtime.threading.stackops.TopTwoModifier;
 import jg.sh.util.RuntimeUtils;
 
 import static jg.sh.runtime.objects.callable.InternalFunction.create;
@@ -379,9 +381,16 @@ public class Fiber extends RuntimeInstance {
 
   private ArrayDeque<RuntimeInstance> newWholeDeque() {
     final ArrayDeque<RuntimeInstance> newDeque = new ArrayDeque<>(operandStack);
-    newDeque.push(t2);
-    newDeque.push(t1);
-    newDeque.push(t0);
+
+    if (t2 != null) {
+      newDeque.push(t2);
+    }
+    if (t1 != null) {
+      newDeque.push(t1);
+    } 
+    if(t0 != null) {
+      newDeque.push(t0);
+    }
 
     return newDeque;
   }
@@ -396,16 +405,15 @@ public class Fiber extends RuntimeInstance {
   private RuntimeInstance t0, t1, t2;
 
   public void pushOperand(RuntimeInstance value) {
-    if(t0 == null) {
-      t0 = value;
+    //System.out.println(" ==> pushing: "+value+" | stack: "+newWholeDeque());
+
+    if (t2 == null) {
+      t2 = value;
     }
-    else if(t1 == null) {
-      t1 = t0;
-      t0 = value;
+    else if (t1 == null) {
+      t1 = value;
     }
-    else if(t2 == null) {
-      t2 = t1;
-      t1 = t0;
+    else if (t0 == null) {
       t0 = value;
     }
     else {
@@ -416,27 +424,135 @@ public class Fiber extends RuntimeInstance {
     }
   }
 
+  /**
+   * Applies an operation on the top-two operands
+   * and replaces the top operand with the result.
+   * @param modifier - the TopModifer to invoke to modify the top-most operand
+   * @param continuance - the StackFrame 
+   * @param errorHandler
+   * @return
+   */
+  public StackFrame modifyTopTwoOperand(TopTwoModifier modifier, 
+                                        StackFrame continuance,
+                                        ErrorContinuer errorHandler) {
+    //System.out.println(" ===> whole stack: "+newWholeDeque());
+    //System.out.println(" => t0: "+t0);
+    //System.out.println(" => t1: "+t1);
+    //System.out.println(" => t2: "+t2);
+
+    if(t0 != null && t1 != null) {
+      try {
+        final RuntimeInstance temp_t1 = modifier.modify(t0, t1);
+
+        if (temp_t1 == null) {
+          return errorHandler.error(t0, t1, null);
+        }
+
+        t0 = null;
+        t1 = temp_t1;
+      } catch (OperationException e) {
+        return errorHandler.error(t0, t1, e);
+      }
+    }
+    else if(t1 != null && t2 != null) {
+      try {
+        final RuntimeInstance temp_t2 = modifier.modify(t1, t2);
+
+        if (temp_t2 == null) {
+          return errorHandler.error(t1, t2, null);
+        }
+
+        t1 = null;
+        t2 = temp_t2;
+      } catch (OperationException e) {
+        return errorHandler.error(t1, t2, e);
+      }
+    }
+    else if(t2 != null) {
+      final RuntimeInstance secondTop = operandStack.pop();
+      try {
+        final RuntimeInstance temp_t2 = modifier.modify(t2, secondTop);
+
+        if (temp_t2 == null) {
+          return errorHandler.error(t2, secondTop, null);
+        }
+
+        t2 = temp_t2;
+      } catch (OperationException e) {
+        return errorHandler.error(t2, secondTop, e);
+      }
+    }
+    else {
+      final RuntimeInstance first = popOperand();
+      final RuntimeInstance second = popOperand();
+
+      try {
+        final RuntimeInstance modified = modifier.modify(first, second);
+
+        if (modified == null) {
+          return errorHandler.error(first, second, null);
+        }
+        pushOperand(modified);
+      } catch (OperationException e) {
+        return errorHandler.error(first, second, e);
+      }
+    }
+
+    return continuance;
+  }
+
+  /**
+   * Modifies the top-operand "in-place".
+   * 
+   * "In-place" here means utilizing the cached top-three
+   * elements of the operand stack to avoid actual
+   * stack popping.
+   * 
+   * This method uses "t0" - the top element of the stack" - 
+   * to modify it directly in place.
+   * @param modifier - the TopModifer to invoke to modify the top-most operand
+   * @param continuance - the StackFrame 
+   * @param errorHandler
+   * @return
+   */
   public StackFrame modifyTopOperand(TopModifier modifier, 
                                      StackFrame continuance,
                                      BiFunction<RuntimeInstance, OperationException, StackFrame> errorHandler) {
     
     if(t0 != null) {
       try {
-        t0 = modifier.modify(t0);
+        final RuntimeInstance temp_t0 = modifier.modify(t0);
+
+        if (temp_t0 == null) {
+          return errorHandler.apply(t0, null);
+        }
+        t0 = temp_t0;
       } catch (OperationException e) {
         return errorHandler.apply(t0, e);
       }
     }
     else if(t1 != null) {
       try {
-        t1 = modifier.modify(t1);
+        final RuntimeInstance temp_t1 = modifier.modify(t1);
+
+        if (temp_t1 == null) {
+          return errorHandler.apply(t1, null);
+        }
+
+        t1 = temp_t1;
       } catch (OperationException e) {
         return errorHandler.apply(t1, e);
       }
     }
     else if(t2 != null) {
       try {
-        t2 = modifier.modify(t2);
+        final RuntimeInstance temp_t2 = modifier.modify(t2);
+
+        if (temp_t2 == null) {
+          return errorHandler.apply(t2, null);
+        }
+
+        t2 = temp_t2;
       } catch (OperationException e) {
         return errorHandler.apply(t2, e);
       }
@@ -445,6 +561,10 @@ public class Fiber extends RuntimeInstance {
       final RuntimeInstance top = popOperand();
       try {
         final RuntimeInstance modified = modifier.modify(top);
+
+        if (modified == null) {
+          return errorHandler.apply(top, null);
+        }
         pushOperand(modified);
       } catch (OperationException e) {
         return errorHandler.apply(top, e);

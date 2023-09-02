@@ -54,4 +54,8 @@ public class ArgVector extends RuntimeInstance {
   public List<RuntimeInstance> getPositionals() {
     return positionals;
   }
+
+  public String toString() {
+    return "ARG_VERCTOR: "+positionals.size();
+  }
 }

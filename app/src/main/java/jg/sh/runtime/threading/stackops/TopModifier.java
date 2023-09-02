@@ -13,6 +13,6 @@ public interface TopModifier {
    *         couldn't be processed.
    * @throws OperationException - thrown if the actual process done by this TopModifier throws it.
    */
-  public RuntimeInstance modify(RuntimeInstance instance) throws OperationException ;
+  public RuntimeInstance modify(RuntimeInstance instance) throws OperationException;
 
 }

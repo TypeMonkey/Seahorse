@@ -30,7 +30,9 @@ import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.callable.RuntimeCallable;
 import jg.sh.runtime.objects.callable.RuntimeInternalCallable;
 import jg.sh.runtime.threading.fiber.Fiber;
+import jg.sh.runtime.threading.stackops.ErrorContinuer;
 import jg.sh.runtime.threading.stackops.TopModifier;
+import jg.sh.runtime.threading.stackops.TopTwoModifier;
 import jg.sh.util.RuntimeUtils;
 
 /**
@@ -140,6 +142,12 @@ public abstract class StackFrame implements Markable {
                                StackFrame continuance,
                                BiFunction<RuntimeInstance, OperationException, StackFrame> errorHandler){
     return fiber.modifyTopOperand(modifier, continuance, errorHandler);
+  }
+
+  public StackFrame modifyTopTwoOperand(TopTwoModifier modifier, 
+                               StackFrame continuance,
+                               ErrorContinuer errorHandler){
+    return fiber.modifyTopTwoOperand(modifier, continuance, errorHandler);
   }
 
   public RuntimeInstance popOperand() {

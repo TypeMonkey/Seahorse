@@ -1,6 +1,6 @@
 use system: println;
 
-const test := object sealed {
+const test := object {
   const attr1 : "hello",
   attr2 : "bye"
 };
@@ -8,7 +8,10 @@ const test := object sealed {
 println("hello world "+test.attr1);
 //test.attr1 := "go";
 
-//test.newOne := 10;
+test.newOne := 10;
 
 const test.attr2 := 5;
-test := 50;
+//test := 50;
+//test.attr2 := 10;
+
+println(test);

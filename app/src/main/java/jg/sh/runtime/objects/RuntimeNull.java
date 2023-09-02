@@ -27,6 +27,6 @@ public class RuntimeNull extends RuntimeInstance {
   
   @Override
   public String toString() {
-    return "null";
+    return "~null";
   }
 }

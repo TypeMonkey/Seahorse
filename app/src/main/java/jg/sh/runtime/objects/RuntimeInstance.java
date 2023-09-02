@@ -231,7 +231,7 @@ public class RuntimeInstance implements Markable {
   public String toString() {
     String x = System.lineSeparator()+"================================"+System.lineSeparator();
     for (Entry<String, RuntimeInstance> a : attributes.entrySet()) {
-      x += " => "+(a.getValue() == this)+" "+a.getKey()+" = "+ System.lineSeparator();
+      x += " => "+(a.getValue() == this)+" "+a.getKey()+" = "+a.getValue()+ System.lineSeparator();
     }
     return x;
   }
