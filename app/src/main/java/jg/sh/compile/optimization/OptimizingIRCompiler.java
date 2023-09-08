@@ -294,17 +294,17 @@ public class OptimizingIRCompiler extends IRCompiler {
     }
     else if(!leftResult.isOptimizable() && rightResult.isOptimizable()) {
       if(op == Op.PLUS ) {
-          if (isTarget(rightResult.getOptimizableTarget(), 1) || isTarget(rightResult.getOptimizableTarget(), 1.0)) 
-          {
-            /**
-             * Compile the right operand next
-             */
-            leftResult.pipeErr(exceptions).pipeInstr(instrs);
+        if (isTarget(rightResult.getOptimizableTarget(), 1) || isTarget(rightResult.getOptimizableTarget(), 1.0)) 
+        {
+          /**
+           * Compile the right operand next
+           */
+          leftResult.pipeErr(exceptions).pipeInstr(instrs);
 
-            instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, INC));
+          instrs.add(new NoArgInstr(binaryOpExpr.getLeft().start, binaryOpExpr.getLeft().end, INC));
 
-            return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
-          }
+          return exceptions.isEmpty() ? valid(instrs) : invalid(exceptions); 
+        }
       }
       else if(op == Op.MINUS) {
         if (isTarget(rightResult.getOptimizableTarget(), 1) || isTarget(rightResult.getOptimizableTarget(), 1.0)) 

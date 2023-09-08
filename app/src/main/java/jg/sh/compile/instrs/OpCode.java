@@ -132,6 +132,16 @@ public enum OpCode {
    * Loads the current error object to the operand stack
    */
   POPERR,
+
+  /**
+   * Pushes the 0 integer onto the operand stack
+   */
+  LOAD_ZERO,
+
+  /**
+   * Pushes the 1 integer onto the operand stack
+   */
+  LOAD_ONE,
   
   /*
    * Loads a module instance.

@@ -1,7 +1,5 @@
 package jg.sh.runtime.objects;
 
-import jg.sh.runtime.alloc.Cleaner;
-
 /**
  * Represents the null value.
  * 

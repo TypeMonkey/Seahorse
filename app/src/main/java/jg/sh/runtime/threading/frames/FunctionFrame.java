@@ -243,6 +243,14 @@ public class FunctionFrame extends StackFrame {
         case SUB:
           frame = binMinus(instr, allocator);
           break;
+        case LOAD_ONE: {
+          pushOperand(allocator.allocateInt(1));
+          break;
+        }
+        case LOAD_ZERO: {
+          pushOperand(allocator.allocateInt(0));
+          break;
+        }
       }
 
       final long end = System.nanoTime();

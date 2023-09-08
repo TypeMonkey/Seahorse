@@ -846,8 +846,20 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitInt(CompContext parentContext, Int integer) {
     final ConstantPool pool = parentContext.getConstantPool();
     final IntegerConstant constant = pool.addInt(integer.getValue());
-    final LoadInstr loadInstr = new LoadInstr(integer.start, integer.end, LOADC, constant.getIndex());
-    return new ConstantResult(constant, loadInstr);  
+
+    Instruction loadInstr = null;
+
+    if (integer.getValue() == 0) {
+      loadInstr = new NoArgInstr(integer.start, integer.end, LOAD_ZERO);
+    }
+    else if(integer.getValue() == 1) {
+      loadInstr = new NoArgInstr(integer.start, integer.end, LOAD_ONE);
+    }
+    else {
+      loadInstr = new LoadInstr(integer.start, integer.end, LOADC, constant.getIndex());
+    }
+
+    return new ConstantResult(constant, loadInstr); 
   }
 
   @Override
@@ -862,7 +874,19 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
   public ConstantResult visitFloat(CompContext parentContext, FloatingPoint floatingPoint) {
     final ConstantPool pool = parentContext.getConstantPool();
     final FloatConstant constant = pool.addFloat(floatingPoint.getValue());
-    final LoadInstr loadInstr = new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getIndex());
+
+    Instruction loadInstr = null;
+
+    if (floatingPoint.getValue() == 0.0) {
+      loadInstr = new NoArgInstr(floatingPoint.start, floatingPoint.end, LOAD_ZERO);
+    }
+    else if(floatingPoint.getValue() == 1.0) {
+      loadInstr = new NoArgInstr(floatingPoint.start, floatingPoint.end, LOAD_ONE);
+    }
+    else {
+      loadInstr = new LoadInstr(floatingPoint.start, floatingPoint.end, LOADC, constant.getIndex());
+    }
+
     return new ConstantResult(constant, loadInstr);
   }
 

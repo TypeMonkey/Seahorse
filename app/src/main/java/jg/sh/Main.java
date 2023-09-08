@@ -47,15 +47,15 @@ public class Main {
   private static ParsedCLIOptions parseArguments(String [] args) {
     Map<IOption, Object> options = InterpreterOptions.getDefaultOptions();
     
-    Options cliOptions = new Options();
+    final Options cliOptions = new Options();
     
-    Option help = new Option("h", "Prints helpful information for the SeaHorse interpreter");
+    final Option help = new Option("h", "Prints helpful information for the SeaHorse interpreter");
     help.setLongOpt("help");
     help.setArgs(0);
     help.setRequired(false);
     cliOptions.addOption(help);
     
-    Option compToByte = new Option("c", "Writes out the bytecode transformations "+System.lineSeparator()
+    final Option compToByte = new Option("c", "Writes out the bytecode transformations "+System.lineSeparator()
                                       + "of loaded modules into the current directory.");
     compToByte.setLongOpt("compile");
     compToByte.setValueSeparator('=');
@@ -63,7 +63,7 @@ public class Main {
     compToByte.setType(Boolean.TYPE);
     cliOptions.addOption(compToByte);
 
-    Option poolSize = new Option("p", "Sets the amount of workers in thread pool.");
+    final Option poolSize = new Option("p", "Sets the amount of workers in thread pool.");
     poolSize.setLongOpt("pool");
     poolSize.setArgs(1);
     poolSize.setValueSeparator('=');
@@ -71,7 +71,7 @@ public class Main {
     poolSize.setType(Integer.TYPE);
     cliOptions.addOption(poolSize);
 
-    Option loadFromByte = new Option("b", "Prioritizes the loading of a module's bytecode transformation "+System.lineSeparator()+
+    final Option loadFromByte = new Option("b", "Prioritizes the loading of a module's bytecode transformation "+System.lineSeparator()+
                                           "before loading the actual module itself.");
     loadFromByte.setLongOpt("load");
     loadFromByte.setValueSeparator('=');
@@ -79,7 +79,7 @@ public class Main {
     loadFromByte.setType(Boolean.TYPE);
     cliOptions.addOption(loadFromByte);
     
-    Option moduleSearch = new Option("mp", "Sets the paths for which this interpreter will search for modules "+System.lineSeparator()
+    final Option moduleSearch = new Option("mp", "Sets the paths for which this interpreter will search for modules "+System.lineSeparator()
                                          + "(these paths will be searched for after inspecting the paths for the standard library)");
     moduleSearch.setLongOpt("modpaths");
     moduleSearch.setArgs(Option.UNLIMITED_VALUES);
@@ -87,7 +87,7 @@ public class Main {
     moduleSearch.setRequired(false);
     cliOptions.addOption(moduleSearch);
     
-    Option standardPaths = new Option("sp", "Sets the paths for which this interpreter will search for modules "+System.lineSeparator()
+    final Option standardPaths = new Option("sp", "Sets the paths for which this interpreter will search for modules "+System.lineSeparator()
                                           + "that are part of its standard library");
     standardPaths.setLongOpt("stpaths");
     standardPaths.setArgs(Option.UNLIMITED_VALUES);
@@ -95,14 +95,14 @@ public class Main {
     standardPaths.setRequired(false);
     cliOptions.addOption(standardPaths);
     
-    Option measure = new Option("m", "Whether to output the elapsed nanoseconds in executing the module");
+    final Option measure = new Option("m", "Whether to output the elapsed nanoseconds in executing the module");
     measure.setLongOpt("measure");
     measure.setValueSeparator('=');
     measure.setRequired(false);
     measure.setType(Boolean.TYPE);
     cliOptions.addOption(measure);
     
-    Option additional = new Option("a", "A set of additonal modules to pre-compile with the main module");
+    final Option additional = new Option("a", "A set of additonal modules to pre-compile with the main module");
     additional.setLongOpt("add");
     additional.setArgs(Option.UNLIMITED_VALUES);
     additional.setValueSeparator('=');
