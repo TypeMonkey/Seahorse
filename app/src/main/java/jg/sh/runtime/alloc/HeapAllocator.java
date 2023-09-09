@@ -2,7 +2,6 @@ package jg.sh.runtime.alloc;
 
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.instrs.RuntimeInstruction;

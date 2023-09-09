@@ -15,6 +15,7 @@ import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
+import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 
 /**
@@ -105,54 +106,106 @@ public class RuntimeInstance implements Markable {
   }
 
   public RuntimeInstance $add(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance addFunc = attributes.get(FuncOperatorCoupling.ADD.getFuncName());
+    if (addFunc != null) {
+      return addFunc;
+    }
     throw new OperationException("+ is not defined for this object.");
   }
 
   public RuntimeInstance $sub(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance subFunc = attributes.get(FuncOperatorCoupling.SUB.getFuncName());
+    if (subFunc != null) {
+      return subFunc;
+    }
     throw new OperationException("- is not defined for this object.");
   }
 
   public RuntimeInstance $mul(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance mulFunc = attributes.get(FuncOperatorCoupling.MUL.getFuncName());
+    if (mulFunc != null) {
+      return mulFunc;
+    }
     throw new OperationException("* is not defined for this object.");
   }
 
   public RuntimeInstance $div(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance divFunc = attributes.get(FuncOperatorCoupling.DIV.getFuncName());
+    if (divFunc != null) {
+      return divFunc;
+    }
     throw new OperationException("/ is not defined for this object.");
   }
 
   public RuntimeInstance $mod(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance modFunc = attributes.get(FuncOperatorCoupling.MOD.getFuncName());
+    if (modFunc != null) {
+      return modFunc;
+    }
     throw new OperationException("% is not defined for this object.");
   }
 
   public RuntimeInstance $neg(HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance negFunc = attributes.get(FuncOperatorCoupling.NEG.getFuncName());
+    if (negFunc != null) {
+      return negFunc;
+    }
     throw new OperationException("negation (-) is not defined for this object.");
   }
 
   public RuntimeInstance $not(HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance notFunc = attributes.get(FuncOperatorCoupling.NOT.getFuncName());
+    if (notFunc != null) {
+      return notFunc;
+    }
     throw new OperationException("negation (!) is not defined for this object.");
   }
 
-  public RuntimeBool $less(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+  public RuntimeInstance $less(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance lessFunc = attributes.get(FuncOperatorCoupling.LESS.getFuncName());
+    if (lessFunc != null) {
+      return lessFunc;
+    }
     throw new OperationException("< is not defined for this object.");
   }
 
-  public RuntimeBool $great(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+  public RuntimeInstance $great(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance greatFunc = attributes.get(FuncOperatorCoupling.GREAT.getFuncName());
+    if (greatFunc != null) {
+      return greatFunc;
+    }
     throw new OperationException("> is not defined for this object.");
   }
 
-  public RuntimeBool $lesse(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+  public RuntimeInstance $lesse(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance lessEqFunc = attributes.get(FuncOperatorCoupling.LESSE.getFuncName());
+    if (lessEqFunc != null) {
+      return lessEqFunc;
+    }
     throw new OperationException("<= is not defined for this object.");
   }
 
-  public RuntimeBool $greate(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+  public RuntimeInstance $greate(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance greatEqFunc = attributes.get(FuncOperatorCoupling.GREATE.getFuncName());
+    if (greatEqFunc != null) {
+      return greatEqFunc;
+    }
     throw new OperationException(">= is not defined for this object.");
   }
 
   public RuntimeInstance $band(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
-    throw new OperationException("% is not defined for this object.");
+    final RuntimeInstance bandFunc = attributes.get(FuncOperatorCoupling.BAND.getFuncName());
+    if (bandFunc != null) {
+      return bandFunc;
+    }
+    throw new OperationException("& is not defined for this object.");
   }
 
   public RuntimeInstance $bor(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {
+    final RuntimeInstance borFunc = attributes.get(FuncOperatorCoupling.BOR.getFuncName());
+    if (borFunc != null) {
+      return borFunc;
+    }
     throw new OperationException("| is not defined for this object.");
   }
 

@@ -2,7 +2,6 @@ package jg.sh.runtime.objects.callable;
 
 import jg.sh.common.FunctionSignature;
 import jg.sh.runtime.exceptions.InvocationException;
-import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.threading.fiber.Fiber;
