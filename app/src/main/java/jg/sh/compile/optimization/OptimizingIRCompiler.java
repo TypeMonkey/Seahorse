@@ -3,7 +3,6 @@ package jg.sh.compile.optimization;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javafx.util.Pair;
 import jg.sh.common.Location;
 import jg.sh.compile.CompContext;
 import jg.sh.compile.CompContext.ContextKey;
@@ -40,6 +39,7 @@ import jg.sh.parsing.nodes.values.Bool;
 import jg.sh.parsing.nodes.values.FloatingPoint;
 import jg.sh.parsing.nodes.values.Int;
 import jg.sh.parsing.nodes.values.Str;
+import jg.sh.util.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -97,8 +97,8 @@ public class OptimizingIRCompiler extends IRCompiler {
       pool.clear();
       pool.addAll(
         newPoolList.stream().map(pair -> {
-          pair.getKey().getIndex().setIndex(pair.getValue());
-          return pair.getKey();
+          pair.first.getIndex().setIndex(pair.second);
+          return pair.first;
         }).collect(Collectors.toList()));
     }
     return result;

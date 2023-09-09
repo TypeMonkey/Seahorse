@@ -1,7 +1,6 @@
 package jg.sh.compile.pool.component;
 
 import jg.sh.compile.instrs.MutableIndex;
-import jg.sh.compile.instrs.MutableInstr;
 
 public abstract class PoolComponent {
   
