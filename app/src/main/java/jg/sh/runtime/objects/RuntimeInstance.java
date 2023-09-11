@@ -15,6 +15,7 @@ import jg.sh.runtime.alloc.Markable;
 import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.metrics.GeneralMetrics;
 import jg.sh.runtime.metrics.GeneralMetrics.Meaures;
+import jg.sh.runtime.objects.callable.Callable;
 import jg.sh.runtime.objects.literals.FuncOperatorCoupling;
 import jg.sh.runtime.objects.literals.RuntimeBool;
 
@@ -99,6 +100,15 @@ public class RuntimeInstance implements Markable {
       }
       curMods.add(modifier);
     }
+  }
+
+  public Callable $call() throws OperationException {
+    final RuntimeInstance callable = attributes.get("$call");
+    if (callable == null || !(callable instanceof Callable)) {
+      throw new OperationException("object isn't callable");
+    }
+    
+    return (Callable) callable;
   }
 
   public RuntimeInstance $equal(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {

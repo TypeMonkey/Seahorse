@@ -83,6 +83,17 @@ public abstract class StackFrame implements Markable {
     this.initialArgs = initialArgs;
     this.action = action;
   } 
+
+  public StackFrame(RuntimeModule hostModule, 
+                    ArgVector initialArgs,
+                    RuntimeInstance [] initialLocals,
+                    ReturnAction action,
+                    Fiber fiber) {
+    this.localVars = initialLocals;
+    this.fiber = fiber;
+    this.initialArgs = initialArgs;
+    this.action = action;
+  } 
     
   public abstract StackFrame run(HeapAllocator allocator);
     

@@ -238,13 +238,6 @@ public class Fiber extends RuntimeInstance {
                               ArgVector args, 
                               HeapAllocator allocator,
                               ReturnAction action) throws CallSiteException {
-
-    /*
-     * At Index 0 -> callable
-     * At Index 1 -> self object
-     */
-    args.addAtFront(callable.getSelf());
-    args.addAtFront(callable);
     
     final FunctionSignature signature = callable.getSignature();
     
@@ -262,6 +255,13 @@ public class Fiber extends RuntimeInstance {
     if (callable instanceof RuntimeInternalCallable) {
       //System.out.println("CALLING!!!!! internal ");
 
+      /*
+       * At Index 0 -> callable
+       * At Index 1 -> self object
+       */
+      args.addAtFront(callable.getSelf());
+      args.addAtFront(callable);
+
       RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
       toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, action, this);
     }
@@ -269,6 +269,22 @@ public class Fiber extends RuntimeInstance {
       //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
       
       RuntimeCallable regularCallable = (RuntimeCallable) callable;
+
+      
+      final int totalParams = 2 + signature.getPositionalParamCount() + 
+                              signature.getKeywordParams().size() + 
+                              (signature.hasVariableParams() ? 1 : 0) +
+                              (signature.hasVarKeywordParams() ? 1 : 0);
+      final RuntimeInstance [] paramLocals = new RuntimeInstance[totalParams];
+
+      //All positional arguments:
+      final RuntimeInstance [] allPositionals = args.getPositionals().toArray(new RuntimeInstance[0]);
+
+      //put self and callable instances
+      paramLocals[0] = callable;
+      paramLocals[1] = callable.getSelf();
+      System.arraycopy(allPositionals, 0, paramLocals, 2, signature.getPositionalParamCount());
+      
 
       FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, action, this);
       //Push the new frame!

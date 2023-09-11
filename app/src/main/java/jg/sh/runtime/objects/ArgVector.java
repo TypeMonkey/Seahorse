@@ -10,12 +10,22 @@ import jg.sh.runtime.exceptions.OperationException;
  * A vector of arguments for a function call.
  */
 public class ArgVector extends RuntimeInstance {
+
+  /**
+   * A singleton ArgVector instance meant to hold
+   * no arguments (both positional and keyword).
+   * 
+   * This singleton is useful for function calls that have no arguments - 
+   * as in once the argVector is pushed, the next instruction pops it 
+   * to give to the callee.
+   * 
+   * Since ArgVector.seal() is overriden and does nothing,
+   * this singleton isn't a sealed object, so by mistake, 
+   * it CAN BE mutated - but it shouldn't.
+   */
+  public static final ArgVector EMPTY = new ArgVector();
   
   private List<RuntimeInstance> positionals;
-  
-  public ArgVector() {
-    this.positionals = new ArrayList<>();
-  }
   
   public ArgVector(RuntimeInstance ... initialPositionals) {
     this.positionals = new ArrayList<>(Arrays.asList(initialPositionals));

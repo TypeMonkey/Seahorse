@@ -16,6 +16,11 @@ public abstract class Callable extends RuntimeInstance {
     this.self = self;
     this.signature = signature;
   }
+
+  @Override
+  public Callable $call() {
+    return this;
+  }
   
   public RuntimeModule getHostModule() {
     return hostModule;

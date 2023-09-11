@@ -73,6 +73,21 @@ public class FunctionFrame extends StackFrame {
     this.instrIndex = instrIndex;
   }  
 
+  public FunctionFrame(RuntimeModule hostModule, 
+                       RuntimeCallable callable, 
+                       int instrIndex, 
+                       ArgVector initialArgs,
+                       RuntimeInstance [] initLocals,
+                       ReturnAction action,
+                       Fiber fiber) {
+    super(hostModule, initialArgs, initLocals, action, fiber);
+    this.callable = callable;
+    this.instrs = callable.getCodeObject().getInstrs();
+    this.hostModule = callable.getHostModule();
+    this.constantMap = hostModule.getConstants();
+    this.instrIndex = instrIndex;
+  }
+
   public StackFrame run(HeapAllocator allocator) {
 
     if (getError() != null) {
