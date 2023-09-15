@@ -1,6 +1,7 @@
 package jg.sh.runtime.threading.fiber;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -23,6 +24,7 @@ import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.objects.ArgVector;
 import jg.sh.runtime.objects.Initializer;
 import jg.sh.runtime.objects.RuntimeArray;
+import jg.sh.runtime.objects.RuntimeCodeObject;
 import jg.sh.runtime.objects.RuntimeInstance;
 import jg.sh.runtime.objects.RuntimeNull;
 import jg.sh.runtime.objects.callable.InternalFunction;
@@ -240,6 +242,13 @@ public class Fiber extends RuntimeInstance {
                               ReturnAction action) throws CallSiteException {
     
     final FunctionSignature signature = callable.getSignature();
+
+    /*
+     * At Index 0 -> callable
+     * At Index 1 -> self object
+     */
+    args.addAtFront(callable.getSelf());
+    args.addAtFront(callable);
     
     /*
      * Check if arguments are valid first!
@@ -255,86 +264,104 @@ public class Fiber extends RuntimeInstance {
     if (callable instanceof RuntimeInternalCallable) {
       //System.out.println("CALLING!!!!! internal ");
 
-      /*
-       * At Index 0 -> callable
-       * At Index 1 -> self object
-       */
-      args.addAtFront(callable.getSelf());
-      args.addAtFront(callable);
-
       RuntimeInternalCallable internalCallable = (RuntimeInternalCallable) callable;
       toReturn = new JavaFrame(internalCallable.getHostModule(), internalCallable, args, action, this);
     }
     else {
       //System.out.println("CALLING!!!!! user space "+args.getPositionals().size());
       
-      RuntimeCallable regularCallable = (RuntimeCallable) callable;
+      final RuntimeCallable regularCallable = (RuntimeCallable) callable;
+      final RuntimeCodeObject codeObject = regularCallable.getCodeObject();
+      final RuntimeInstance [] allPositionals = args.getPositionals().toArray(new RuntimeInstance[0]);
 
-      
-      final int totalParams = 2 + signature.getPositionalParamCount() + 
+      if(!args.hasAttrs()) {
+        /*
+         * The ArgVector only has positionl arguments.
+         *
+         * Because of this, we don't have to process keyword arguments and can just immediately
+         * return the StackFrame of the function with just the positional arguments
+         */
+        toReturn = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, allPositionals, action, this);
+      }
+      else {
+        /*
+         * The ArgVector has keyword  
+         */
+
+        final int totalParams = 2 + signature.getPositionalParamCount() + 
                               signature.getKeywordParams().size() + 
                               (signature.hasVariableParams() ? 1 : 0) +
                               (signature.hasVarKeywordParams() ? 1 : 0);
-      final RuntimeInstance [] paramLocals = new RuntimeInstance[totalParams];
+        final RuntimeInstance [] paramLocals = new RuntimeInstance[totalParams];
 
-      //All positional arguments:
-      final RuntimeInstance [] allPositionals = args.getPositionals().toArray(new RuntimeInstance[0]);
+        //All positional arguments:
+        System.arraycopy(allPositionals, 0, paramLocals, 0, 2 + signature.getPositionalParamCount());
+        
 
-      //put self and callable instances
-      paramLocals[0] = callable;
-      paramLocals[1] = callable.getSelf();
-      System.arraycopy(allPositionals, 0, paramLocals, 2, signature.getPositionalParamCount());
-      
+        //FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, action, this);
+        //Push the new frame!
+        //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
 
-      FunctionFrame frame = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, action, this);
-      //Push the new frame!
-      //System.out.println("------> PUSHED FRAME "+args.getPositional(0));
-
-      //Set positional arguments to the calle's local variables
-      int positionalIndex = 0;
-      for(; positionalIndex < signature.getPositionalParamCount() + 2 ; positionalIndex++) {
-        //System.out.println(" -- setting local: "+positionalIndex+" with val: "+args.getPositional(positionalIndex));
-        frame.storeLocalVar(positionalIndex, args.getPositional(positionalIndex));
-      }
-      
-      /**
-       * We combine keyword arguments and extra keyword argument setting 
-       * in one go, by readily allocating the keywordVarArg object and using it's 
-       * initialization parameter to decide which keyword args go in keywordVarArg object
-       * or be saved directly as a local variable
-       */
-      final Map<String, Integer> keywordToIndexMap = regularCallable.getCodeObject().getKeywordIndexes();
-      final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
-        for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
-          if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
-            int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
-            //System.out.println("        ===> saving as local: "+keywordIndex);
-            frame.storeLocalVar(keywordIndex, keywordArg.getValue());
-          }
-          else if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
-            ini.init(keywordArg.getKey(), keywordArg.getValue());
-          }
+        //Set positional arguments to the calle's local variables
+        /*
+        int positionalIndex = 0;
+        for(; positionalIndex < signature.getPositionalParamCount() + 2 ; positionalIndex++) {
+          //System.out.println(" -- setting local: "+positionalIndex+" with val: "+args.getPositional(positionalIndex));
+          frame.storeLocalVar(positionalIndex, args.getPositional(positionalIndex));
         }
-      });
+        */
 
-      if (signature.hasVarKeywordParams()) {
-        frame.storeLocalVar(regularCallable.getCodeObject().getKeywordVarArgIndex(), leftOverKeywords);
-      }
-      
-      //System.out.println("------------> DONE WITH ARGS");
-      
-      //Put any leftover positional arguments in an array
-      if (signature.hasVariableParams()) {
-        final RuntimeArray leftOvers = allocator.allocateEmptyArray();
-        //System.out.println(" ===> STARTING VARARGS: "+(positionalIndex + 1)+" | "+args.getPositionals().size()+" | "+args.getPositionals());
-        for(int i = positionalIndex; i < args.getPositionals().size(); i++) {
-          leftOvers.addValue(args.getPositional(i));
+        /**
+         * We combine keyword arguments and extra keyword argument setting 
+         * in one go, by readily allocating the keywordVarArg object and using it's 
+         * initialization parameter to decide which keyword args go in keywordVarArg object
+         * or be saved directly as a local variable
+         */
+        final Map<String, Integer> keywordToIndexMap = codeObject.getKeywordIndexes();
+        final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
+          for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
+            if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
+              final int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
+              //System.out.println("        ===> saving as local: "+keywordIndex);
+              //frame.storeLocalVar(keywordIndex, keywordArg.getValue());
+              paramLocals[keywordIndex] = keywordArg.getValue();
+            }
+            else if(!signature.getKeywordParams().contains(keywordArg.getKey())) {
+              ini.init(keywordArg.getKey(), keywordArg.getValue());
+            }
+          }
+        });
+
+        if (signature.hasVarKeywordParams()) {
+          //frame.storeLocalVar(codeObject.getKeywordVarArgIndex(), leftOverKeywords);
+          paramLocals[regularCallable.getCodeObject().getKeywordVarArgIndex()] = leftOverKeywords;
         }
+        
+        
+        //System.out.println("------------> DONE WITH ARGS");
+        
+        //Put any leftover positional arguments in an array
+        if (signature.getPositionalParamCount() + 2 < allPositionals.length) {
+          //final RuntimeArray leftOvers = allocator.allocateEmptyArray();
 
-        frame.storeLocalVar(regularCallable.getCodeObject().getVarArgIndex(), leftOvers);
+          final RuntimeInstance [] varArgsArray = Arrays.copyOfRange(allPositionals, signature.getPositionalParamCount() + 2, allPositionals.length);
+          //final RuntimeInstance [] varArgsArray = new RuntimeInstance[allPositionals.length - signature.getPositionalParamCount() - 2];
+          //System.arraycopy(allPositionals, signature.getPositionalParamCount() + 2, varArgsArray, 0, varArgsArray.length);
+          System.out.println(" ==> var arg size: "+varArgsArray.length);
+
+          //System.out.println(" ===> STARTING VARARGS: "+(positionalIndex + 1)+" | "+args.getPositionals().size()+" | "+args.getPositionals());
+          /*
+          for(int i = positionalIndex; i < args.getPositionals().size(); i++) {
+            leftOvers.addValue(args.getPositional(i));
+          }
+          */
+
+          //frame.storeLocalVar(regularCallable.getCodeObject().getVarArgIndex(), leftOvers);
+          paramLocals[codeObject.getVarArgIndex()] = new RuntimeArray(varArgsArray);
+        }
+        
+        toReturn = new FunctionFrame(regularCallable.getHostModule(), regularCallable, 0, args, paramLocals, action, this);
       }
-      
-      toReturn = frame;
     }
     
     return toReturn;

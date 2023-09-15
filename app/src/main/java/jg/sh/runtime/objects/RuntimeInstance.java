@@ -266,6 +266,10 @@ public class RuntimeInstance implements Markable {
   public boolean hasAttr(String name) {
     return attributes.containsKey(name);
   }
+
+  public boolean hasAttrs() {
+    return !attributes.isEmpty();
+  }
   
   public void setGcFlag(int gcFlag) {
     this.gcFlag = gcFlag;

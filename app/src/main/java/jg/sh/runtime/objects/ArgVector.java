@@ -9,7 +9,7 @@ import jg.sh.runtime.exceptions.OperationException;
 /**
  * A vector of arguments for a function call.
  */
-public class ArgVector extends RuntimeInstance {
+public final class ArgVector extends RuntimeInstance {
 
   /**
    * A singleton ArgVector instance meant to hold
@@ -49,6 +49,8 @@ public class ArgVector extends RuntimeInstance {
     }
   }
 
+
+  
   public void addAtFront(RuntimeInstance instance) {
     positionals.add(0, instance);
   }

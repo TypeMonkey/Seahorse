@@ -90,7 +90,19 @@ public class RuntimeArray extends RuntimeInstance {
       ini.init(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
       ini.init(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
     });
-    array = new ArrayList<>();
+    this.array = new ArrayList<>();
+  }
+
+  public RuntimeArray(RuntimeInstance ... instances) {
+    super((ini, self) -> {
+      RuntimeModule systemModule = SystemModule.getNativeModule().getModule();
+    
+      ini.init("size", new ImmediateInternalCallable(systemModule, self, SIZE));
+      ini.init("add", new ImmediateInternalCallable(systemModule, self, ADD));
+      ini.init(RETR_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, RETR_INDEX));
+      ini.init(STORE_INDEX_ATTR, new ImmediateInternalCallable(systemModule, self, STORE_INDEX));
+    });
+    this.array = new ArrayList<>(Arrays.asList(instances));
   }
 
   public RuntimeInstance $add(RuntimeInstance otherOperand, HeapAllocator alloc) throws OperationException {

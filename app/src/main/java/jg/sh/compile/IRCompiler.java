@@ -1093,7 +1093,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
      * This is needed when the function is being called and the caller is preparing the
      * callee's parameter values.
      */
-    final Map<String, Integer> keywordParamToIndexMap = new HashMap<>();
+    final Map<String, Integer> keywordParamToIndexMap = new LinkedHashMap<>();
 
     int varArgIndex = -1;
     int keywordVarArgsIndex = -1;
