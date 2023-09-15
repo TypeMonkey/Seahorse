@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import jg.sh.compile.instrs.OpCode;
+import jg.sh.util.Pair;
 
 public class GeneralMetrics {
 
@@ -39,12 +40,12 @@ public class GeneralMetrics {
     opTimes.put(op, times);
   }
 
-  public static Map<OpCode, Double> getOpCodeAvgs() {
-    final Map<OpCode, Double> avgs = new EnumMap<>(OpCode.class);
+  public static Map<OpCode, Pair<Double, Integer>> getOpCodeAvgs() {
+    final Map<OpCode, Pair<Double, Integer>> avgs = new EnumMap<>(OpCode.class);
 
     opTimes.entrySet().forEach(entry -> {
       final double avg = entry.getValue().stream().mapToLong(Long::longValue).sum() / (double) entry.getValue().size();
-      avgs.put(entry.getKey(), avg);
+      avgs.put(entry.getKey(), new Pair<Double, Integer>(avg, entry.getValue().size()));
     });
 
     return avgs;
@@ -64,11 +65,11 @@ public class GeneralMetrics {
   public static String statsAsStrings() {
     String x = "=====> OpCode Average Lengths (ns) <====="+System.lineSeparator();
 
-    final ArrayList<Entry<OpCode, Double>> entryList = new ArrayList<>(getOpCodeAvgs().entrySet());
-    Collections.sort(entryList, (o1, o2) -> (int) (o1.getValue() - o2.getValue()));
+    final ArrayList<Entry<OpCode, Pair<Double, Integer>>> entryList = new ArrayList<>(getOpCodeAvgs().entrySet());
+    Collections.sort(entryList, (o1, o2) -> (int) (o1.getValue().first - o2.getValue().first));
     
-    for (Entry<OpCode, Double> entry : entryList) {
-      x += " "+entry.getKey()+"   == "+entry.getValue()+" ns "+System.lineSeparator();
+    for (Entry<OpCode, Pair<Double, Integer>> entry : entryList) {
+      x += " "+entry.getValue().second+" | "+entry.getKey()+"   == "+entry.getValue().first+" ns "+System.lineSeparator();
     }
 
     x += "=====> Other measures"+System.lineSeparator();

@@ -1,5 +1,6 @@
 package jg.sh.runtime.threading.frames;
 
+import java.util.Arrays;
 import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
@@ -952,14 +953,13 @@ public class FunctionFrame extends StackFrame {
     return modifyTopTwoOperand((codeObject, self) -> {
       if (codeObject instanceof RuntimeCodeObject) {
         final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
+
+        final CellReference [] currentFrameCaptures = callable.getCaptures();
       
         //Capture local variables based on the instr frame
-        final CellReference [] capturedLocals = new CellReference[actualCodeObject.getCaptures().length];
-        for(int dest = 0; dest < capturedLocals.length; dest++) {
-          capturedLocals[dest] = getCaptureReference(actualCodeObject.getCaptures()[dest]);
-        }
+        final CellReference [] capturedLocals = Arrays.copyOfRange(currentFrameCaptures, 0, actualCodeObject.getCaptures().length);
 
-        return allocator.allocateCallable(hostModule, self, actualCodeObject, capturedLocals);
+        return new RuntimeCallable(hostModule, self, actualCodeObject, capturedLocals);
       }
 
       throw new OperationException("Not a code object "+codeObject.getClass());
