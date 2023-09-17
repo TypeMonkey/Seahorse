@@ -16,6 +16,7 @@ import jg.sh.runtime.exceptions.InvocationException;
 import jg.sh.runtime.exceptions.ModuleLoadException;
 import jg.sh.runtime.exceptions.OperationException;
 import jg.sh.runtime.instrs.ArgInstruction;
+import jg.sh.runtime.instrs.LoadedConstantInstruction;
 import jg.sh.runtime.instrs.RuntimeInstruction;
 import jg.sh.runtime.loading.RuntimeModule;
 import jg.sh.runtime.metrics.GeneralMetrics;
@@ -68,7 +69,7 @@ public class FunctionFrame extends StackFrame {
                        Fiber fiber) {
     super(hostModule, initialArgs, action, fiber);
     this.callable = callable;
-    this.instrs = callable.getCodeObject().getInstrs();
+    this.instrs = callable.getCodeObject().getInstrs().clone();
     this.hostModule = callable.getHostModule();
     this.constantMap = hostModule.getConstants();
     this.instrIndex = instrIndex;
@@ -619,18 +620,14 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame arg(RuntimeInstruction instr, HeapAllocator allocator) {
-    final ArgInstruction argInstr = (ArgInstruction) instr;          
-    //Pop the actual argument
-    //final RuntimeInstance argValue = popOperand();
-    
-    //ArgVector argVector = (ArgVector) peekOperand();
+    final ArgInstruction argInstr = (ArgInstruction) instr;    
+    final RuntimeString argName = argInstr.getArgument() >= 0 ? (RuntimeString) cacheConstant(argInstr) : null;
 
     return modifyTopTwoOperand(
       (argValue, argVectorInstance) -> {
         final ArgVector argVector = (ArgVector) argVectorInstance;
-        if (argInstr.getArgument() >= 0) {
-          String argName = ((RuntimeString) hostModule.getConstant(argInstr.getArgument())).getValue();
-          argVector.setKeywordArg(argName, argValue);
+        if (argName != null) {
+          argVector.setKeywordArg(argName.getValue(), argValue);
           //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
         }
         else {
@@ -661,10 +658,7 @@ public class FunctionFrame extends StackFrame {
   }
 
   private StackFrame loadConstant(RuntimeInstruction instr, HeapAllocator allocator) {
-    final ArgInstruction loadcInstr = (ArgInstruction) instr;
-    RuntimeInstance constant = constantMap[loadcInstr.getArgument()];
-    pushOperand(constant);
-    LOG.info(" ==> LOADC "+loadcInstr.getArgument()+" || "+constant);
+    pushOperand(cacheConstant((ArgInstruction) instr));
     return this;
   }
 
@@ -1288,6 +1282,17 @@ public class FunctionFrame extends StackFrame {
   }
 
   // Bytecode dispatch methods - END
+
+  private RuntimeInstance cacheConstant(ArgInstruction argInstr) {
+    if (argInstr instanceof LoadedConstantInstruction) {
+      return ((LoadedConstantInstruction) argInstr).getConstant();
+    }
+    else {
+      final RuntimeInstance instance = constantMap[argInstr.getArgument()];
+      instrs[instrIndex] = new LoadedConstantInstruction(argInstr, instance);
+      return instance;
+    }
+  }
 
   public void setInstrIndex(int newIndex) {
     this.instrIndex = newIndex;
