@@ -210,9 +210,11 @@ public class Parser {
    *      use ModuleOne as Mod; //ModuleOne now has the alias of "Mod" in the module
    *      use ModuleOne:funky as func; //funky can be now be used as "func"
    *      use ModuleOne:funky as fy, boo as apple; //funky can be used as "fy" and boo as "apple"
+   * 
+   * moduleName can be typed with string quotations or not.
    */
   private UseStatement useStatement(Token useKeyword) throws ParseException {
-    final Token moduleName = matchError(IDENTIFIER, "Module name expected.", useKeyword.getEnd());
+    final Token moduleName = match(IDENTIFIER) ? prev() : matchError(STRING, "Module name expected.", useKeyword.getEnd());
 
     final Identifier importedModule = new Identifier(moduleName);
     Identifier importedModuleAlias = null;

@@ -40,6 +40,7 @@ import jg.sh.modules.NativeModuleDiscovery;
 import jg.sh.modules.builtin.SystemModule;
 import jg.sh.parsing.Module;
 import jg.sh.parsing.exceptions.ParseException;
+import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.CellReference;
 import jg.sh.runtime.alloc.Cleaner;
 import jg.sh.runtime.alloc.HeapAllocator;
@@ -76,6 +77,10 @@ import jg.sh.util.RuntimeUtils;
 public class ModuleFinder implements Markable {
 
   private static Logger LOG = LogManager.getLogger(ModuleFinder.class);
+
+  private static final NativeModule [] BOOTSTRAP_MODULES = {
+    SystemModule.getNativeModule()
+  };
     
   public static final Function<String, String> MODULE_START_LABEL_GEN = (modName) -> "$module_"+modName+"_start";
 
@@ -97,27 +102,27 @@ public class ModuleFinder implements Markable {
     this.classLoader = new ByteBasedClassLoader();
 
     //Add "system" module
-    modules.put(SystemModule.SYSTEM_NAME, prepareSystemModule());  
+    //modules.put(SystemModule.SYSTEM_NAME, prepareSystemModule());  
   }
   
-  private RuntimeModule prepareSystemModule() {
-    final NativeModule systemNativeModule = SystemModule.getNativeModule();
-    final RuntimeModule systemModule = systemNativeModule.getModule();
+  public void prepareBootstrapModules() {
+    for (NativeModule bootStrapModule : BOOTSTRAP_MODULES) {
+      final RuntimeModule module = bootStrapModule.getModule();
 
-    final InternalFunction nativeLoadingFunc = InternalFunction.create(FunctionSignature.NO_ARG, (fiber, self, callable, args) -> {
-      systemNativeModule.initialize(self);
-      return self;
-    });
-    
-    final RuntimeInstance systemObject = allocator.allocateEmptyObject((o, m) -> {
-      prepareFromAnnotations(systemNativeModule, o, m);
-      systemNativeModule.initialAttrs(m, o);
-    });
-    
-    final RuntimeInternalCallable initialization = new RuntimeInternalCallable(systemModule, systemObject, nativeLoadingFunc);
-    systemModule.setLoadingComponents(systemObject, initialization);
-        
-    return systemModule;
+      final InternalFunction nativeLoadingFunc = InternalFunction.create(FunctionSignature.NO_ARG, (fiber, self, callable, args) -> {
+        bootStrapModule.initialize(self);
+        return self;
+      });
+      
+      final RuntimeInstance systemObject = allocator.allocateEmptyObject((o, m) -> {
+        prepareFromAnnotations(bootStrapModule, o, m);
+        bootStrapModule.initialAttrs(m, o);
+      });
+      
+      final RuntimeInternalCallable initialization = new RuntimeInternalCallable(module, systemObject, nativeLoadingFunc);
+      module.setLoadingComponents(systemObject, initialization);
+      modules.put(bootStrapModule.getName(), module);
+    }   
   }
   
   public RuntimeModule load(String name) throws ModuleLoadException {
@@ -237,6 +242,8 @@ public class ModuleFinder implements Markable {
 
   public void prepareFromAnnotations(NativeModule module, Initializer ini, RuntimeInstance moduleObject) {
     final Class<?> actualClass = module.getClass();
+
+
 
     /**
      * Link methods annotated with NativeFunction
@@ -504,7 +511,9 @@ public class ModuleFinder implements Markable {
                     methods.put(mIndex.getKey(), runtimeCodeObjects.get(mIndex.getValue().getIndex()));
                   }
 
-                  constants[index] = allocator.allocateDataRecord(d.getName(), methods, d.isSealed());
+                  final RuntimeCodeObject constructor = methods.get(TokenType.CONSTR.name().toLowerCase());
+
+                  constants[index] = allocator.allocateDataRecord(d.getName(), constructor, methods, d.isSealed());
                 });
     
     /*

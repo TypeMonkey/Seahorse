@@ -239,8 +239,7 @@ public class Fiber extends RuntimeInstance {
   public StackFrame makeFrame(Callable callable, 
                               ArgVector args, 
                               HeapAllocator allocator,
-                              ReturnAction action) throws CallSiteException {
-    
+                              ReturnAction action) throws CallSiteException {    
     final FunctionSignature signature = callable.getSignature();
 
     /*
@@ -274,7 +273,7 @@ public class Fiber extends RuntimeInstance {
       final RuntimeCodeObject codeObject = regularCallable.getCodeObject();
       final RuntimeInstance [] allPositionals = args.getPositionals().toArray(new RuntimeInstance[0]);
 
-      if(!args.hasAttrs()) {
+      if(!args.hasKeywords()) {
         /*
          * The ArgVector only has positionl arguments.
          *
@@ -319,7 +318,7 @@ public class Fiber extends RuntimeInstance {
          */
         final Map<String, Integer> keywordToIndexMap = codeObject.getKeywordIndexes();
         final RuntimeInstance leftOverKeywords = allocator.allocateEmptyObject((ini, self) -> {
-          for (Entry<String, RuntimeInstance> keywordArg : args.getAttributes().entrySet()) {
+          for (Entry<String, RuntimeInstance> keywordArg : args.getKeywords().entrySet()) {
             if(keywordToIndexMap.containsKey(keywordArg.getKey())) {
               final int keywordIndex = keywordToIndexMap.get(keywordArg.getKey());
               //System.out.println("        ===> saving as local: "+keywordIndex);

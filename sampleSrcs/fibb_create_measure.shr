@@ -24,9 +24,9 @@ func fiberMeasure() {
     const start := now();
     const f := makeFiber(func foo(){
       capture start;
-      fib(28);
+      const res := fib(28);
       measureEnd.add(now() - start);
-      println("Fib(28) Finish Times (in ns): "+measureEnd.toString());
+      println("Fib(28) Finish Times (in ns): "+measureEnd.toString()+" | res: "+res);
     });
     measuresArr.add(now() - start);
 

@@ -44,9 +44,7 @@ public class JavaFrame extends StackFrame{
   }
   
   @Override
-  protected void markAdditional(Cleaner cleaner) {
-    cleaner.gcMarkObject(initialArgs);
-  }
+  protected void markAdditional(Cleaner cleaner) {}
   
   /**
    * Convenience method for returning the RuntimeCallable that this FunctionFrame is based on.

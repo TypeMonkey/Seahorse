@@ -68,7 +68,9 @@ public abstract class NativeModule {
    */
   public abstract void initialize(RuntimeInstance moduleObject);
 
-  public abstract String getName();
+  public String getName() {
+    return getClass().getName();
+  }
   
   public RuntimeModule getModule() {
     return runtimeModule;

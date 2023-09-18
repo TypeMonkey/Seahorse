@@ -58,6 +58,7 @@ public class FunctionFrame extends StackFrame {
   private final RuntimeInstruction [] instrs;
   private final RuntimeInstance [] constantMap;
   private final RuntimeModule hostModule;
+  private final ArgVector argCarrier;
 
   private int instrIndex;
   
@@ -73,6 +74,7 @@ public class FunctionFrame extends StackFrame {
     this.hostModule = callable.getHostModule();
     this.constantMap = hostModule.getConstants();
     this.instrIndex = instrIndex;
+    this.argCarrier = new ArgVector();
   }  
 
   public FunctionFrame(RuntimeModule hostModule, 
@@ -88,6 +90,7 @@ public class FunctionFrame extends StackFrame {
     this.hostModule = callable.getHostModule();
     this.constantMap = hostModule.getConstants();
     this.instrIndex = instrIndex;
+    this.argCarrier = new ArgVector();
   }
 
   public StackFrame run(HeapAllocator allocator) {
@@ -212,9 +215,11 @@ public class FunctionFrame extends StackFrame {
         case LOAD_CL:
           frame = loadCapture(instr, allocator);
           break;
+        /*
         case MAKEARGV:
           frame = makeArgV(instr, allocator);
           break;
+        */
         case MAKECONST:
           frame = makeConstant(instr, allocator);
           break;
@@ -423,7 +428,6 @@ public class FunctionFrame extends StackFrame {
                             instr, 
                             top, 
                             coupling.getFuncName(), 
-                            new ArgVector(), 
                             "Value for "+coupling.getOpCode().name().toLowerCase()+" isn't callable.", 
                             "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+top.getClass());
       });
@@ -459,7 +463,6 @@ public class FunctionFrame extends StackFrame {
                             instr, 
                             top, 
                             coupling.getFuncName(), 
-                            new ArgVector(), 
                             "Value for "+coupling.getOpCode().name().toLowerCase()+" isn't callable.", 
                             "Unsupported operator for "+coupling.getOpCode().name().toLowerCase()+" isn't supported for "+top.getClass());
       });
@@ -481,21 +484,21 @@ public class FunctionFrame extends StackFrame {
                                      RuntimeInstance left, 
                                      RuntimeInstance right) {
     LOG.trace(" For: "+instruction+" => Not numerical operands. Will call overloaded operator implementation!");
+    argCarrier.addPositional(right);
     return checkAndCall(allocator, 
                         instruction, 
                         right, 
                         opFuncName.getFuncName(), 
-                        new ArgVector(right), 
                         opFuncName.getOpCode().name().toLowerCase()+" isn't a callable", 
                         "Unsupported operation for "+opFuncName.getOpCode().name().toLowerCase()+" on "+left.getClass());
   }
 
   private StackFrame call(RuntimeInstruction instr, HeapAllocator allocator) {
     final RuntimeInstance callable = popOperand();
-    final ArgVector args = (ArgVector) popOperand();    
+    //final ArgVector args = (ArgVector) popOperand();    
     
     if (callable instanceof Callable) {
-      return generalCall(allocator, instr, callable, args, "");
+      return generalCall(allocator, instr, callable, "");
     }
     else if(callable instanceof RuntimeDataRecord) {
       final RuntimeDataRecord dataRecord = (RuntimeDataRecord) callable;
@@ -511,7 +514,7 @@ public class FunctionFrame extends StackFrame {
         }
       };
 
-      return generalCall(allocator, instr, actualCallable, args, "", action);
+      return generalCall(allocator, instr, actualCallable, "", action);
     }   
     else {
       return prepareErrorJump(instr, allocator, "Target isn't callable "+callable.getClass());
@@ -614,15 +617,28 @@ public class FunctionFrame extends StackFrame {
     return this;
   }
 
+  /*
   private StackFrame makeArgV(RuntimeInstruction instr, HeapAllocator allocator) {
     pushOperand(new ArgVector());
     return this;
   }
+  */
 
   private StackFrame arg(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction argInstr = (ArgInstruction) instr;    
     final RuntimeString argName = argInstr.getArgument() >= 0 ? (RuntimeString) cacheConstant(argInstr) : null;
 
+    final RuntimeInstance argument = popOperand();
+    if (argName != null) {
+      argCarrier.setKeywordArg(argName.getValue(), argument);
+    }
+    else {
+      argCarrier.addPositional(argument);
+    }
+
+    return this;
+
+    /*
     return modifyTopTwoOperand(
       (argValue, argVectorInstance) -> {
         final ArgVector argVector = (ArgVector) argVectorInstance;
@@ -638,23 +654,9 @@ public class FunctionFrame extends StackFrame {
       }, 
       this,
       (argValue, argVector, error) -> prepareErrorJump(instr, allocator, "Couldn't add argument to ArgVector."));
+    */
 
     //System.out.println(" ===> arg instr!");
-    
-    /*
-    if (argInstr.getArgument() >= 0) {
-      String argName = ((RuntimeString) hostModule.getConstant(argInstr.getArgument())).getValue();
-      argVector.setKeywordArg(argName, argValue);
-
-      //System.out.println(" ====> Setting arg keyword "+argName+" | value = "+argValue);
-    }
-    else {
-      argVector.addPositional(argValue);
-    }
-    
-    //pushOperand(argVector);
-    return this;
-    */
   }
 
   private StackFrame loadConstant(RuntimeInstruction instr, HeapAllocator allocator) {
@@ -683,7 +685,8 @@ public class FunctionFrame extends StackFrame {
   private StackFrame loadAttr(RuntimeInstruction instr, HeapAllocator allocator) {
     //final long start = System.nanoTime();
     final ArgInstruction loadInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) hostModule.getConstant(loadInstr.getArgument())).getValue();
+    final RuntimeString attrNameConst = (RuntimeString) cacheConstant(loadInstr);
+    final String attrName = attrNameConst.getValue();
     
     //System.out.println("====> object attr: "+object.attrs());
 
@@ -710,7 +713,8 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame storeAttr(RuntimeInstruction instr, HeapAllocator allocator) {
     final ArgInstruction storeInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) hostModule.getConstant(storeInstr.getArgument())).getValue();
+    final RuntimeString attrNameConst = (RuntimeString) cacheConstant(storeInstr);
+    final String attrName = attrNameConst.getValue();
     //final RuntimeInstance object = popOperand();
     //final RuntimeInstance value = popOperand();
 
@@ -763,7 +767,7 @@ public class FunctionFrame extends StackFrame {
     final long methodStart = System.nanoTime();
 
     final ArgInstruction loadInstr = (ArgInstruction) instr;
-    final String attrName = ((RuntimeString) hostModule.getConstant(loadInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) constantMap[loadInstr.getArgument()]).getValue();
     final RuntimeInstance moduleObject = hostModule.getModuleObject();
     final RuntimeInstance attrValue = moduleObject.getAttr(attrName);
     
@@ -781,7 +785,8 @@ public class FunctionFrame extends StackFrame {
   private StackFrame storeModuleVar(RuntimeInstruction instr, HeapAllocator allocator) { 
     final ArgInstruction storeInstr = (ArgInstruction) instr;      
     final RuntimeInstance newValue = popOperand();
-    final String attrName = ((RuntimeString) hostModule.getConstant(storeInstr.getArgument())).getValue();
+    final RuntimeString attrNameConst = (RuntimeString) cacheConstant(storeInstr);
+    final String attrName = attrNameConst.getValue();
     //System.out.println(">>>> STOREMV: "+attrName+" | "+storeInstr.getIndex());
     final RuntimeInstance moduleObject = hostModule.getModuleObject();
     
@@ -801,13 +806,15 @@ public class FunctionFrame extends StackFrame {
       (index, target) -> target.$getAtIndex(index, allocator), 
       this, 
       (index, target, err) -> 
-             checkAndCall(allocator, 
-                          instr, 
-                          target, 
-                          RuntimeArray.RETR_INDEX_ATTR, 
-                          new ArgVector(index), 
-                          target.getClass()+" isn't indexible", 
-                          target.getClass()+" isn't indexible"));
+        {
+          argCarrier.addAtFront(index);
+          return checkAndCall(allocator, 
+                              instr, 
+                              target, 
+                              RuntimeArray.RETR_INDEX_ATTR, 
+                              target.getClass()+" isn't indexible", 
+                              target.getClass()+" isn't indexible"); 
+        });
 
     /*
     try {
@@ -839,13 +846,15 @@ public class FunctionFrame extends StackFrame {
       }, 
       this, 
       (index, target, err) -> 
-             checkAndCall(allocator, 
-                          instr, 
-                          target, 
-                          RuntimeArray.STORE_INDEX_ATTR, 
-                          new ArgVector(index), 
-                          target.getClass()+" isn't indexible", 
-                          target.getClass()+" isn't indexible"));
+        {
+          argCarrier.addPositional(index);
+          return checkAndCall(allocator, 
+                              instr, 
+                              target, 
+                              RuntimeArray.STORE_INDEX_ATTR, 
+                              target.getClass()+" isn't indexible", 
+                              target.getClass()+" isn't indexible"); 
+        });
 
     /*
     try {
@@ -874,10 +883,11 @@ public class FunctionFrame extends StackFrame {
       return this;
     }              
     else {
-      final String moduleName = ((RuntimeString) hostModule.getConstant(loadInstr.getArgument())).getValue();
+      //final String moduleName = ((RuntimeString) constantMap[loadInstr.getArgument()]).getValue();
+      final RuntimeString moduleName = (RuntimeString) cacheConstant(loadInstr);
 
       try {
-        final RuntimeModule otherModule = fiber.getFinder().load(moduleName);
+        final RuntimeModule otherModule = fiber.getFinder().load(moduleName.getValue());
 
         //System.out.println(" is "+otherModule.getName()+" loaded? "+otherModule.isLoaded());
 
@@ -885,7 +895,6 @@ public class FunctionFrame extends StackFrame {
           final StackFrame otherModuleFrame = generalCall(allocator, 
                                                           loadInstr, 
                                                           otherModule.getModuleCallable(), 
-                                                          new ArgVector(), 
                                                           "");
           pushOperand(otherModule.getModuleObject());
           otherModule.setAsLoaded(true);
@@ -904,7 +913,7 @@ public class FunctionFrame extends StackFrame {
   private StackFrame exportModuleVar(RuntimeInstruction instr, 
                                      HeapAllocator allocator) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
-    final String varName = ((RuntimeString) hostModule.getConstant(exportInstr.getArgument())).getValue();
+    final String varName = ((RuntimeString) constantMap[exportInstr.getArgument()]).getValue();
     final RuntimeInstance moduleObject = hostModule.getModuleObject();
 
     //System.out.println("===> making module variable "+varName+" export!");
@@ -923,7 +932,7 @@ public class FunctionFrame extends StackFrame {
   private StackFrame constantModuleVar(RuntimeInstruction instr, 
                                        HeapAllocator allocator) { 
     final ArgInstruction exportInstr = (ArgInstruction) instr;
-    final String varName = ((RuntimeString) hostModule.getConstant(exportInstr.getArgument())).getValue();
+    final String varName = ((RuntimeString) constantMap[exportInstr.getArgument()]).getValue();
 
     //System.out.println("===> making module variable "+varName+" constant!");
     //System.out.println("===> FOR MODULE: "+System.lineSeparator()+getHostModule());
@@ -944,20 +953,25 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame allocateFunc(RuntimeInstruction instr, 
                                   HeapAllocator allocator) {
-    return modifyTopTwoOperand((codeObject, self) -> {
-      if (codeObject instanceof RuntimeCodeObject) {
-        final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
+    final RuntimeInstance codeObject = (RuntimeCodeObject) cacheConstant((ArgInstruction) instr);
 
-        final CellReference [] currentFrameCaptures = callable.getCaptures();
-      
-        //Capture local variables based on the instr frame
-        final CellReference [] capturedLocals = Arrays.copyOfRange(currentFrameCaptures, 0, actualCodeObject.getCaptures().length);
+    return modifyTopOperand(
+      (self) -> {
+        if (codeObject instanceof RuntimeCodeObject) {
+          final RuntimeCodeObject actualCodeObject = (RuntimeCodeObject) codeObject;
 
-        return new RuntimeCallable(hostModule, self, actualCodeObject, capturedLocals);
-      }
+          final CellReference [] currentFrameCaptures = callable.getCaptures();
+        
+          //Capture local variables based on the instr frame
+          final CellReference [] capturedLocals = Arrays.copyOfRange(currentFrameCaptures, 0, actualCodeObject.getCaptures().length);
 
-      throw new OperationException("Not a code object "+codeObject.getClass());
-    }, this, (codeObject, self, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
+          return new RuntimeCallable(hostModule, self, actualCodeObject, capturedLocals);
+        }
+
+        throw new OperationException("Not a code object "+codeObject.getClass());
+      }, 
+      this, 
+      (self, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
 
     /*
     final RuntimeInstance codeObject = popOperand();
@@ -988,7 +1002,19 @@ public class FunctionFrame extends StackFrame {
 
   private StackFrame allocateArray(RuntimeInstruction instr, 
                                    HeapAllocator allocator) {   
-    
+    final RuntimeArray array = allocator.allocateEmptyArray();
+
+    for(int i = 0; i < argCarrier.getPositionals().size(); i++) {
+      //System.out.println("=== ADDING: "+args.getPositional(i));
+      array.addValue(argCarrier.getPositional(i));
+    }
+
+    argCarrier.clearOut();
+    pushOperand(array);
+
+    return this;
+
+    /*
     return modifyTopOperand(
       (top) -> {
         final ArgVector args = (ArgVector) top;
@@ -1003,15 +1029,16 @@ public class FunctionFrame extends StackFrame {
       }, 
       this, 
       (self, err) -> prepareErrorJump(instr, allocator, err.getMessage()));
+    */
   }
 
   private StackFrame allocateObject(RuntimeInstruction instr, 
                                     HeapAllocator allocator) {
     final ArgInstruction alloco = (ArgInstruction) instr;
-    final ArgVector args = (ArgVector) popOperand();
+    //final ArgVector args = (ArgVector) popOperand();
     
     RuntimeInstance object = allocator.allocateEmptyObject((ini, self) -> {
-      for(Entry<String, RuntimeInstance> pair : args.getAttributes().entrySet()) { 
+      for(Entry<String, RuntimeInstance> pair : argCarrier.getKeywords().entrySet()) { 
         if (pair.getValue() instanceof RuntimeCallable) {
           RuntimeCallable callable = (RuntimeCallable) pair.getValue();
           ini.init(pair.getKey(), callable.rebind(self, allocator));
@@ -1021,6 +1048,8 @@ public class FunctionFrame extends StackFrame {
         }
       }
     });
+
+    argCarrier.clearOut();
 
     if (alloco.getArgument() != 0) {
       object.seal();
@@ -1047,7 +1076,7 @@ public class FunctionFrame extends StackFrame {
 
     //final RuntimeInstance attrValue = popOperand();
     //final RuntimeInstance targetObj = peekOperand();
-    final String attrName = ((RuntimeString) hostModule.getConstant(hasInstr.getArgument())).getValue();
+    final String attrName = ((RuntimeString) constantMap[hasInstr.getArgument()]).getValue();
 
     return modifyTopTwoOperand(
       (attrValue, targetObj) -> {
@@ -1084,7 +1113,7 @@ public class FunctionFrame extends StackFrame {
                                    HeapAllocator allocator) {
     final ArgInstruction hasInstr = (ArgInstruction) instr;
     final String attrName = ((RuntimeString) hostModule.getConstant(hasInstr.getArgument())).getValue();
-    final RuntimeBool result = allocator.allocateBool(initialArgs.hasAttr(attrName));
+    final RuntimeBool result = allocator.allocateBool(initialArgs.hasKeyword(attrName));
     //System.out.println(" ===> has k_arg? "+attrName+" | "+initialArgs.attrs()+" | "+result);
     pushOperand(result);  
     
@@ -1177,7 +1206,6 @@ public class FunctionFrame extends StackFrame {
                                   RuntimeInstruction instr,
                                   RuntimeInstance target, 
                                   String funcName, 
-                                  ArgVector args,
                                   String notCallableError,
                                   String noAttrError) {
     final RuntimeInstance potentialCallable = target.getAttr(funcName);
@@ -1186,7 +1214,7 @@ public class FunctionFrame extends StackFrame {
       return prepareErrorJump(instr, allocator, noAttrError);
     }
     else {
-      return generalCall(allocator, instr, potentialCallable, args, notCallableError);
+      return generalCall(allocator, instr, potentialCallable, notCallableError);
     }
   }
 
@@ -1207,7 +1235,6 @@ public class FunctionFrame extends StackFrame {
    * @param fiber - the current Fiber
    * @param instr - the original CALL instruction
    * @param potentialCallable - the RuntimeInstance that maybe a Callable
-   * @param args - the arguments to be passed to the invoked function
    * @param notCallableError - the String message to use as a error message if potentialCallable isn't a Callable 
    * @param returnAction - the ReturnAction to execute when the frame returns normally or exceptionally
    * @return (See above)
@@ -1215,9 +1242,8 @@ public class FunctionFrame extends StackFrame {
   private StackFrame generalCall(HeapAllocator allocator,
                                  RuntimeInstruction instr,
                                  RuntimeInstance potentialCallable, 
-                                 ArgVector args,
                                  String notCallableError) {
-    return generalCall(allocator, instr, potentialCallable, args, notCallableError, null);
+    return generalCall(allocator, instr, potentialCallable, notCallableError, null);
   }
 
   /**
@@ -1237,7 +1263,6 @@ public class FunctionFrame extends StackFrame {
    * @param fiber - the current Fiber
    * @param instr - the original CALL instruction
    * @param potentialCallable - the RuntimeInstance that maybe a Callable
-   * @param args - the arguments to be passed to the invoked function
    * @param notCallableError - the String message to use as a error message if potentialCallable isn't a Callable 
    * @param returnAction - the ReturnAction to execute when the frame returns normally or exceptionally
    * @return (See above)
@@ -1245,20 +1270,21 @@ public class FunctionFrame extends StackFrame {
   private StackFrame generalCall(HeapAllocator allocator,
                                  RuntimeInstruction instr,
                                  RuntimeInstance potentialCallable, 
-                                 ArgVector args,
                                  String notCallableError,
                                  ReturnAction returnAction) {
     if (potentialCallable instanceof Callable) {
       final Callable actualCallable = (Callable) potentialCallable;
 
       try {
-        final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, args, fiber);
+        final RuntimeInstance result = RuntimeUtils.fastCall(actualCallable, argCarrier, fiber);
         if (result != null) {
+          argCarrier.clearOut();
           pushOperand(result);
           return this;
         }
         else {
-          final StackFrame newFrame = fiber.makeFrame(actualCallable, args, allocator, returnAction);
+          final StackFrame newFrame = fiber.makeFrame(actualCallable, argCarrier.clone(), allocator, returnAction);
+          argCarrier.clearOut();
           instrIndex++;
           return newFrame;
         }
@@ -1284,12 +1310,12 @@ public class FunctionFrame extends StackFrame {
   // Bytecode dispatch methods - END
 
   private RuntimeInstance cacheConstant(ArgInstruction argInstr) {
-    if (argInstr instanceof LoadedConstantInstruction) {
-      return ((LoadedConstantInstruction) argInstr).getConstant();
+    if (argInstr.isCached()) {
+      return argInstr.getCache();
     }
     else {
       final RuntimeInstance instance = constantMap[argInstr.getArgument()];
-      instrs[instrIndex] = new LoadedConstantInstruction(argInstr, instance);
+      instrs[instrIndex] = argInstr.cache(instance);
       return instance;
     }
   }

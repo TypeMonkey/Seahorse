@@ -19,14 +19,20 @@ public class RuntimeDataRecord extends RuntimeInstance {
   public static final String TYPE_ATTR = "$type";
 
   private final Map<String, RuntimeCodeObject> methods;
+  private final RuntimeCodeObject constructor;
   private final String name;
   private final boolean instancesSealed;
 
-  public RuntimeDataRecord(String name, Map<String, RuntimeCodeObject> methods, boolean instancesSealed) {
+  public RuntimeDataRecord(String name, RuntimeCodeObject constructor, Map<String, RuntimeCodeObject> methods, boolean instancesSealed) {
     this.name = name;
     this.methods = methods;
     this.instancesSealed = instancesSealed;
+    this.constructor = constructor;
     seal();
+  }
+
+  public boolean methodExists(String name) {
+    return methods.containsKey(name);
   }
 
   /**
@@ -59,8 +65,7 @@ public class RuntimeDataRecord extends RuntimeInstance {
    * @return the constructor as a Callable.
    */
   public Callable prepareConstructor(HeapAllocator allocator, RuntimeModule hostModule, RuntimeInstance instance) {
-    final RuntimeCodeObject constrCodeObj = (RuntimeCodeObject) getAttr(TokenType.CONSTR.name().toLowerCase());
-    return allocator.allocateCallable(hostModule, instance, constrCodeObj);
+    return allocator.allocateCallable(hostModule, instance, constructor);
   }
 
   @Override
@@ -85,4 +90,7 @@ public class RuntimeDataRecord extends RuntimeInstance {
     return methods;
   }
   
+  public RuntimeCodeObject getConstructor() {
+    return constructor;
+  }
 }

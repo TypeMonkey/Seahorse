@@ -21,9 +21,10 @@ func fiberMeasure() {
   var threadCount := 10;
   while(threadCount > 0) {
     const f := makeThread(func foo(){
-      fib(28);
-      measures.add(now() - currentFiber().priorStartTime);
-      println("Fib(28) Finish Times (in ns): "+measures);
+      const cf := currentFiber();
+      const res := fib(28);
+      measures.add(now() - cf.priorStartTime);
+      println("Fib(28) Finish Times (in ns): "+measures+" | res: "+res);
     });
 
     f.priorStartTime := now();

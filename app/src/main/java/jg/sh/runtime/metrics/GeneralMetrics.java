@@ -6,6 +6,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import jg.sh.compile.instrs.OpCode;
 import jg.sh.util.Pair;
@@ -25,17 +26,17 @@ public class GeneralMetrics {
     INSTR_RETR_TIME;
   }
 
-  private final static Map<OpCode, List<Long>> opTimes = new EnumMap<>(OpCode.class);
-  private final static Map<Meaures, List<Long>> otherMeasures = new EnumMap<>(Meaures.class);
+  private final static Map<OpCode, ConcurrentLinkedQueue<Long>> opTimes = new EnumMap<>(OpCode.class);
+  private final static Map<Meaures, ConcurrentLinkedQueue<Long>> otherMeasures = new EnumMap<>(Meaures.class);
 
   public static void addTimes(Meaures meaure, long time) {
-    final List<Long> times = otherMeasures.getOrDefault(meaure, new ArrayList<>());
+    final ConcurrentLinkedQueue<Long> times = otherMeasures.getOrDefault(meaure, new ConcurrentLinkedQueue<>());
     times.add(time);
     otherMeasures.put(meaure, times);
   }
 
   public static void addTimes(OpCode op, long time) {
-    final List<Long> times = opTimes.getOrDefault(op, new ArrayList<>());
+    final ConcurrentLinkedQueue<Long> times = opTimes.getOrDefault(op, new ConcurrentLinkedQueue<>());
     times.add(time);
     opTimes.put(op, times);
   }

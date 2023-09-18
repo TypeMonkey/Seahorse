@@ -2,41 +2,53 @@ package jg.sh.runtime.objects;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-
-import jg.sh.runtime.exceptions.OperationException;
+import java.util.Map;
 
 /**
  * A vector of arguments for a function call.
  */
-public final class ArgVector extends RuntimeInstance {
+public final class ArgVector {
   
+  private Map<String, RuntimeInstance> keywords;
   private List<RuntimeInstance> positionals;
   
   public ArgVector(RuntimeInstance ... initialPositionals) {
     this.positionals = new ArrayList<>(Arrays.asList(initialPositionals));
+    this.keywords = new HashMap<>();
   }
 
-  /**
-   * Does nothing.
-   */
-  @Override
-  public final void seal(){}
+  public ArgVector(Map<String, RuntimeInstance> initialKeywords, List<RuntimeInstance> initialPositionals) {
+    this.positionals = new ArrayList<>(initialPositionals);
+    this.keywords = new HashMap<>(initialKeywords);
+  }
+
+  public ArgVector clone() {
+    return new ArgVector(keywords, positionals);
+  }
+
+  public void clearOut() {
+    keywords.clear();
+    positionals.clear();
+  }
 
   public void setKeywordArg(String keyword, RuntimeInstance value) {
-    try {
-      setAttribute(keyword, value);
-    } catch (OperationException e) {
-      /*
-       * Should never happen as ArgVectors are unsealable.
-       * If it does, the world is doomed. Panic!
-       */
-      throw new Error(e);
-    }
+    keywords.put(keyword, value);
   }
 
+  public boolean hasKeyword(String keyword) {
+    return keywords.containsKey(keyword);
+  } 
 
-  
+  public boolean hasKeywords() {
+    return !keywords.isEmpty();
+  }
+
+  public Map<String, RuntimeInstance> getKeywords() {
+    return keywords;
+  }
+
   public void addAtFront(RuntimeInstance instance) {
     positionals.add(0, instance);
   }

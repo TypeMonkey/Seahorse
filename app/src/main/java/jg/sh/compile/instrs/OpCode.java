@@ -250,10 +250,13 @@ public enum OpCode {
   BIND,
   
   /*
-   * Creates an instance of a function from a code object at the top of the operand stack
+   * Creates an instance of a function from a code object in the contstant pool
    * 
-   * TOP      -> codeObject
-   *           | self
+   * This instruction requires a numerical value indicating the index of the codeObject
+   * in the constant pool.
+   * 
+   * TOP      -> self
+   *           | 
    * BOTTOM   ->
    * 
    * This instruction then pops the allocated callable function on the top of the operand stack
@@ -316,7 +319,7 @@ public enum OpCode {
   /*
    * Makes an empty argVector and pushes it on the operand stack
    */
-  MAKEARGV,
+  //MAKEARGV,
 
   /**
    * Checks if an ArgVector has a given optional/keyword argument
@@ -384,7 +387,7 @@ public enum OpCode {
     OpCode [] options = {STORE, LOAD, STOREATTR, LOADATTR, 
                          LOADC, JUMP, JUMPF, JUMPT, COMMENT, LABEL, 
                          LOADMV, STOREMV, LOAD_CL, STORE_CL, 
-                         ARG, ALLOCO, LOADMOD, MAKECONST,
+                         ARG, ALLOCO, ALLOCF, LOADMOD, MAKECONST,
                          CONSTMV, EXPORTMV, HAS_KARG};
     
     ARG_INSTRS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(options)));
@@ -392,7 +395,7 @@ public enum OpCode {
     options = new OpCode[]
                         {STOREATTR, LOADATTR, 
                          LOADC,LOADMV, STOREMV, 
-                         ARG, LOADMOD, MAKECONST,
+                         ARG, LOADMOD, MAKECONST, ALLOCF,
                          CONSTMV, EXPORTMV, HAS_KARG};
     
     POOL_INSTRS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(options)));

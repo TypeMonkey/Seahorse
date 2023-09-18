@@ -183,8 +183,11 @@ public class HeapAllocator {
   }
 
 
-  public RuntimeDataRecord allocateDataRecord(String name, Map<String, RuntimeCodeObject> methods, boolean isSealed) {
-    final RuntimeDataRecord dataRecord = new RuntimeDataRecord(name, methods, isSealed);
+  public RuntimeDataRecord allocateDataRecord(String name, 
+                                              RuntimeCodeObject constructor, 
+                                              Map<String, RuntimeCodeObject> methods, 
+                                              boolean isSealed) {
+    final RuntimeDataRecord dataRecord = new RuntimeDataRecord(name, constructor, methods, isSealed);
     return dataRecord;
   }
   

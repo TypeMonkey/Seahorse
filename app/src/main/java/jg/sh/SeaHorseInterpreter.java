@@ -85,6 +85,8 @@ public class SeaHorseInterpreter {
       }
     }
 
+    finder.prepareBootstrapModules();
+
     final Level logLevel = Level.getLevel((String) options.getOrDefault(IOption.LOG_LEVEL, "OFF"));
     Configurator.setLevel(System.getProperty("log4j.logger"), logLevel == null ? Level.OFF : logLevel);    
 

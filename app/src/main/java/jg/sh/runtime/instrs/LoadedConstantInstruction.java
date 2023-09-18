@@ -23,7 +23,13 @@ public class LoadedConstantInstruction extends ArgInstruction {
     this.constant = constant;
   }
   
-  public RuntimeInstance getConstant() {
+  @Override
+  public RuntimeInstance getCache() {
     return constant;
+  }
+
+  @Override
+  public boolean isCached() {
+    return true;
   }
 }

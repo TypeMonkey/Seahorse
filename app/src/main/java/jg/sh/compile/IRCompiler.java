@@ -1156,8 +1156,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
 
     final ArrayList<Instruction> funcLoadingInstrs = new ArrayList<>();
     funcLoadingInstrs.addAll(Arrays.asList(selfLoadCode));
-    funcLoadingInstrs.add(new LoadInstr(funcDef.end, funcDef.end, LOADC, funcCodeObj.getIndex()));
-    funcLoadingInstrs.add(new NoArgInstr(funcDef.start, funcDef.end, ALLOCF));
+    funcLoadingInstrs.add(new LoadInstr(funcDef.start, funcDef.end, ALLOCF, funcCodeObj.getIndex()));
 
     return new FuncResult(exceptions, funcLoadingInstrs, funcCodeObj.getIndex());
   }
@@ -1305,7 +1304,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
        * 
        * Internally, this is call to system.bind()
        */
-      instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, MAKEARGV));
+      //instrs.add(new NoArgInstr(binaryOpExpr.start, binaryOpExpr.end, MAKEARGV));
 
       /**
        * Compile left operand first.
@@ -1404,7 +1403,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     /*
      * Make an argument vector to pass object attributes
      */
-    instructions.add(new NoArgInstr(objectLiteral.start, objectLiteral.end, MAKEARGV));
+    //instructions.add(new NoArgInstr(objectLiteral.start, objectLiteral.end, MAKEARGV));
 
     /*
      * New way of instiating object literals:
@@ -1459,7 +1458,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     /*
      * Make an argument vector to pass function arguments
      */
-    instructions.add(new NoArgInstr(funcCall.start, funcCall.end, MAKEARGV));
+    //instructions.add(new NoArgInstr(funcCall.start, funcCall.end, MAKEARGV));
 
     for(Argument arg : funcCall.getArguments()) {
       arg.getArgument().accept(this, parentContext).pipeErr(exceptions).pipeInstr(instructions);
@@ -1528,7 +1527,7 @@ public class IRCompiler implements NodeVisitor<NodeResult, CompContext> {
     /*
      * Make argument vector for array elements 
      */
-    instructions.add(new NoArgInstr(arrayLiteral.start, arrayLiteral.end, MAKEARGV));
+    //instructions.add(new NoArgInstr(arrayLiteral.start, arrayLiteral.end, MAKEARGV));
 
     /*
      * Pass each array value as an argument to the arg vector

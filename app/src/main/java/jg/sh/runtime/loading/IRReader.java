@@ -23,6 +23,7 @@ import java.util.Map;
 import jg.sh.common.FunctionSignature;
 import jg.sh.common.Location;
 import jg.sh.compile.instrs.OpCode;
+import jg.sh.parsing.token.TokenType;
 import jg.sh.runtime.alloc.HeapAllocator;
 import jg.sh.runtime.instrs.ArgInstruction;
 import jg.sh.runtime.instrs.CommentInstruction;
@@ -242,7 +243,9 @@ public class IRReader {
       methods.put(codeObject.getBoundName(), codeObject);
     }
 
-    return allocator.allocateDataRecord(name, methods, isSealed);
+    final RuntimeCodeObject constructor = methods.get(TokenType.CONSTR.name().toLowerCase());
+
+    return allocator.allocateDataRecord(name, constructor, methods, isSealed);
   }
 
 }

@@ -14,8 +14,11 @@ public class RuntimeInternalDataRecord extends RuntimeDataRecord {
   private final InternalFunction constructor;
   private final Map<String, InternalFunction> methods;
 
-  public RuntimeInternalDataRecord(String name, InternalFunction constructor, Map<String, InternalFunction> methods, boolean instancesSealed) {
-    super(name, Collections.emptyMap(), instancesSealed);
+  public RuntimeInternalDataRecord(String name, 
+                                   InternalFunction constructor, 
+                                   Map<String, InternalFunction> methods, 
+                                   boolean instancesSealed) {
+    super(name, null, Collections.emptyMap(), instancesSealed);
     this.constructor = constructor;
     this.methods = methods;
   }

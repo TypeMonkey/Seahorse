@@ -45,8 +45,8 @@ public final class RuntimeUtils {
       return new CallSiteException("Excess positional arguments. The function doesn't accept variable argument amount! "+args.getPositionals().size(), callable);
     }
 
-    if(args.attrs().size() > 0 && !signature.hasVarKeywordParams()) {
-      final Set<String> extraKeyswords = Sets.difference(args.attrs(), signature.getKeywordParams());
+    if(args.getKeywords().size() > 0 && !signature.hasVarKeywordParams()) {
+      final Set<String> extraKeyswords = Sets.difference(args.getKeywords().keySet(), signature.getKeywordParams());
       if (extraKeyswords.size() > 0) {
         return new CallSiteException("Unknown keyword arguments '"+extraKeyswords+"'", callable);
       }
