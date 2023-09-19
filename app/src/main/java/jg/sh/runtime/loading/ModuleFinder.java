@@ -296,9 +296,13 @@ public class ModuleFinder implements Markable {
           PervasiveFuncInterface filter = (f, self, callable, args) -> {
             try {
               return internal.call(f, (RuntimeInstance) method.getParameterTypes()[1].cast(self), callable, args);
+            } catch (InvocationException e) {
+              throw e;
             } catch (ClassCastException e) {
               throw new InvocationException("Expected "+method.getParameterTypes()[1].getName()+
                                             ", but was a "+self.getClass().getName(), callable);
+            } catch (Throwable e) {
+              throw new InvocationException(e.getMessage(), callable);
             }
           };
           InternalFunction function = InternalFunction.create(signature, filter);

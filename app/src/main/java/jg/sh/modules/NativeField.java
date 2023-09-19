@@ -9,4 +9,16 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 public @interface NativeField {
   
+  /**
+   * The name of this field in Seahorse. 
+   * 
+   * By default, this value is just the name of the annotated field.
+   * However, be cautioned: object attributes and method must all have 
+   * unique identifiers. If a NativeDataDefinition has an annotated field and
+   * method that have the same name, one can accidentally override the other.
+   * 
+   * @return name of this field in Seahorse.
+   */
+  String name() default "";
+
 }

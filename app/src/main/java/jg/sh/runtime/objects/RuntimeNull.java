@@ -1,5 +1,7 @@
 package jg.sh.runtime.objects;
 
+import jg.sh.runtime.exceptions.OperationException;
+
 /**
  * Represents the null value.
  * 
@@ -11,8 +13,8 @@ public class RuntimeNull extends RuntimeInstance {
   
   private RuntimeNull() {}
 
-  public void setAttribute(String name, RuntimeInstance valueAddr) {
-    throw new UnsupportedOperationException("Cannot set attributes of the null value");
+  public void setAttribute(String name, RuntimeInstance valueAddr) throws OperationException {
+    throw new OperationException("Cannot set attributes of the null value");
   }
   
   public RuntimeInstance getAttr(String name) {
@@ -20,7 +22,7 @@ public class RuntimeNull extends RuntimeInstance {
   }
   
   public boolean hasAttr(String name) {
-    return false;
+    throw new NullPointerException("The null value has no attributes");
   }
   
   @Override
